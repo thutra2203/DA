@@ -1,0 +1,81 @@
+.vt-page-icon  { background: #f3e5f5; }
+.vt-btn-add {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #6a1b9a, #1a3a5c);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(106,27,154,0.3);
+}
+.vt-info-banner {
+  display: flex;
+  align-items: center;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #e65100;
+  margin-bottom: 20px;
+}
+.vt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.vt-role-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+  border: 1px solid #f0f0f0;
+  overflow: hidden;
+}
+.vt-role-card-top { display: flex; align-items: flex-start; gap: 14px; padding: 18px 18px 12px; }
+.vt-role-avatar { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+.vt-role-name   { font-size: 15px; font-weight: 700; color: #1a3a5c; }
+.vt-role-badge  { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; display: inline-block; }
+.vt-role-desc   { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.5; }
+.vt-role-card-bottom { display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; border-top: 1px solid #f5f5f5; background: #fafafa; }
+.vt-role-date { font-size: 11px; color: #bbb; }
+.vt-btn-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #fce4ec;
+  color: #c62828;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.vt-add-card {
+  background: #fafafa;
+  border-radius: 12px;
+  border: 2px dashed #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vt-add-card:hover { border-color: #bbb; background: #f5f5f5; }
+.vt-add-icon { margin-bottom: 8px; }
+.vt-add-text { font-size: 13px; color: #bbb; font-weight: 500; }
+.vt-info-box { background: #f3e5f5; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #6a1b9a; margin-bottom: 16px; }
+.vt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #6a1b9a, #1a3a5c);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}

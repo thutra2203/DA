@@ -1,0 +1,32 @@
+.user-row   { display: flex; align-items: center; gap: 10px; }
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #1a3a5c, #0d5c3a);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: #f0f4ff;
+  color: #1565c0;
+  border: 1px solid #dce8ff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+}
+.btn-action--danger  { background: #fff0f0; color: #c62828; border-color: #ffdede; }
+.btn-action--success { background: #f0fff4; color: #2e7d32; border-color: #c8f0d0; }
+.actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+.page-icon--blue { background: #e3f2fd; }
+.search-wrap--lg { width: 300px; }
