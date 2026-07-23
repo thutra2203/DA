@@ -1,4 +1,5 @@
 const { getPool, sql } = require('../config/database');
+const { logActivity } = require('../utils/activityLogger');
 
 const getAll = async (req, res) => {
   try {
@@ -32,7 +33,15 @@ const create = async (req, res) => {
     const modules = [
       'quan-ly-nguoi-dung','danh-muc-don-vi','danh-muc-cap-bac','danh-muc-chuc-vu',
       'danh-muc-to-chuc-nhan-su','danh-muc-to-chuc-kho',
-      'danh-muc-tu-dien-tbn1','danh-muc-tu-dien-tbn2','danh-muc-tu-dien-dung-chung',
+      'danh-muc-tinh','danh-muc-xa',
+      'danh-muc-loai-kho',
+      'danh-muc-phan-nhom-tbkt','danh-muc-phan-loai-tbkt','danh-muc-kieu-tbkt',
+      'danh-muc-nhom-dong-bo','danh-muc-chi-tiet-dong-bo',
+      'danh-muc-tinh-trang-trang-bi','danh-muc-tinh-trang-kho-gui',
+      'danh-muc-hinh-thuc-niem-cat','danh-muc-phan-loai-dong-bo',
+      'danh-muc-phan-cap-chat-luong','danh-muc-don-vi-tinh','danh-muc-nuoc-san-xuat',
+      'danh-muc-hang-san-xuat','danh-muc-nha-cung-cap',
+      'danh-muc-hinh-thuc-thanh-toan','danh-muc-hinh-thuc-cap-chuyen',
     ];
     for (const mod of modules) {
       await pool.request()
@@ -41,6 +50,11 @@ const create = async (req, res) => {
         .query(`INSERT INTO PhanQuyen (VaiTro, Module, CoTheXem, CoTheThemMoi, CoTheSua, CoTheXoa)
                 VALUES (@vaiTro, @module, 1, 0, 0, 0)`);
     }
+
+    await logActivity({
+      taiKhoanId: req.user.id, tenDangNhap: req.user.username,
+      hanhDong: 'TAO_MOI', moTa: `Tạo vai trò mới "${tenVaiTro}"`, req,
+    });
 
     res.status(201).json({ message: 'Tạo vai trò thành công' });
   } catch (err) {
@@ -63,6 +77,12 @@ const update = async (req, res) => {
       .input('id', sql.Int, id)
       .input('moTa', sql.NVarChar, moTa)
       .query('UPDATE VaiTro SET MoTa = @moTa WHERE ID = @id');
+
+    await logActivity({
+      taiKhoanId: req.user.id, tenDangNhap: req.user.username,
+      hanhDong: 'CAP_NHAT', moTa: `Cập nhật mô tả vai trò "${vt.recordset[0].TenVaiTro}"`, req,
+    });
+
     res.json({ message: 'Cập nhật thành công' });
   } catch (err) {
     res.status(500).json({ message: 'Lỗi server', error: err.message });
@@ -88,6 +108,12 @@ const remove = async (req, res) => {
 
     await pool.request().input('vaiTro', sql.NVarChar, tenVaiTro).query('DELETE FROM PhanQuyen WHERE VaiTro = @vaiTro');
     await pool.request().input('id', sql.Int, id).query('DELETE FROM VaiTro WHERE ID = @id');
+
+    await logActivity({
+      taiKhoanId: req.user.id, tenDangNhap: req.user.username,
+      hanhDong: 'XOA', moTa: `Xóa vai trò "${tenVaiTro}"`, req,
+    });
+
     res.json({ message: 'Xóa vai trò thành công' });
   } catch (err) {
     res.status(500).json({ message: 'Lỗi server', error: err.message });

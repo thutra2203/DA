@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { FiUser, FiLock, FiLogIn } from 'react-icons/fi';
-import { GiCrossedSwords } from 'react-icons/gi';
+import logoMTA from '../../assets/logo-hvktqs.png';
 import './Login.css';
 
 export default function Login() {
@@ -33,7 +33,7 @@ export default function Login() {
       <div className="login-bg" />
       <div className="login-card fade-in">
         <div className="login-logo-wrap">
-          <div className="login-logo-icon"><GiCrossedSwords size={36} color="#fff" /></div>
+          <div className="login-logo-icon"><img src={logoMTA} alt="Học viện Kỹ thuật Quân sự" /></div>
           <h1 className="login-title">QUÂN KHÍ</h1>
           <p className="login-subtitle">Hệ thống quản lý vũ khí trang bị</p>
         </div>

@@ -32,14 +32,15 @@
 .login-logo-icon {
   width: 64px;
   height: 64px;
-  background: rgba(255,255,255,0.15);
+  background: #fff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 12px;
-  border: 2px solid rgba(255,255,255,0.3);
+  overflow: hidden;
 }
+.login-logo-icon img { width: 100%; height: 100%; object-fit: cover; }
 .login-title    { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 2px; }
 .login-subtitle { color: rgba(255,255,255,0.75); font-size: 13px; margin-top: 6px; }
 .login-form     { padding: 28px 32px; }

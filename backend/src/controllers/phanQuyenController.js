@@ -1,4 +1,5 @@
 const { getPool, sql } = require('../config/database');
+const { logActivity } = require('../utils/activityLogger');
 
 const getAll = async (req, res) => {
   try {
@@ -42,6 +43,12 @@ const updatePermission = async (req, res) => {
         SET CoTheXem=@coTheXem, CoTheThemMoi=@coTheThemMoi, CoTheSua=@coTheSua, CoTheXoa=@coTheXoa
         WHERE VaiTro=@vaiTro AND Module=@module
       `);
+
+    await logActivity({
+      taiKhoanId: req.user.id, tenDangNhap: req.user.username,
+      hanhDong: 'CAP_NHAT', moTa: `Cập nhật phân quyền module "${module}" cho vai trò "${vaiTro}"`, req,
+    });
+
     res.json({ message: 'Cập nhật quyền thành công' });
   } catch (err) {
     res.status(500).json({ message: 'Lỗi server', error: err.message });

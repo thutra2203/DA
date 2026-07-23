@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { statsAPI } from '../services/api';
 import { FiUsers, FiArchive, FiBook, FiGrid, FiRefreshCw } from 'react-icons/fi';
-import { GiCrossedSwords } from 'react-icons/gi';
+import logoMTA from '../assets/logo-hvktqs.png';
 import './Dashboard.css';
 
 const STAT_DEFS = [
@@ -16,7 +16,7 @@ const quickLinks = [
   { label: 'Quản lý người dùng', desc: 'Thêm, phân quyền, khóa tài khoản', path: '/users', icon: <FiUsers size={26} />, color: '#1a3a5c' },
   { label: 'Danh mục đơn vị',   desc: 'Quản lý danh mục các đơn vị',       path: '/danh-muc/don-vi',      icon: <FiGrid size={26} />,    color: '#1b5e20' },
   { label: 'Tổ chức kho',       desc: 'Quản lý tổ chức kho vũ khí',         path: '/danh-muc/to-chuc-kho', icon: <FiArchive size={26} />, color: '#bf360c' },
-  { label: 'Từ điển TBN1',      desc: 'Danh mục từ điển trang bị nhóm 1',   path: '/danh-muc/tu-dien-tbn1',icon: <FiBook size={26} />,    color: '#4a148c' },
+  { label: 'Từ điển dùng chung', desc: 'Đơn vị tính, nước SX, hãng SX...',  path: '/danh-muc/don-vi-tinh', icon: <FiBook size={26} />,    color: '#4a148c' },
 ];
 
 export default function Dashboard() {
@@ -44,7 +44,7 @@ export default function Dashboard() {
     <div>
       {/* Welcome banner */}
       <div className="dashboard-banner">
-        <div className="dashboard-banner-icon"><GiCrossedSwords size={38} color="#fff" /></div>
+        <div className="dashboard-banner-icon"><img src={logoMTA} alt="Học viện Kỹ thuật Quân sự" /></div>
         <div>
           <h2 className="dashboard-banner-title">Xin chào, {user?.hoTen}!</h2>
           <p className="dashboard-banner-sub">Chào mừng đến với Hệ thống Quản lý Vũ khí Trang bị — Kho Quân khí</p>

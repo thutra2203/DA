@@ -13,17 +13,51 @@ const CONFIG = {
   'cap-bac':            { title: 'Danh mục cấp bậc',           icon: '⭐', emptyIcon: '⭐', fields: [{ key: 'MaCapBac', label: 'Mã cấp bậc', apiKey: 'maCapBac' }, { key: 'TenCapBac', label: 'Tên cấp bậc', apiKey: 'tenCapBac', required: true }] },
   'chuc-vu':            { title: 'Danh mục chức vụ',           icon: '💼', emptyIcon: '💼', fields: [{ key: 'MaChucVu', label: 'Mã chức vụ', apiKey: 'maChucVu' }, { key: 'TenChucVu', label: 'Tên chức vụ', apiKey: 'tenChucVu', required: true }] },
   'to-chuc-nhan-su':    { title: 'Danh mục tổ chức và nhân sự',icon: '👥', emptyIcon: '👥', fields: [{ key: 'MaToChuc', label: 'Mã tổ chức', apiKey: 'maToChuc' }, { key: 'TenToChuc', label: 'Tên tổ chức', apiKey: 'tenToChuc', required: true }] },
-  'to-chuc-kho':        { title: 'Danh mục tổ chức kho',       icon: '🏭', emptyIcon: '🏭', fields: [{ key: 'MaKho', label: 'Mã kho', apiKey: 'maKho' }, { key: 'TenKho', label: 'Tên kho', apiKey: 'tenKho', required: true }, { key: 'DiaDiem', label: 'Địa điểm', apiKey: 'diaDiem' }] },
-  'tu-dien-tbn1':       { title: 'Danh mục từ điển TBN1',      icon: '📖', emptyIcon: '📖', fields: [{ key: 'MaTuDien', label: 'Mã từ điển', apiKey: 'maTuDien' }, { key: 'TenTuDien', label: 'Tên từ điển', apiKey: 'tenTuDien', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'tu-dien-tbn2':       { title: 'Danh mục từ điển TBN2',      icon: '📗', emptyIcon: '📗', fields: [{ key: 'MaTuDien', label: 'Mã từ điển', apiKey: 'maTuDien' }, { key: 'TenTuDien', label: 'Tên từ điển', apiKey: 'tenTuDien', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'tu-dien-dung-chung': { title: 'Danh mục từ điển dùng chung',icon: '📚', emptyIcon: '📚', fields: [{ key: 'MaTuDien', label: 'Mã từ điển', apiKey: 'maTuDien' }, { key: 'TenTuDien', label: 'Tên từ điển', apiKey: 'tenTuDien', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'to-chuc-kho':        { title: 'Danh mục kho',                icon: '🏭', emptyIcon: '🏭', fields: [{ key: 'MaKho', label: 'Mã kho', apiKey: 'maKho' }, { key: 'TenKho', label: 'Tên kho', apiKey: 'tenKho', required: true }, { key: 'DiaDiem', label: 'Địa điểm', apiKey: 'diaDiem' }] },
+
+  // Đơn vị hành chính
+  'tinh':               { title: 'Danh mục tỉnh',               icon: '🗺️', emptyIcon: '🗺️', fields: [{ key: 'MaTinh', label: 'Mã tỉnh', apiKey: 'maTinh' }, { key: 'TenTinh', label: 'Tên tỉnh', apiKey: 'tenTinh', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'xa':                 { title: 'Danh mục xã',                 icon: '📍', emptyIcon: '📍', fields: [{ key: 'MaXa', label: 'Mã xã', apiKey: 'maXa' }, { key: 'TenXa', label: 'Tên xã', apiKey: 'tenXa', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+
+  // Tổ chức kho
+  'loai-kho':           { title: 'Danh mục loại kho',           icon: '🏗️', emptyIcon: '🏗️', fields: [{ key: 'MaLoaiKho', label: 'Mã loại kho', apiKey: 'maLoaiKho' }, { key: 'TenLoaiKho', label: 'Tên loại kho', apiKey: 'tenLoaiKho', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+
+  // Từ điển về TB (TBKT)
+  'phan-nhom-tbkt':          { title: 'Phân nhóm trang bị TBKT',     icon: '🧱', emptyIcon: '🧱', fields: [{ key: 'MaPhanNhom', label: 'Mã phân nhóm', apiKey: 'maPhanNhom' }, { key: 'TenPhanNhom', label: 'Tên phân nhóm', apiKey: 'tenPhanNhom', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'phan-loai-tbkt':          { title: 'Phân loại trang bị TBKT',     icon: '🏷️', emptyIcon: '🏷️', fields: [{ key: 'MaPhanLoai', label: 'Mã phân loại', apiKey: 'maPhanLoai' }, { key: 'TenPhanLoai', label: 'Tên phân loại', apiKey: 'tenPhanLoai', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'kieu-tbkt':               { title: 'Danh mục kiểu TBKT',          icon: '🔧', emptyIcon: '🔧', fields: [{ key: 'MaKieu', label: 'Mã kiểu', apiKey: 'maKieu' }, { key: 'TenKieu', label: 'Tên kiểu', apiKey: 'tenKieu', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'nhom-dong-bo':            { title: 'Danh mục nhóm đồng bộ',       icon: '🧩', emptyIcon: '🧩', fields: [{ key: 'MaNhom', label: 'Mã nhóm', apiKey: 'maNhom' }, { key: 'TenNhom', label: 'Tên nhóm', apiKey: 'tenNhom', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'chi-tiet-dong-bo':        { title: 'Danh mục chi tiết đồng bộ',   icon: '🔩', emptyIcon: '🔩', fields: [{ key: 'MaChiTiet', label: 'Mã chi tiết', apiKey: 'maChiTiet' }, { key: 'TenChiTiet', label: 'Tên chi tiết', apiKey: 'tenChiTiet', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'tinh-trang-trang-bi':     { title: 'Tình trạng trang bị',         icon: '🩺', emptyIcon: '🩺', fields: [{ key: 'MaTinhTrang', label: 'Mã tình trạng', apiKey: 'maTinhTrang' }, { key: 'TenTinhTrang', label: 'Tên tình trạng', apiKey: 'tenTinhTrang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'tinh-trang-kho-gui':      { title: 'Tình trạng kho gửi',          icon: '📦', emptyIcon: '📦', fields: [{ key: 'MaTinhTrang', label: 'Mã tình trạng', apiKey: 'maTinhTrang' }, { key: 'TenTinhTrang', label: 'Tên tình trạng', apiKey: 'tenTinhTrang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'hinh-thuc-niem-cat':      { title: 'Hình thức niêm cất',          icon: '🔒', emptyIcon: '🔒', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'phan-loai-dong-bo':       { title: 'Phân loại trang bị đồng bộ',  icon: '🗂️', emptyIcon: '🗂️', fields: [{ key: 'MaPhanLoai', label: 'Mã phân loại', apiKey: 'maPhanLoai' }, { key: 'TenPhanLoai', label: 'Tên phân loại', apiKey: 'tenPhanLoai', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+
+  // Từ điển dùng chung
+  'phan-cap-chat-luong':     { title: 'Danh mục phân cấp chất lượng', icon: '⭐', emptyIcon: '⭐', fields: [{ key: 'MaPhanCap', label: 'Mã phân cấp', apiKey: 'maPhanCap' }, { key: 'TenPhanCap', label: 'Tên phân cấp', apiKey: 'tenPhanCap', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'don-vi-tinh':             { title: 'Danh mục đơn vị tính',         icon: '📏', emptyIcon: '📏', fields: [{ key: 'MaDonViTinh', label: 'Mã đơn vị tính', apiKey: 'maDonViTinh' }, { key: 'TenDonViTinh', label: 'Tên đơn vị tính', apiKey: 'tenDonViTinh', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'nuoc-san-xuat':           { title: 'Danh mục nước sản xuất',       icon: '🌍', emptyIcon: '🌍', fields: [{ key: 'MaNuoc', label: 'Mã nước', apiKey: 'maNuoc' }, { key: 'TenNuoc', label: 'Tên nước', apiKey: 'tenNuoc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'hang-san-xuat':           { title: 'Danh mục hãng sản xuất',       icon: '🏷️', emptyIcon: '🏷️', fields: [{ key: 'MaHang', label: 'Mã hãng', apiKey: 'maHang' }, { key: 'TenHang', label: 'Tên hãng', apiKey: 'tenHang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'nha-cung-cap':            { title: 'Danh mục nhà cung cấp',        icon: '🤝', emptyIcon: '🤝', fields: [{ key: 'MaNhaCungCap', label: 'Mã nhà cung cấp', apiKey: 'maNhaCungCap' }, { key: 'TenNhaCungCap', label: 'Tên nhà cung cấp', apiKey: 'tenNhaCungCap', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'hinh-thuc-thanh-toan':    { title: 'Danh mục hình thức thanh toán', icon: '💳', emptyIcon: '💳', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  'hinh-thuc-cap-chuyen':    { title: 'Danh mục hình thức cấp chuyển', icon: '🚚', emptyIcon: '🚚', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
 };
 
 const MODULE_KEY = {
   'don-vi': 'danh-muc-don-vi', 'cap-bac': 'danh-muc-cap-bac',
   'chuc-vu': 'danh-muc-chuc-vu', 'to-chuc-nhan-su': 'danh-muc-to-chuc-nhan-su',
-  'to-chuc-kho': 'danh-muc-to-chuc-kho', 'tu-dien-tbn1': 'danh-muc-tu-dien-tbn1',
-  'tu-dien-tbn2': 'danh-muc-tu-dien-tbn2', 'tu-dien-dung-chung': 'danh-muc-tu-dien-dung-chung',
+  'to-chuc-kho': 'danh-muc-to-chuc-kho',
+  'tinh': 'danh-muc-tinh', 'xa': 'danh-muc-xa',
+  'loai-kho': 'danh-muc-loai-kho',
+  'phan-nhom-tbkt': 'danh-muc-phan-nhom-tbkt', 'phan-loai-tbkt': 'danh-muc-phan-loai-tbkt',
+  'kieu-tbkt': 'danh-muc-kieu-tbkt', 'nhom-dong-bo': 'danh-muc-nhom-dong-bo',
+  'chi-tiet-dong-bo': 'danh-muc-chi-tiet-dong-bo',
+  'tinh-trang-trang-bi': 'danh-muc-tinh-trang-trang-bi', 'tinh-trang-kho-gui': 'danh-muc-tinh-trang-kho-gui',
+  'hinh-thuc-niem-cat': 'danh-muc-hinh-thuc-niem-cat', 'phan-loai-dong-bo': 'danh-muc-phan-loai-dong-bo',
+  'phan-cap-chat-luong': 'danh-muc-phan-cap-chat-luong', 'don-vi-tinh': 'danh-muc-don-vi-tinh',
+  'nuoc-san-xuat': 'danh-muc-nuoc-san-xuat', 'hang-san-xuat': 'danh-muc-hang-san-xuat',
+  'nha-cung-cap': 'danh-muc-nha-cung-cap',
+  'hinh-thuc-thanh-toan': 'danh-muc-hinh-thuc-thanh-toan', 'hinh-thuc-cap-chuyen': 'danh-muc-hinh-thuc-cap-chuyen',
 };
 
 export default function DanhMucPage({ type }) {

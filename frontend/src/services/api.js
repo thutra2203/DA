@@ -25,6 +25,7 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
+  logout: () => api.post('/auth/logout'),
 };
 
 export const userAPI = {
@@ -51,6 +52,10 @@ export const danhMucAPI = {
 
 export const statsAPI = {
   get: () => api.get('/stats'),
+};
+
+export const nhatKyAPI = {
+  getAll: (params) => api.get('/nhat-ky', { params }),
 };
 
 export default api;

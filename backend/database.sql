@@ -90,3 +90,17 @@ GO
 INSERT INTO TaiKhoan (TenDangNhap, HoTen, MatKhau, VaiTro)
 VALUES ('admin', N'Quản trị viên', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin');
 GO
+
+-- Nhật ký hoạt động hệ thống (đăng nhập, đăng xuất, thêm/sửa/xóa...)
+CREATE TABLE NhatKyHoatDong (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    TaiKhoanID INT NULL,
+    TenDangNhap NVARCHAR(50),
+    HoTen NVARCHAR(100),
+    HanhDong NVARCHAR(50) NOT NULL,
+    MoTa NVARCHAR(500),
+    DiaChiIP NVARCHAR(50),
+    ThoiGian DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_NhatKyHoatDong_TaiKhoan FOREIGN KEY (TaiKhoanID) REFERENCES TaiKhoan(ID) ON DELETE SET NULL
+);
+GO

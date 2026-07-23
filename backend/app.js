@@ -9,6 +9,7 @@ const danhMucRoutes = require('./src/routes/danhMucRoutes');
 const phanQuyenRoutes = require('./src/routes/phanQuyenRoutes');
 const vaiTroRoutes = require('./src/routes/vaiTroRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
+const nhatKyRoutes = require('./src/routes/nhatKyRoutes');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/danh-muc', danhMucRoutes);
 app.use('/api/phan-quyen', phanQuyenRoutes);
 app.use('/api/vai-tro', vaiTroRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/nhat-ky', nhatKyRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Server đang chạy' }));
 

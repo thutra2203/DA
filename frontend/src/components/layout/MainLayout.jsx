@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   FiUsers, FiList, FiChevronDown, FiChevronUp,
   FiMenu, FiX, FiHome,
   FiBookOpen, FiGrid, FiArchive, FiBook,
-  FiLogOut, FiUser, FiShield,
+  FiLogOut, FiUser, FiShield, FiClock,
+  FiTarget, FiLayers, FiBarChart2, FiMapPin, FiMap,
 } from 'react-icons/fi';
-import { GiCrossedSwords } from 'react-icons/gi';
+import logoMTA from '../../assets/logo-hvktqs.png';
 import './MainLayout.css';
 
 const menuItems = [
@@ -15,32 +17,90 @@ const menuItems = [
   { label: 'Quản lý người dùng', path: '/users', icon: <FiUsers />, adminOnly: true },
   { label: 'Quản lý vai trò', path: '/vai-tro', icon: <FiShield />, adminOnly: true },
   { label: 'Phân quyền', path: '/phan-quyen', icon: <FiShield />, adminOnly: true },
+  { label: 'Nhật ký hoạt động', path: '/nhat-ky', icon: <FiClock />, adminOnly: true },
   {
-    label: 'Quản lý danh mục',
+    label: 'Danh mục cơ bản',
     icon: <FiList />,
     children: [
       { label: 'Danh mục đơn vị', path: '/danh-muc/don-vi', icon: <FiGrid /> },
       { label: 'Danh mục cấp bậc', path: '/danh-muc/cap-bac', icon: <FiBookOpen /> },
       { label: 'Danh mục chức vụ', path: '/danh-muc/chuc-vu', icon: <FiBook /> },
       { label: 'Tổ chức và nhân sự', path: '/danh-muc/to-chuc-nhan-su', icon: <FiUsers /> },
-      { label: 'Tổ chức kho', path: '/danh-muc/to-chuc-kho', icon: <FiArchive /> },
-      { label: 'Từ điển TBN1', path: '/danh-muc/tu-dien-tbn1', icon: <FiBook /> },
-      { label: 'Từ điển TBN2', path: '/danh-muc/tu-dien-tbn2', icon: <FiBook /> },
-      { label: 'Từ điển dùng chung', path: '/danh-muc/tu-dien-dung-chung', icon: <FiBook /> },
     ],
   },
+  {
+    label: 'Đơn vị hành chính',
+    icon: <FiMap />,
+    children: [
+      { label: 'Danh mục tỉnh', path: '/danh-muc/tinh', icon: <FiMap /> },
+      { label: 'Danh mục xã', path: '/danh-muc/xa', icon: <FiMapPin /> },
+    ],
+  },
+  {
+    label: 'Tổ chức kho',
+    icon: <FiArchive />,
+    children: [
+      { label: 'Danh mục loại kho', path: '/danh-muc/loai-kho', icon: <FiLayers /> },
+      { label: 'Danh mục kho', path: '/danh-muc/to-chuc-kho', icon: <FiArchive /> },
+    ],
+  },
+  {
+    label: 'Từ điển về TB',
+    icon: <FiBookOpen />,
+    children: [
+      { label: 'Phân nhóm trang bị TBKT', path: '/danh-muc/phan-nhom-tbkt', icon: <FiBook /> },
+      { label: 'Phân loại trang bị TBKT', path: '/danh-muc/phan-loai-tbkt', icon: <FiBook /> },
+      { label: 'Danh mục kiểu TBKT', path: '/danh-muc/kieu-tbkt', icon: <FiBook /> },
+      { label: 'Danh mục nhóm đồng bộ', path: '/danh-muc/nhom-dong-bo', icon: <FiBook /> },
+      { label: 'Danh mục chi tiết đồng bộ', path: '/danh-muc/chi-tiet-dong-bo', icon: <FiBook /> },
+      { label: 'Tình trạng trang bị', path: '/danh-muc/tinh-trang-trang-bi', icon: <FiBook /> },
+      { label: 'Tình trạng kho gửi', path: '/danh-muc/tinh-trang-kho-gui', icon: <FiBook /> },
+      { label: 'Hình thức niêm cất', path: '/danh-muc/hinh-thuc-niem-cat', icon: <FiBook /> },
+      { label: 'Phân loại trang bị đồng bộ', path: '/danh-muc/phan-loai-dong-bo', icon: <FiBook /> },
+    ],
+  },
+  {
+    label: 'Từ điển dùng chung',
+    icon: <FiBook />,
+    children: [
+      { label: 'Phân cấp chất lượng', path: '/danh-muc/phan-cap-chat-luong', icon: <FiBook /> },
+      { label: 'Đơn vị tính', path: '/danh-muc/don-vi-tinh', icon: <FiBook /> },
+      { label: 'Nước sản xuất', path: '/danh-muc/nuoc-san-xuat', icon: <FiBook /> },
+      { label: 'Hãng sản xuất', path: '/danh-muc/hang-san-xuat', icon: <FiBook /> },
+      { label: 'Nhà cung cấp', path: '/danh-muc/nha-cung-cap', icon: <FiBook /> },
+      { label: 'Hình thức thanh toán', path: '/danh-muc/hinh-thuc-thanh-toan', icon: <FiBook /> },
+      { label: 'Hình thức cấp chuyển', path: '/danh-muc/hinh-thuc-cap-chuyen', icon: <FiBook /> },
+    ],
+  },
+  { label: 'Quản lý SPKT', path: '/spkt', icon: <FiTarget /> },
+  { label: 'Quản lý TB đồng bộ', path: '/tb-dong-bo', icon: <FiLayers /> },
+  { label: 'Tổng hợp, báo cáo', path: '/bao-cao', icon: <FiBarChart2 /> },
 ];
 
 export default function MainLayout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [openMenu, setOpenMenu] = useState('Quản lý danh mục');
+  const [openMenu, setOpenMenu] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [flyoutPos, setFlyoutPos] = useState(null);
   const userMenuRef = useRef(null);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const toggleGroup = (label, e) => {
+    if (openMenu === label) {
+      setOpenMenu('');
+      setFlyoutPos(null);
+      return;
+    }
+    if (collapsed) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setFlyoutPos({ top: rect.top, left: rect.right + 8 });
+    }
+    setOpenMenu(label);
+  };
+
+  const handleLogout = async () => { await logout(); navigate('/login'); };
   const isActive = (path) => location.pathname === path;
   const isGroupActive = (children) => children.some(c => location.pathname === c.path);
 
@@ -49,10 +109,14 @@ export default function MainLayout({ children }) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setShowUserMenu(false);
       }
+      if (flyoutPos && !e.target.closest('.sub-group--flyout') && !e.target.closest('.menu-item')) {
+        setOpenMenu('');
+        setFlyoutPos(null);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [flyoutPos]);
 
   return (
     <div className="layout-wrapper">
@@ -60,7 +124,7 @@ export default function MainLayout({ children }) {
       <div className="sidebar" style={{ width: collapsed ? 64 : 250 }}>
         {/* Logo */}
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon"><GiCrossedSwords size={20} color="#fff" /></div>
+          <div className="sidebar-logo-icon"><img src={logoMTA} alt="Học viện Kỹ thuật Quân sự" /></div>
           {!collapsed && (
             <div>
               <div className="sidebar-logo-text">QUÂN KHÍ</div>
@@ -72,26 +136,15 @@ export default function MainLayout({ children }) {
           </button>
         </div>
 
-        {/* User info */}
-        {!collapsed && (
-          <div className="sidebar-user-card">
-            <div className="sidebar-avatar">{user?.hoTen?.[0] || 'A'}</div>
-            <div>
-              <div className="sidebar-username">{user?.hoTen}</div>
-              <div className="sidebar-userrole">{user?.role}</div>
-            </div>
-          </div>
-        )}
-
         {/* Nav */}
         <nav className="sidebar-nav">
           {menuItems.filter(item => !item.adminOnly || user?.role === 'Admin').map((item) => (
-            <div key={item.label}>
+            <div key={item.label} style={{ position: 'relative' }}>
               {item.children ? (
                 <>
                   <div
                     className={`menu-item${isGroupActive(item.children) ? ' menu-item--group-active' : ''}`}
-                    onClick={() => setOpenMenu(openMenu === item.label ? '' : item.label)}
+                    onClick={(e) => toggleGroup(item.label, e)}
                     title={collapsed ? item.label : ''}
                   >
                     <div className="menu-item-left">
@@ -113,6 +166,26 @@ export default function MainLayout({ children }) {
                         </Link>
                       ))}
                     </div>
+                  )}
+                  {collapsed && openMenu === item.label && flyoutPos && createPortal(
+                    <div
+                      className="sub-group sub-group--flyout"
+                      style={{ top: flyoutPos.top, left: flyoutPos.left }}
+                    >
+                      <div className="sub-group-title">{item.label}</div>
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={`sub-item sub-item--flyout${isActive(child.path) ? ' sub-item--active' : ''}`}
+                          onClick={() => { setOpenMenu(''); setFlyoutPos(null); }}
+                        >
+                          <span style={{ marginRight: 8, opacity: 0.7 }}>{child.icon}</span>
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>,
+                    document.body
                   )}
                 </>
               ) : (
@@ -136,9 +209,18 @@ export default function MainLayout({ children }) {
       <div className="main-content">
         {/* Header */}
         <div className="main-header">
-          <div>
-            <h3 className="header-title">HỆ THỐNG QUẢN LÝ VŨ KHÍ TRANG BỊ</h3>
-            <p className="header-sub">Kho quân khí — Phần mềm quản lý tổng hợp</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              className="sidebar-toggle-btn"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? 'Mở rộng thanh menu' : 'Thu nhỏ thanh menu'}
+            >
+              <FiMenu size={18} />
+            </button>
+            <div>
+              <h3 className="header-title">HỆ THỐNG QUẢN LÝ VŨ KHÍ TRANG BỊ</h3>
+              <p className="header-sub">Kho quân khí — Phần mềm quản lý tổng hợp</p>
+            </div>
           </div>
 
           {/* Avatar + Dropdown */}

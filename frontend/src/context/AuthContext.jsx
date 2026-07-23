@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -14,7 +15,8 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await authAPI.logout(); } catch { /* vẫn đăng xuất phía client dù ghi log lỗi */ }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
