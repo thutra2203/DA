@@ -6,9 +6,9 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 router.use(verifyToken);
 
 router.get('/', getAllUsers);
-router.post('/', requireRole('Admin'), createUser);
-router.put('/:id/role', requireRole('Admin'), updateUserRole);
-router.put('/:id/reset-password', requireRole('Admin'), resetPassword);
-router.put('/:id/toggle-lock', requireRole('Admin'), toggleLockUser);
+router.post('/', requireRole('ADMIN'), createUser);
+router.put('/:id/role', requireRole('ADMIN'), updateUserRole);
+router.put('/:id/reset-password', requireRole('ADMIN'), resetPassword);
+router.put('/:id/toggle-lock', requireRole('ADMIN'), toggleLockUser);
 
 module.exports = router;

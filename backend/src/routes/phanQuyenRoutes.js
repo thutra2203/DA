@@ -5,7 +5,7 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 
 router.use(verifyToken);
 router.get('/my', getMyPermissions);
-router.get('/', requireRole('Admin'), getAll);
-router.put('/', requireRole('Admin'), updatePermission);
+router.get('/', requireRole('ADMIN'), getAll);
+router.put('/', requireRole('ADMIN'), updatePermission);
 
 module.exports = router;

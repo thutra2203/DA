@@ -18,7 +18,7 @@ export const PermissionProvider = ({ children }) => {
   }, [user]);
 
   const can = (module, action = 'xem') => {
-    if (user?.role === 'Admin') return true;
+    if (user?.role === 'ADMIN') return true;
     const p = permissions[module];
     if (!p) return false;
     const map = { xem: 'CoTheXem', them: 'CoTheThemMoi', sua: 'CoTheSua', xoa: 'CoTheXoa' };

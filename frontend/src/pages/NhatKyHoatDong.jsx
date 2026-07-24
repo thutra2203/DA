@@ -13,19 +13,26 @@ const ACTION_OPTIONS = [
   { value: '', label: 'Tất cả hành động' },
   { value: 'DANG_NHAP', label: 'Đăng nhập' },
   { value: 'DANG_XUAT', label: 'Đăng xuất' },
-  { value: 'DANG_NHAP_THAT_BAI', label: 'Đăng nhập thất bại' },
-  { value: 'TAO_MOI', label: 'Tạo mới' },
-  { value: 'CAP_NHAT', label: 'Cập nhật' },
+  { value: 'XEM', label: 'Xem' },
+  { value: 'THEM', label: 'Thêm' },
+  { value: 'SUA', label: 'Sửa' },
   { value: 'XOA', label: 'Xóa' },
+  { value: 'PHE_DUYET', label: 'Phê duyệt' },
 ];
 
 const actionConfig = {
-  DANG_NHAP:           { bg: '#e8f5e9', color: '#2e7d32', label: 'Đăng nhập' },
-  DANG_XUAT:           { bg: '#e3f2fd', color: '#1565c0', label: 'Đăng xuất' },
-  DANG_NHAP_THAT_BAI:  { bg: '#fce4ec', color: '#c62828', label: 'Đăng nhập thất bại' },
-  TAO_MOI:             { bg: '#e3f2fd', color: '#1565c0', label: 'Tạo mới' },
-  CAP_NHAT:            { bg: '#fff3e0', color: '#e65100', label: 'Cập nhật' },
-  XOA:                 { bg: '#fce4ec', color: '#c62828', label: 'Xóa' },
+  DANG_NHAP:  { bg: '#e8f5e9', color: '#2e7d32', label: 'Đăng nhập' },
+  DANG_XUAT:  { bg: '#e3f2fd', color: '#1565c0', label: 'Đăng xuất' },
+  XEM:        { bg: '#f0f4ff', color: '#3949ab', label: 'Xem' },
+  THEM:       { bg: '#e3f2fd', color: '#1565c0', label: 'Thêm' },
+  SUA:        { bg: '#fff3e0', color: '#e65100', label: 'Sửa' },
+  XOA:        { bg: '#fce4ec', color: '#c62828', label: 'Xóa' },
+  PHE_DUYET:  { bg: '#f3e5f5', color: '#6a1b9a', label: 'Phê duyệt' },
+};
+
+const ketQuaConfig = {
+  THANH_CONG: { bg: '#e8f5e9', color: '#2e7d32', label: 'Thành công' },
+  THAT_BAI:   { bg: '#fce4ec', color: '#c62828', label: 'Thất bại' },
 };
 
 export default function NhatKyHoatDong() {
@@ -59,7 +66,7 @@ export default function NhatKyHoatDong() {
     load();
   }, [page, debouncedKeyword, hanhDong, tuNgay, denNgay]);
 
-  if (user?.role !== 'Admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role !== 'ADMIN') return <Navigate to="/dashboard" replace />;
 
   return (
     <div>
@@ -96,7 +103,7 @@ export default function NhatKyHoatDong() {
         </div>
 
         {loading ? (
-          <SkeletonTable cols={6} rows={8} />
+          <SkeletonTable cols={5} rows={8} />
         ) : logs.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon"><FiShieldOff /></div>
@@ -109,7 +116,7 @@ export default function NhatKyHoatDong() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    {['Thời gian', 'Tài khoản', 'Họ tên', 'Hành động', 'Mô tả', 'Địa chỉ IP'].map(h => (
+                    {['Thời gian', 'Tài khoản', 'Hành động', 'Mô tả', 'Kết quả'].map(h => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -117,18 +124,20 @@ export default function NhatKyHoatDong() {
                 <tbody>
                   {logs.map(log => {
                     const ac = actionConfig[log.HanhDong] || { bg: '#f0f0f0', color: '#555', label: log.HanhDong };
+                    const kc = ketQuaConfig[log.KetQua] || { bg: '#f0f0f0', color: '#555', label: log.KetQua };
                     return (
                       <tr key={log.ID}>
                         <td className="td-muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                           {new Date(log.ThoiGian).toLocaleString('vi-VN')}
                         </td>
                         <td className="main-value">{log.TenDangNhap || '—'}</td>
-                        <td>{log.HoTen || '—'}</td>
                         <td>
                           <span className="badge" style={{ background: ac.bg, color: ac.color }}>{ac.label}</span>
                         </td>
-                        <td>{log.MoTa}</td>
-                        <td className="td-muted" style={{ fontSize: 12 }}>{log.DiaChiIP || '—'}</td>
+                        <td>{log.MoTa || log.LyDoThatBai || '—'}</td>
+                        <td>
+                          <span className="badge" style={{ background: kc.bg, color: kc.color }}>{kc.label}</span>
+                        </td>
                       </tr>
                     );
                   })}

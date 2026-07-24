@@ -8,19 +8,19 @@ const getAll = async (req, res) => {
 
     let where = 'WHERE 1=1';
     if (hanhDong) {
-      where += ' AND HanhDong = @hanhDong';
-      request.input('hanhDong', sql.NVarChar, hanhDong);
+      where += ' AND hanhDong = @hanhDong';
+      request.input('hanhDong', sql.VarChar(50), hanhDong);
     }
     if (keyword) {
-      where += ' AND (TenDangNhap LIKE @keyword OR HoTen LIKE @keyword OR MoTa LIKE @keyword)';
+      where += ' AND (tenDangNhap LIKE @keyword OR moTa LIKE @keyword)';
       request.input('keyword', sql.NVarChar, `%${keyword}%`);
     }
     if (tuNgay) {
-      where += ' AND ThoiGian >= @tuNgay';
+      where += ' AND thoiGian >= @tuNgay';
       request.input('tuNgay', sql.DateTime, new Date(tuNgay));
     }
     if (denNgay) {
-      where += ' AND ThoiGian <= @denNgay';
+      where += ' AND thoiGian <= @denNgay';
       request.input('denNgay', sql.DateTime, new Date(`${denNgay}T23:59:59`));
     }
 
@@ -31,9 +31,12 @@ const getAll = async (req, res) => {
     request.input('pageSize', sql.Int, Number(pageSize));
 
     const result = await request.query(`
-      SELECT * FROM NhatKyHoatDong
+      SELECT id AS ID, maNguoiDung AS MaNguoiDung, tenDangNhap AS TenDangNhap,
+             hanhDong AS HanhDong, doiTuong AS DoiTuong, maDoiTuong AS MaDoiTuong,
+             moTa AS MoTa, thoiGian AS ThoiGian, ketQua AS KetQua, lyDoThatBai AS LyDoThatBai
+      FROM NhatKyHoatDong
       ${where}
-      ORDER BY ThoiGian DESC
+      ORDER BY thoiGian DESC
       OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
     `);
 

@@ -8,68 +8,238 @@ import '../../styles/shared.css';
 
 const PAGE_SIZE = 10;
 
+const VUNG_MIEN_OPTIONS = [
+  { value: 'BAC', label: 'Bắc' },
+  { value: 'TRUNG', label: 'Trung' },
+  { value: 'NAM', label: 'Nam' },
+];
+
 const CONFIG = {
-  'don-vi':             { title: 'Danh mục đơn vị',            icon: '🏢', emptyIcon: '🏢', fields: [{ key: 'MaDonVi', label: 'Mã đơn vị', apiKey: 'maDonVi' }, { key: 'TenDonVi', label: 'Tên đơn vị', apiKey: 'tenDonVi', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'cap-bac':            { title: 'Danh mục cấp bậc',           icon: '⭐', emptyIcon: '⭐', fields: [{ key: 'MaCapBac', label: 'Mã cấp bậc', apiKey: 'maCapBac' }, { key: 'TenCapBac', label: 'Tên cấp bậc', apiKey: 'tenCapBac', required: true }] },
-  'chuc-vu':            { title: 'Danh mục chức vụ',           icon: '💼', emptyIcon: '💼', fields: [{ key: 'MaChucVu', label: 'Mã chức vụ', apiKey: 'maChucVu' }, { key: 'TenChucVu', label: 'Tên chức vụ', apiKey: 'tenChucVu', required: true }] },
-  'to-chuc-nhan-su':    { title: 'Danh mục tổ chức và nhân sự',icon: '👥', emptyIcon: '👥', fields: [{ key: 'MaToChuc', label: 'Mã tổ chức', apiKey: 'maToChuc' }, { key: 'TenToChuc', label: 'Tên tổ chức', apiKey: 'tenToChuc', required: true }] },
-  'to-chuc-kho':        { title: 'Danh mục kho',                icon: '🏭', emptyIcon: '🏭', fields: [{ key: 'MaKho', label: 'Mã kho', apiKey: 'maKho' }, { key: 'TenKho', label: 'Tên kho', apiKey: 'tenKho', required: true }, { key: 'DiaDiem', label: 'Địa điểm', apiKey: 'diaDiem' }] },
+  // ==== Nhóm không có khóa ngoại bắt buộc ====
+  'nhom-spkt': {
+    title: 'Nhóm SPKT', icon: '🔫',
+    fields: [
+      { col: 'maNhom', label: 'Mã nhóm', pk: true, required: true },
+      { col: 'tenNhom', label: 'Tên nhóm', required: true, display: true },
+      { col: 'moTa', label: 'Mô tả' },
+    ],
+  },
+  dvt: {
+    title: 'Đơn vị tính', icon: '📏',
+    fields: [
+      { col: 'maDVT', label: 'Mã ĐVT', pk: true, required: true },
+      { col: 'tenDVT', label: 'Tên ĐVT', required: true, display: true },
+      { col: 'donViCoBan', label: 'Đơn vị cơ bản' },
+      { col: 'heSoCoBan', label: 'Hệ số cơ bản', type: 'number' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  nsx: {
+    title: 'Nước sản xuất', icon: '🌍',
+    fields: [
+      { col: 'maNSX', label: 'Mã nước SX', pk: true, required: true },
+      { col: 'tenNSX', label: 'Tên nước SX', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  httt: {
+    title: 'Hình thức thanh toán', icon: '💳',
+    fields: [
+      { col: 'maHTTT', label: 'Mã HTTT', pk: true, required: true },
+      { col: 'tenHTTT', label: 'Tên HTTT', required: true, display: true },
+      { col: 'mucPhi', label: 'Mức phí', type: 'number' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'ht-van-chuyen': {
+    title: 'Hình thức vận chuyển', icon: '🚚',
+    fields: [
+      { col: 'maHTVC', label: 'Mã HTVC', pk: true, required: true },
+      { col: 'tenHTVC', label: 'Tên HTVC', required: true, display: true },
+      { col: 'mucPhi', label: 'Mức phí', type: 'number' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'loai-tbdb': {
+    title: 'Loại trang bị đồng bộ', icon: '🧩',
+    fields: [
+      { col: 'maLoai', label: 'Mã loại', pk: true, required: true },
+      { col: 'tenLoai', label: 'Tên loại', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'cap-chat-luong': {
+    title: 'Cấp chất lượng', icon: '⭐',
+    fields: [
+      { col: 'maCap', label: 'Mã cấp (1-5)', pk: true, required: true, type: 'number' },
+      { col: 'tenCap', label: 'Tên cấp', required: true, display: true },
+      { col: 'moTa', label: 'Mô tả' },
+    ],
+  },
+  'hinh-thuc-niem-cat': {
+    title: 'Hình thức niêm cất', icon: '🔒',
+    fields: [
+      { col: 'maHTNC', label: 'Mã HTNC', pk: true, required: true },
+      { col: 'tenHTNC', label: 'Tên HTNC', required: true, display: true },
+    ],
+  },
+  'tinh-trang-bao-goi': {
+    title: 'Tình trạng bao gói', icon: '📦',
+    fields: [
+      { col: 'maTTBG', label: 'Mã tình trạng', pk: true, required: true },
+      { col: 'tenTTBG', label: 'Tên tình trạng', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'trang-thai-tb': {
+    title: 'Trạng thái trang bị', icon: '🩺',
+    fields: [
+      { col: 'maTTTB', label: 'Mã trạng thái', pk: true, required: true },
+      { col: 'tenTTTB', label: 'Tên trạng thái', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'cap-bac': {
+    title: 'Cấp bậc', icon: '🎖️',
+    fields: [
+      { col: 'maCapBac', label: 'Mã cấp bậc', pk: true, required: true },
+      { col: 'tenCapBac', label: 'Tên cấp bậc', required: true, display: true },
+      { col: 'thuTu', label: 'Thứ tự', type: 'number' },
+    ],
+  },
+  'chuc-vu': {
+    title: 'Chức vụ', icon: '💼',
+    fields: [
+      { col: 'maChucVu', label: 'Mã chức vụ', pk: true, required: true },
+      { col: 'tenChucVu', label: 'Tên chức vụ', required: true, display: true },
+      { col: 'moTa', label: 'Mô tả' },
+    ],
+  },
+  tinh: {
+    title: 'Tỉnh / Thành phố', icon: '🗺️',
+    fields: [
+      { col: 'maTinh', label: 'Mã tỉnh', pk: true, required: true },
+      { col: 'tenTinh', label: 'Tên tỉnh', required: true, display: true },
+      { col: 'vungMien', label: 'Vùng miền', type: 'select', options: VUNG_MIEN_OPTIONS },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'loai-kho': {
+    title: 'Loại kho', icon: '🏗️',
+    fields: [
+      { col: 'maLoaiKho', label: 'Mã loại kho', pk: true, required: true },
+      { col: 'tenLoaiKho', label: 'Tên loại kho', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'tinh-chat-nhap-xuat': {
+    title: 'Tính chất nhập xuất', icon: '🔁',
+    fields: [
+      { col: 'maNX', label: 'Mã tính chất', pk: true, required: true },
+      { col: 'tenNX', label: 'Tên tính chất', required: true, display: true },
+      { col: 'nhomTB', label: 'Nhóm trang bị' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
 
-  // Đơn vị hành chính
-  'tinh':               { title: 'Danh mục tỉnh',               icon: '🗺️', emptyIcon: '🗺️', fields: [{ key: 'MaTinh', label: 'Mã tỉnh', apiKey: 'maTinh' }, { key: 'TenTinh', label: 'Tên tỉnh', apiKey: 'tenTinh', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'xa':                 { title: 'Danh mục xã',                 icon: '📍', emptyIcon: '📍', fields: [{ key: 'MaXa', label: 'Mã xã', apiKey: 'maXa' }, { key: 'TenXa', label: 'Tên xã', apiKey: 'tenXa', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  // ==== Nhóm có khóa ngoại tùy chọn ====
+  'kieu-spkt': {
+    title: 'Kiểu SPKT', icon: '🔧',
+    fields: [
+      { col: 'maKieu', label: 'Mã kiểu', pk: true, required: true },
+      { col: 'tenKieu', label: 'Tên kiểu', required: true, display: true },
+      { col: 'nuocSX', label: 'Nước SX' },
+      { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'hang-sx': {
+    title: 'Hãng sản xuất', icon: '🏭',
+    fields: [
+      { col: 'maHSX', label: 'Mã hãng SX', pk: true, required: true },
+      { col: 'tenHSX', label: 'Tên hãng SX', required: true, display: true },
+      { col: 'diaChi', label: 'Địa chỉ' },
+      { col: 'email', label: 'Email' },
+      { col: 'SDT', label: 'Số điện thoại' },
+      { col: 'maNSX', label: 'Nước sản xuất', type: 'select', optionsFrom: 'nsx', optionValueKey: 'maNSX', optionLabelKey: 'tenNSX' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  ncc: {
+    title: 'Nhà cung cấp', icon: '🤝',
+    fields: [
+      { col: 'maNCC', label: 'Mã NCC', pk: true, required: true },
+      { col: 'tenNCC', label: 'Tên NCC', required: true, display: true },
+      { col: 'diaChi', label: 'Địa chỉ' },
+      { col: 'email', label: 'Email' },
+      { col: 'SDT', label: 'Số điện thoại' },
+      { col: 'maNSX', label: 'Nước sản xuất', type: 'select', optionsFrom: 'nsx', optionValueKey: 'maNSX', optionLabelKey: 'tenNSX' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
 
-  // Tổ chức kho
-  'loai-kho':           { title: 'Danh mục loại kho',           icon: '🏗️', emptyIcon: '🏗️', fields: [{ key: 'MaLoaiKho', label: 'Mã loại kho', apiKey: 'maLoaiKho' }, { key: 'TenLoaiKho', label: 'Tên loại kho', apiKey: 'tenLoaiKho', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-
-  // Từ điển về TB (TBKT)
-  'phan-nhom-tbkt':          { title: 'Phân nhóm trang bị TBKT',     icon: '🧱', emptyIcon: '🧱', fields: [{ key: 'MaPhanNhom', label: 'Mã phân nhóm', apiKey: 'maPhanNhom' }, { key: 'TenPhanNhom', label: 'Tên phân nhóm', apiKey: 'tenPhanNhom', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'phan-loai-tbkt':          { title: 'Phân loại trang bị TBKT',     icon: '🏷️', emptyIcon: '🏷️', fields: [{ key: 'MaPhanLoai', label: 'Mã phân loại', apiKey: 'maPhanLoai' }, { key: 'TenPhanLoai', label: 'Tên phân loại', apiKey: 'tenPhanLoai', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'kieu-tbkt':               { title: 'Danh mục kiểu TBKT',          icon: '🔧', emptyIcon: '🔧', fields: [{ key: 'MaKieu', label: 'Mã kiểu', apiKey: 'maKieu' }, { key: 'TenKieu', label: 'Tên kiểu', apiKey: 'tenKieu', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'nhom-dong-bo':            { title: 'Danh mục nhóm đồng bộ',       icon: '🧩', emptyIcon: '🧩', fields: [{ key: 'MaNhom', label: 'Mã nhóm', apiKey: 'maNhom' }, { key: 'TenNhom', label: 'Tên nhóm', apiKey: 'tenNhom', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'chi-tiet-dong-bo':        { title: 'Danh mục chi tiết đồng bộ',   icon: '🔩', emptyIcon: '🔩', fields: [{ key: 'MaChiTiet', label: 'Mã chi tiết', apiKey: 'maChiTiet' }, { key: 'TenChiTiet', label: 'Tên chi tiết', apiKey: 'tenChiTiet', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'tinh-trang-trang-bi':     { title: 'Tình trạng trang bị',         icon: '🩺', emptyIcon: '🩺', fields: [{ key: 'MaTinhTrang', label: 'Mã tình trạng', apiKey: 'maTinhTrang' }, { key: 'TenTinhTrang', label: 'Tên tình trạng', apiKey: 'tenTinhTrang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'tinh-trang-kho-gui':      { title: 'Tình trạng kho gửi',          icon: '📦', emptyIcon: '📦', fields: [{ key: 'MaTinhTrang', label: 'Mã tình trạng', apiKey: 'maTinhTrang' }, { key: 'TenTinhTrang', label: 'Tên tình trạng', apiKey: 'tenTinhTrang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'hinh-thuc-niem-cat':      { title: 'Hình thức niêm cất',          icon: '🔒', emptyIcon: '🔒', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'phan-loai-dong-bo':       { title: 'Phân loại trang bị đồng bộ',  icon: '🗂️', emptyIcon: '🗂️', fields: [{ key: 'MaPhanLoai', label: 'Mã phân loại', apiKey: 'maPhanLoai' }, { key: 'TenPhanLoai', label: 'Tên phân loại', apiKey: 'tenPhanLoai', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-
-  // Từ điển dùng chung
-  'phan-cap-chat-luong':     { title: 'Danh mục phân cấp chất lượng', icon: '⭐', emptyIcon: '⭐', fields: [{ key: 'MaPhanCap', label: 'Mã phân cấp', apiKey: 'maPhanCap' }, { key: 'TenPhanCap', label: 'Tên phân cấp', apiKey: 'tenPhanCap', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'don-vi-tinh':             { title: 'Danh mục đơn vị tính',         icon: '📏', emptyIcon: '📏', fields: [{ key: 'MaDonViTinh', label: 'Mã đơn vị tính', apiKey: 'maDonViTinh' }, { key: 'TenDonViTinh', label: 'Tên đơn vị tính', apiKey: 'tenDonViTinh', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'nuoc-san-xuat':           { title: 'Danh mục nước sản xuất',       icon: '🌍', emptyIcon: '🌍', fields: [{ key: 'MaNuoc', label: 'Mã nước', apiKey: 'maNuoc' }, { key: 'TenNuoc', label: 'Tên nước', apiKey: 'tenNuoc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'hang-san-xuat':           { title: 'Danh mục hãng sản xuất',       icon: '🏷️', emptyIcon: '🏷️', fields: [{ key: 'MaHang', label: 'Mã hãng', apiKey: 'maHang' }, { key: 'TenHang', label: 'Tên hãng', apiKey: 'tenHang', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'nha-cung-cap':            { title: 'Danh mục nhà cung cấp',        icon: '🤝', emptyIcon: '🤝', fields: [{ key: 'MaNhaCungCap', label: 'Mã nhà cung cấp', apiKey: 'maNhaCungCap' }, { key: 'TenNhaCungCap', label: 'Tên nhà cung cấp', apiKey: 'tenNhaCungCap', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'hinh-thuc-thanh-toan':    { title: 'Danh mục hình thức thanh toán', icon: '💳', emptyIcon: '💳', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
-  'hinh-thuc-cap-chuyen':    { title: 'Danh mục hình thức cấp chuyển', icon: '🚚', emptyIcon: '🚚', fields: [{ key: 'MaHinhThuc', label: 'Mã hình thức', apiKey: 'maHinhThuc' }, { key: 'TenHinhThuc', label: 'Tên hình thức', apiKey: 'tenHinhThuc', required: true }, { key: 'GhiChu', label: 'Ghi chú', apiKey: 'ghiChu' }] },
+  // ==== Nhóm có khóa ngoại bắt buộc ====
+  xa: {
+    title: 'Xã / Phường', icon: '📍',
+    fields: [
+      { col: 'maXa', label: 'Mã xã', pk: true, required: true },
+      { col: 'maTinh', label: 'Tỉnh', required: true, type: 'select', optionsFrom: 'tinh', optionValueKey: 'maTinh', optionLabelKey: 'tenTinh' },
+      { col: 'tenXa', label: 'Tên xã', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  kho: {
+    title: 'Kho', icon: '🏢',
+    fields: [
+      { col: 'maKho', label: 'Mã kho', pk: true, required: true },
+      { col: 'maLoaiKho', label: 'Loại kho', required: true, type: 'select', optionsFrom: 'loai-kho', optionValueKey: 'maLoaiKho', optionLabelKey: 'tenLoaiKho' },
+      { col: 'tenKho', label: 'Tên kho', required: true, display: true },
+      { col: 'dienTich', label: 'Diện tích', type: 'number' },
+      { col: 'diaChi', label: 'Địa chỉ' },
+      { col: 'maXa', label: 'Xã', type: 'select', optionsFrom: 'xa', optionValueKey: 'maXa', optionLabelKey: 'tenXa' },
+      { col: 'maTinh', label: 'Tỉnh', type: 'select', optionsFrom: 'tinh', optionValueKey: 'maTinh', optionLabelKey: 'tenTinh' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'loai-spkt': {
+    title: 'Loại SPKT', icon: '🎯',
+    fields: [
+      { col: 'maLoai', label: 'Mã loại', pk: true, required: true },
+      { col: 'maNhom', label: 'Nhóm SPKT', required: true, type: 'select', optionsFrom: 'nhom-spkt', optionValueKey: 'maNhom', optionLabelKey: 'tenNhom' },
+      { col: 'tenLoai', label: 'Tên loại', required: true, display: true },
+      { col: 'co', label: 'Cỡ' },
+      { col: 'kiHieu', label: 'Ký hiệu' },
+      { col: 'nuocSX', label: 'Nước SX' },
+      { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
+  'chi-tiet-tcnx': {
+    title: 'Chi tiết tính chất nhập xuất', icon: '📋',
+    fields: [
+      { col: 'maCTNX', label: 'Mã chi tiết', pk: true, required: true },
+      { col: 'tenCTNX', label: 'Tên chi tiết', required: true, display: true },
+      { col: 'maNX', label: 'Tính chất nhập xuất', required: true, type: 'select', optionsFrom: 'tinh-chat-nhap-xuat', optionValueKey: 'maNX', optionLabelKey: 'tenNX' },
+      { col: 'ghiChu', label: 'Ghi chú' },
+    ],
+  },
 };
 
-const MODULE_KEY = {
-  'don-vi': 'danh-muc-don-vi', 'cap-bac': 'danh-muc-cap-bac',
-  'chuc-vu': 'danh-muc-chuc-vu', 'to-chuc-nhan-su': 'danh-muc-to-chuc-nhan-su',
-  'to-chuc-kho': 'danh-muc-to-chuc-kho',
-  'tinh': 'danh-muc-tinh', 'xa': 'danh-muc-xa',
-  'loai-kho': 'danh-muc-loai-kho',
-  'phan-nhom-tbkt': 'danh-muc-phan-nhom-tbkt', 'phan-loai-tbkt': 'danh-muc-phan-loai-tbkt',
-  'kieu-tbkt': 'danh-muc-kieu-tbkt', 'nhom-dong-bo': 'danh-muc-nhom-dong-bo',
-  'chi-tiet-dong-bo': 'danh-muc-chi-tiet-dong-bo',
-  'tinh-trang-trang-bi': 'danh-muc-tinh-trang-trang-bi', 'tinh-trang-kho-gui': 'danh-muc-tinh-trang-kho-gui',
-  'hinh-thuc-niem-cat': 'danh-muc-hinh-thuc-niem-cat', 'phan-loai-dong-bo': 'danh-muc-phan-loai-dong-bo',
-  'phan-cap-chat-luong': 'danh-muc-phan-cap-chat-luong', 'don-vi-tinh': 'danh-muc-don-vi-tinh',
-  'nuoc-san-xuat': 'danh-muc-nuoc-san-xuat', 'hang-san-xuat': 'danh-muc-hang-san-xuat',
-  'nha-cung-cap': 'danh-muc-nha-cung-cap',
-  'hinh-thuc-thanh-toan': 'danh-muc-hinh-thuc-thanh-toan', 'hinh-thuc-cap-chuyen': 'danh-muc-hinh-thuc-cap-chuyen',
-};
+// Trong schema mới, quyền được cấp theo chức năng lớn (10 mục), không theo từng bảng danh mục —
+// nên toàn bộ trang Danh mục dùng chung 1 cổng quyền "DANH_MUC".
+const MODULE_KEY = 'DANH_MUC';
 
 export default function DanhMucPage({ type }) {
-  const config = CONFIG[type] || {};
+  const config = CONFIG[type] || { fields: [] };
+  const pkField = config.fields.find(f => f.pk);
   const { can } = usePermission();
-  const modKey = MODULE_KEY[type] || type;
-  const canThem = can(modKey, 'them');
-  const canSua  = can(modKey, 'sua');
-  const canXoa  = can(modKey, 'xoa');
+  const canThem = can(MODULE_KEY, 'them');
+  const canSua = can(MODULE_KEY, 'sua');
+  const canXoa = can(MODULE_KEY, 'xoa');
 
   const [data, setData] = useState([]);
   const [filtered, setFiltered] = useState([]);
+  const [refData, setRefData] = useState({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -84,38 +254,80 @@ export default function DanhMucPage({ type }) {
       const res = await danhMucAPI.getAll(type);
       setData(res.data);
       setFiltered(res.data);
-    } catch { } finally { setLoading(false); }
+    } catch { /* giữ danh sách rỗng nếu tải lỗi */ } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); setForm({}); setEditing(null); setSearch(''); setPage(1); }, [type]);
+  useEffect(() => {
+    load();
+    setForm({}); setEditing(null); setSearch(''); setPage(1);
+
+    const selectFields = config.fields.filter(f => f.type === 'select' && f.optionsFrom);
+    if (selectFields.length === 0) { setRefData({}); return; }
+    Promise.all(
+      [...new Set(selectFields.map(f => f.optionsFrom))].map(slug =>
+        danhMucAPI.getAll(slug).then(res => [slug, res.data]).catch(() => [slug, []])
+      )
+    ).then(pairs => setRefData(Object.fromEntries(pairs)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
 
   useEffect(() => {
     const q = search.toLowerCase();
     setFiltered(data.filter(row =>
-      config.fields?.some(f => String(row[f.key] || '').toLowerCase().includes(q))
+      config.fields.some(f => String(displayValue(f, row) ?? '').toLowerCase().includes(q))
     ));
     setPage(1);
-  }, [search, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, data, refData]);
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
+
+  // Với cột dạng select (FK hoặc enum tĩnh), hiển thị tên thân thiện thay vì mã thô trong bảng.
+  const displayValue = (f, row) => {
+    const raw = row[f.col];
+    if (raw === null || raw === undefined || raw === '') return raw;
+    if (f.type === 'select') {
+      if (f.options) {
+        return f.options.find(o => o.value === raw)?.label ?? raw;
+      }
+      if (f.optionsFrom) {
+        const match = (refData[f.optionsFrom] || []).find(r => r[f.optionValueKey] === raw);
+        return match ? match[f.optionLabelKey] : raw;
+      }
+    }
+    return raw;
+  };
 
   const openAdd = () => { setEditing(null); setForm({}); setShowModal(true); };
   const openEdit = (row) => {
     setEditing(row);
     const f = {};
-    config.fields.forEach(field => { f[field.apiKey] = row[field.key] || ''; });
+    config.fields.forEach(field => { f[field.col] = row[field.col] ?? ''; });
     setForm(f);
     setShowModal(true);
+  };
+
+  const buildPayload = () => {
+    const payload = {};
+    config.fields.forEach(f => {
+      const v = form[f.col];
+      if (f.type === 'number') {
+        payload[f.col] = (v === '' || v === undefined || v === null) ? null : Number(v);
+      } else {
+        payload[f.col] = v === undefined || v === '' ? null : v;
+      }
+    });
+    return payload;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editing) {
-        await danhMucAPI.update(type, editing.ID, form);
+        await danhMucAPI.update(type, editing[pkField.col], buildPayload());
         showToast('Cập nhật thành công!');
       } else {
-        await danhMucAPI.create(type, form);
+        await danhMucAPI.create(type, buildPayload());
         showToast('Thêm mới thành công!');
       }
       setShowModal(false);
@@ -123,21 +335,51 @@ export default function DanhMucPage({ type }) {
     } catch (err) { showToast(err.response?.data?.message || 'Lỗi thao tác', 'error'); }
   };
 
-  const handleDelete = async (id, name) => {
+  const handleDelete = async (row) => {
+    const name = displayName(row);
     if (!window.confirm(`Bạn có chắc muốn xóa "${name}"?`)) return;
     try {
-      await danhMucAPI.remove(type, id);
+      await danhMucAPI.remove(type, row[pkField.col]);
       showToast('Xóa thành công!');
       load();
-    } catch { showToast('Không thể xóa, dữ liệu đang được sử dụng', 'error'); }
+    } catch (err) { showToast(err.response?.data?.message || 'Không thể xóa, dữ liệu đang được sử dụng', 'error'); }
   };
 
   const displayName = (row) => {
-    const req = config.fields?.find(f => f.required);
-    return req ? row[req.key] : '';
+    const displayField = config.fields.find(f => f.display) || pkField;
+    return displayField ? row[displayField.col] : '';
   };
 
-  const colCount = (config.fields?.length || 0) + 2;
+  const renderInput = (f) => {
+    if (f.type === 'select') {
+      const opts = f.options || (refData[f.optionsFrom] || []).map(r => ({ value: r[f.optionValueKey], label: `${r[f.optionValueKey]} — ${r[f.optionLabelKey]}` }));
+      return (
+        <select
+          className="form-input"
+          value={form[f.col] ?? ''}
+          onChange={(e) => setForm({ ...form, [f.col]: e.target.value })}
+          required={f.required}
+          disabled={f.pk && !!editing}
+        >
+          <option value="">-- Chọn --</option>
+          {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input
+        className="form-input"
+        type={f.type === 'number' ? 'number' : 'text'}
+        value={form[f.col] ?? ''}
+        onChange={(e) => setForm({ ...form, [f.col]: e.target.value })}
+        required={f.required}
+        disabled={f.pk && !!editing}
+        placeholder={`Nhập ${f.label.toLowerCase()}...`}
+      />
+    );
+  };
+
+  const colCount = config.fields.length + 2;
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
 
@@ -184,7 +426,7 @@ export default function DanhMucPage({ type }) {
           <SkeletonTable cols={colCount} rows={6} />
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">{search ? '🔍' : config.emptyIcon}</div>
+            <div className="empty-state-icon">{search ? '🔍' : config.icon}</div>
             <div className="empty-state-title">
               {search ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu'}
             </div>
@@ -202,19 +444,19 @@ export default function DanhMucPage({ type }) {
                 <thead>
                   <tr>
                     <th style={{ width: 50 }}>STT</th>
-                    {config.fields?.map(f => <th key={f.key}>{f.label}</th>)}
+                    {config.fields.map(f => <th key={f.col}>{f.label}</th>)}
                     <th style={{ width: 120, textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((row, i) => (
-                    <tr key={row.ID}>
+                    <tr key={row[pkField.col]}>
                       <td className="td-muted td-center">{startIdx + i + 1}</td>
-                      {config.fields?.map(f => (
-                        <td key={f.key}>
-                          {f.required
-                            ? <span className="main-value">{row[f.key]}</span>
-                            : <span className="sub-value">{row[f.key] || '—'}</span>
+                      {config.fields.map(f => (
+                        <td key={f.col}>
+                          {f.display
+                            ? <span className="main-value">{displayValue(f, row)}</span>
+                            : <span className="sub-value">{displayValue(f, row) ?? '—'}</span>
                           }
                         </td>
                       ))}
@@ -226,7 +468,7 @@ export default function DanhMucPage({ type }) {
                             </button>
                           )}
                           {canXoa && (
-                            <button className="btn-icon-delete" onClick={() => handleDelete(row.ID, displayName(row))} title="Xóa">
+                            <button className="btn-icon-delete" onClick={() => handleDelete(row)} title="Xóa">
                               <FiTrash2 size={13} />
                             </button>
                           )}
@@ -254,17 +496,10 @@ export default function DanhMucPage({ type }) {
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmit} className="modal-body">
-              {config.fields?.map(f => (
-                <div key={f.key} className="form-field">
+              {config.fields.map(f => (
+                <div key={f.col} className="form-field">
                   <label className="form-label">{f.label}{f.required ? ' *' : ''}</label>
-                  <input
-                    className="form-input"
-                    type="text"
-                    value={form[f.apiKey] || ''}
-                    onChange={(e) => setForm({ ...form, [f.apiKey]: e.target.value })}
-                    required={f.required}
-                    placeholder={`Nhập ${f.label.toLowerCase()}...`}
-                  />
+                  {renderInput(f)}
                 </div>
               ))}
               <div className="modal-footer">

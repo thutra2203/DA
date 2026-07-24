@@ -6,15 +6,16 @@ import '../styles/shared.css';
 import './PhanQuyen.css';
 
 const MODULES = [
-  { key: 'quan-ly-nguoi-dung',       label: 'Quản lý người dùng' },
-  { key: 'danh-muc-don-vi',          label: 'Danh mục đơn vị' },
-  { key: 'danh-muc-cap-bac',         label: 'Danh mục cấp bậc' },
-  { key: 'danh-muc-chuc-vu',         label: 'Danh mục chức vụ' },
-  { key: 'danh-muc-to-chuc-nhan-su', label: 'Tổ chức và nhân sự' },
-  { key: 'danh-muc-to-chuc-kho',     label: 'Tổ chức kho' },
-  { key: 'danh-muc-tu-dien-tbn1',    label: 'Từ điển TBN1' },
-  { key: 'danh-muc-tu-dien-tbn2',    label: 'Từ điển TBN2' },
-  { key: 'danh-muc-tu-dien-dung-chung', label: 'Từ điển dùng chung' },
+  { key: 'DANH_MUC',   label: 'Quản lý danh mục' },
+  { key: 'NHOM_I',     label: 'Nghiệp vụ nhóm I' },
+  { key: 'NHOM_II',    label: 'Nghiệp vụ nhóm II' },
+  { key: 'LENH',       label: 'Quản lý lệnh' },
+  { key: 'BDKT',       label: 'Bảo đảm kỹ thuật' },
+  { key: 'KTKT',       label: 'Kỹ thuật kiểm tra' },
+  { key: 'KIEM_KE',    label: 'Quản lý kiểm kê' },
+  { key: 'BAO_CAO',    label: 'Báo cáo thống kê' },
+  { key: 'HE_THONG',   label: 'Quản trị hệ thống' },
+  { key: 'CHUYEN_KY',  label: 'Chuyển kỳ dữ liệu' },
 ];
 
 const ACTIONS = [
@@ -29,7 +30,7 @@ export default function PhanQuyen() {
   const [vaiTros, setVaiTros] = useState([]);
   const [saving, setSaving] = useState(null);
   const [toast, setToast] = useState(null);
-  const [activeRole, setActiveRole] = useState('QuanLy');
+  const [activeRole, setActiveRole] = useState('QUAN_LY');
 
   const load = async () => {
     const [pqRes, vtRes] = await Promise.all([
@@ -53,7 +54,7 @@ export default function PhanQuyen() {
   };
 
   const toggle = (vaiTro, module, action) => {
-    if (vaiTro === 'Admin') return;
+    if (vaiTro === 'ADMIN') return;
     setData(prev => ({
       ...prev,
       [vaiTro]: {
@@ -129,12 +130,12 @@ export default function PhanQuyen() {
       <div className="pq-tabs">
         {vaiTros.map(vt => (
           <button
-            key={vt.TenVaiTro}
-            className={`pq-tab${activeRole === vt.TenVaiTro ? ' pq-tab--active' : ''}`}
-            onClick={() => setActiveRole(vt.TenVaiTro)}
+            key={vt.ID}
+            className={`pq-tab${activeRole === vt.ID ? ' pq-tab--active' : ''}`}
+            onClick={() => setActiveRole(vt.ID)}
           >
             {vt.TenVaiTro}
-            {vt.TenVaiTro === 'Admin' && <span className="pq-admin-badge">Toàn quyền</span>}
+            {vt.ID === 'ADMIN' && <span className="pq-admin-badge">Toàn quyền</span>}
           </button>
         ))}
       </div>
@@ -144,7 +145,7 @@ export default function PhanQuyen() {
           <span className="pq-table-header-label">
             Quyền của vai trò: <span className="pq-role-highlight">{activeRole}</span>
           </span>
-          {activeRole !== 'Admin' && (
+          {activeRole !== 'ADMIN' && (
             <button className="pq-btn-save-all" onClick={() => saveAll(activeRole)} disabled={saving === 'all'}>
               <FiSave size={14} style={{ marginRight: 6 }} />
               {saving === 'all' ? 'Đang lưu...' : 'Lưu tất cả'}
@@ -162,13 +163,13 @@ export default function PhanQuyen() {
                   {a.label}
                 </th>
               ))}
-              {activeRole !== 'Admin' && <th style={{ width: 80, textAlign: 'center' }}>Lưu</th>}
+              {activeRole !== 'ADMIN' && <th style={{ width: 80, textAlign: 'center' }}>Lưu</th>}
             </tr>
           </thead>
           <tbody>
             {MODULES.map((mod, i) => {
               const perm = data[activeRole]?.[mod.key] || {};
-              const isAdmin = activeRole === 'Admin';
+              const isAdmin = activeRole === 'ADMIN';
               const rowKey = `${activeRole}-${mod.key}`;
               return (
                 <tr key={mod.key}>
@@ -198,7 +199,7 @@ export default function PhanQuyen() {
                       </label>
                     </td>
                   ))}
-                  {activeRole !== 'Admin' && (
+                  {activeRole !== 'ADMIN' && (
                     <td className="td-center">
                       <button
                         className="pq-btn-save"
@@ -215,7 +216,7 @@ export default function PhanQuyen() {
           </tbody>
         </table>
 
-        {activeRole === 'Admin' && (
+        {activeRole === 'ADMIN' && (
           <div className="pq-admin-note">
             ⚠ Vai trò Admin luôn có toàn quyền, không thể thay đổi.
           </div>

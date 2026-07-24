@@ -6,17 +6,17 @@ import logoMTA from '../assets/logo-hvktqs.png';
 import './Dashboard.css';
 
 const STAT_DEFS = [
-  { key: 'taiKhoan',       label: 'Tài khoản',         icon: <FiUsers size={22} />,   color: '#1565c0', bg: '#e3f2fd' },
-  { key: 'donVi',          label: 'Đơn vị',             icon: <FiGrid size={22} />,    color: '#2e7d32', bg: '#e8f5e9' },
-  { key: 'toChucKho',      label: 'Tổ chức kho',        icon: <FiArchive size={22} />, color: '#e65100', bg: '#fff3e0' },
-  { key: 'tuDienDungChung',label: 'Từ điển dùng chung', icon: <FiBook size={22} />,    color: '#6a1b9a', bg: '#f3e5f5' },
+  { key: 'taiKhoan',   label: 'Tài khoản',    icon: <FiUsers size={22} />,   color: '#1565c0', bg: '#e3f2fd' },
+  { key: 'kho',        label: 'Kho',          icon: <FiArchive size={22} />, color: '#e65100', bg: '#fff3e0' },
+  { key: 'loaiSpkt',   label: 'Loại SPKT',    icon: <FiGrid size={22} />,    color: '#2e7d32', bg: '#e8f5e9' },
+  { key: 'nhaCungCap', label: 'Nhà cung cấp', icon: <FiBook size={22} />,    color: '#6a1b9a', bg: '#f3e5f5' },
 ];
 
 const quickLinks = [
   { label: 'Quản lý người dùng', desc: 'Thêm, phân quyền, khóa tài khoản', path: '/users', icon: <FiUsers size={26} />, color: '#1a3a5c' },
-  { label: 'Danh mục đơn vị',   desc: 'Quản lý danh mục các đơn vị',       path: '/danh-muc/don-vi',      icon: <FiGrid size={26} />,    color: '#1b5e20' },
-  { label: 'Tổ chức kho',       desc: 'Quản lý tổ chức kho vũ khí',         path: '/danh-muc/to-chuc-kho', icon: <FiArchive size={26} />, color: '#bf360c' },
-  { label: 'Từ điển dùng chung', desc: 'Đơn vị tính, nước SX, hãng SX...',  path: '/danh-muc/don-vi-tinh', icon: <FiBook size={26} />,    color: '#4a148c' },
+  { label: 'Nhóm SPKT',    desc: 'Quản lý danh mục nhóm súng pháo kỹ thuật', path: '/danh-muc/nhom-spkt', icon: <FiGrid size={26} />,    color: '#1b5e20' },
+  { label: 'Danh mục kho', desc: 'Quản lý danh mục kho quân khí',            path: '/danh-muc/kho',       icon: <FiArchive size={26} />, color: '#bf360c' },
+  { label: 'Nhà cung cấp', desc: 'Đơn vị tính, nước SX, hãng SX, NCC...',    path: '/danh-muc/ncc',       icon: <FiBook size={26} />,    color: '#4a148c' },
 ];
 
 export default function Dashboard() {
@@ -101,12 +101,12 @@ export default function Dashboard() {
       <h3 className="section-title">Thống kê danh mục</h3>
       <div className="cat-grid">
         {[
-          { label: 'Cấp bậc',           key: 'capBac' },
-          { label: 'Chức vụ',           key: 'chucVu' },
-          { label: 'Tổ chức nhân sự',   key: 'toChucNhanSu' },
-          { label: 'Từ điển TBN1',      key: 'tuDienTbn1' },
-          { label: 'Từ điển TBN2',      key: 'tuDienTbn2' },
-          { label: 'Từ điển dùng chung',key: 'tuDienDungChung' },
+          { label: 'Cấp bậc',                key: 'capBac' },
+          { label: 'Chức vụ',                key: 'chucVu' },
+          { label: 'Đơn vị tính',            key: 'dvt' },
+          { label: 'Nước sản xuất',          key: 'nsx' },
+          { label: 'Loại trang bị đồng bộ',  key: 'loaiTbdb' },
+          { label: 'Tỉnh / Thành phố',       key: 'tinh' },
         ].map(item => (
           <div key={item.key} className="cat-card">
             {loading ? (

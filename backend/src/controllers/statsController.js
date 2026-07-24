@@ -4,15 +4,16 @@ const getStats = async (req, res) => {
   try {
     const pool = getPool();
     const tables = [
-      ['taiKhoan',       'TaiKhoan'],
-      ['donVi',          'DanhMucDonVi'],
-      ['capBac',         'DanhMucCapBac'],
-      ['chucVu',         'DanhMucChucVu'],
-      ['toChucNhanSu',   'DanhMucToChucNhanSu'],
-      ['toChucKho',      'DanhMucToChucKho'],
-      ['tuDienTbn1',     'DanhMucTuDienTBN1'],
-      ['tuDienTbn2',     'DanhMucTuDienTBN2'],
-      ['tuDienDungChung','DanhMucTuDienDungChung'],
+      ['taiKhoan',    'NguoiDung'],
+      ['kho',         'Kho'],
+      ['loaiSpkt',    'LoaiSPKT'],
+      ['nhaCungCap',  'NCC'],
+      ['capBac',      'CapBac'],
+      ['chucVu',      'ChucVu'],
+      ['dvt',         'DVT'],
+      ['nsx',         'NSX'],
+      ['loaiTbdb',    'LoaiTBDB'],
+      ['tinh',        'Tinh'],
     ];
     const results = await Promise.all(
       tables.map(([, tbl]) => pool.request().query(`SELECT COUNT(*) AS count FROM ${tbl}`))

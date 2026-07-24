@@ -19,13 +19,21 @@ const menuItems = [
   { label: 'Phân quyền', path: '/phan-quyen', icon: <FiShield />, adminOnly: true },
   { label: 'Nhật ký hoạt động', path: '/nhat-ky', icon: <FiClock />, adminOnly: true },
   {
-    label: 'Danh mục cơ bản',
+    label: 'Danh mục SPKT / TBDB',
+    icon: <FiTarget />,
+    children: [
+      { label: 'Nhóm SPKT', path: '/danh-muc/nhom-spkt', icon: <FiBook /> },
+      { label: 'Loại SPKT', path: '/danh-muc/loai-spkt', icon: <FiBook /> },
+      { label: 'Kiểu SPKT', path: '/danh-muc/kieu-spkt', icon: <FiBook /> },
+      { label: 'Loại trang bị đồng bộ', path: '/danh-muc/loai-tbdb', icon: <FiBook /> },
+    ],
+  },
+  {
+    label: 'Nhân sự',
     icon: <FiList />,
     children: [
-      { label: 'Danh mục đơn vị', path: '/danh-muc/don-vi', icon: <FiGrid /> },
       { label: 'Danh mục cấp bậc', path: '/danh-muc/cap-bac', icon: <FiBookOpen /> },
       { label: 'Danh mục chức vụ', path: '/danh-muc/chuc-vu', icon: <FiBook /> },
-      { label: 'Tổ chức và nhân sự', path: '/danh-muc/to-chuc-nhan-su', icon: <FiUsers /> },
     ],
   },
   {
@@ -41,35 +49,31 @@ const menuItems = [
     icon: <FiArchive />,
     children: [
       { label: 'Danh mục loại kho', path: '/danh-muc/loai-kho', icon: <FiLayers /> },
-      { label: 'Danh mục kho', path: '/danh-muc/to-chuc-kho', icon: <FiArchive /> },
-    ],
-  },
-  {
-    label: 'Từ điển về TB',
-    icon: <FiBookOpen />,
-    children: [
-      { label: 'Phân nhóm trang bị TBKT', path: '/danh-muc/phan-nhom-tbkt', icon: <FiBook /> },
-      { label: 'Phân loại trang bị TBKT', path: '/danh-muc/phan-loai-tbkt', icon: <FiBook /> },
-      { label: 'Danh mục kiểu TBKT', path: '/danh-muc/kieu-tbkt', icon: <FiBook /> },
-      { label: 'Danh mục nhóm đồng bộ', path: '/danh-muc/nhom-dong-bo', icon: <FiBook /> },
-      { label: 'Danh mục chi tiết đồng bộ', path: '/danh-muc/chi-tiet-dong-bo', icon: <FiBook /> },
-      { label: 'Tình trạng trang bị', path: '/danh-muc/tinh-trang-trang-bi', icon: <FiBook /> },
-      { label: 'Tình trạng kho gửi', path: '/danh-muc/tinh-trang-kho-gui', icon: <FiBook /> },
-      { label: 'Hình thức niêm cất', path: '/danh-muc/hinh-thuc-niem-cat', icon: <FiBook /> },
-      { label: 'Phân loại trang bị đồng bộ', path: '/danh-muc/phan-loai-dong-bo', icon: <FiBook /> },
+      { label: 'Danh mục kho', path: '/danh-muc/kho', icon: <FiArchive /> },
     ],
   },
   {
     label: 'Từ điển dùng chung',
     icon: <FiBook />,
     children: [
-      { label: 'Phân cấp chất lượng', path: '/danh-muc/phan-cap-chat-luong', icon: <FiBook /> },
-      { label: 'Đơn vị tính', path: '/danh-muc/don-vi-tinh', icon: <FiBook /> },
-      { label: 'Nước sản xuất', path: '/danh-muc/nuoc-san-xuat', icon: <FiBook /> },
-      { label: 'Hãng sản xuất', path: '/danh-muc/hang-san-xuat', icon: <FiBook /> },
-      { label: 'Nhà cung cấp', path: '/danh-muc/nha-cung-cap', icon: <FiBook /> },
-      { label: 'Hình thức thanh toán', path: '/danh-muc/hinh-thuc-thanh-toan', icon: <FiBook /> },
-      { label: 'Hình thức cấp chuyển', path: '/danh-muc/hinh-thuc-cap-chuyen', icon: <FiBook /> },
+      { label: 'Đơn vị tính', path: '/danh-muc/dvt', icon: <FiBook /> },
+      { label: 'Nước sản xuất', path: '/danh-muc/nsx', icon: <FiBook /> },
+      { label: 'Hãng sản xuất', path: '/danh-muc/hang-sx', icon: <FiBook /> },
+      { label: 'Nhà cung cấp', path: '/danh-muc/ncc', icon: <FiBook /> },
+      { label: 'Cấp chất lượng', path: '/danh-muc/cap-chat-luong', icon: <FiBook /> },
+    ],
+  },
+  {
+    label: 'Nghiệp vụ nhập xuất',
+    icon: <FiBookOpen />,
+    children: [
+      { label: 'Hình thức thanh toán', path: '/danh-muc/httt', icon: <FiBook /> },
+      { label: 'Hình thức vận chuyển', path: '/danh-muc/ht-van-chuyen', icon: <FiBook /> },
+      { label: 'Tính chất nhập xuất', path: '/danh-muc/tinh-chat-nhap-xuat', icon: <FiBook /> },
+      { label: 'Chi tiết tính chất NX', path: '/danh-muc/chi-tiet-tcnx', icon: <FiBook /> },
+      { label: 'Hình thức niêm cất', path: '/danh-muc/hinh-thuc-niem-cat', icon: <FiBook /> },
+      { label: 'Tình trạng bao gói', path: '/danh-muc/tinh-trang-bao-goi', icon: <FiBook /> },
+      { label: 'Trạng thái trang bị', path: '/danh-muc/trang-thai-tb', icon: <FiBook /> },
     ],
   },
   { label: 'Quản lý SPKT', path: '/spkt', icon: <FiTarget /> },
@@ -138,7 +142,7 @@ export default function MainLayout({ children }) {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {menuItems.filter(item => !item.adminOnly || user?.role === 'Admin').map((item) => (
+          {menuItems.filter(item => !item.adminOnly || user?.role === 'ADMIN').map((item) => (
             <div key={item.label} style={{ position: 'relative' }}>
               {item.children ? (
                 <>

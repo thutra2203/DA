@@ -9,10 +9,18 @@ import './QuanLyNguoiDung.css';
 const PAGE_SIZE = 10;
 
 const roleConfig = {
-  Admin:    { bg: '#fce4ec', color: '#c62828', label: 'Admin' },
-  QuanLy:   { bg: '#e3f2fd', color: '#1565c0', label: 'Quản lý' },
-  NhanVien: { bg: '#e8f5e9', color: '#2e7d32', label: 'Nhân viên' },
+  ADMIN:      { bg: '#fce4ec', color: '#c62828', label: 'Admin' },
+  QUAN_LY:    { bg: '#e3f2fd', color: '#1565c0', label: 'Quản lý' },
+  THU_KHO:    { bg: '#e8f5e9', color: '#2e7d32', label: 'Thủ kho' },
+  KIEM_KE:    { bg: '#fff3e0', color: '#e65100', label: 'Kiểm kê viên' },
+  NHAP_XUAT:  { bg: '#e0f2f1', color: '#00695c', label: 'Nhân viên nhập xuất' },
+  KY_THUAT:   { bg: '#ede7f6', color: '#4527a0', label: 'Nhân viên kỹ thuật' },
+  PHE_DUYET:  { bg: '#fff8e1', color: '#f57f17', label: 'Người phê duyệt' },
+  BAO_CAO:    { bg: '#e1f5fe', color: '#0277bd', label: 'Nhân viên báo cáo' },
+  CHI_XEM:    { bg: '#f1f8e9', color: '#558b2f', label: 'Chỉ xem' },
+  KHACH:      { bg: '#eceff1', color: '#455a64', label: 'Khách' },
 };
+const DEFAULT_ROLE_CONFIG = { bg: '#f3e5f5', color: '#6a1b9a', label: 'Khác' };
 
 export default function QuanLyNguoiDung() {
   const [users, setUsers] = useState([]);
@@ -23,7 +31,7 @@ export default function QuanLyNguoiDung() {
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(null);
   const [showResetModal, setShowResetModal] = useState(null);
-  const [form, setForm] = useState({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: 'NhanVien' });
+  const [form, setForm] = useState({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: '' });
   const [toast, setToast] = useState(null);
   const [page, setPage] = useState(1);
 
@@ -59,7 +67,7 @@ export default function QuanLyNguoiDung() {
       await userAPI.create(form);
       showToast('Tạo tài khoản thành công!');
       setShowModal(false);
-      setForm({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: 'NhanVien' });
+      setForm({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: '' });
       load();
     } catch (err) { showToast(err.response?.data?.message || 'Lỗi tạo tài khoản', 'error'); }
   };
@@ -155,7 +163,7 @@ export default function QuanLyNguoiDung() {
                 </thead>
                 <tbody>
                   {paged.map((u, i) => {
-                    const rc = roleConfig[u.VaiTro] || roleConfig.NhanVien;
+                    const rc = roleConfig[u.VaiTro] || DEFAULT_ROLE_CONFIG;
                     return (
                       <tr key={u.ID}>
                         <td className="td-muted td-center" style={{ width: 50 }}>{startIdx + i + 1}</td>
@@ -223,7 +231,7 @@ export default function QuanLyNguoiDung() {
             <div className="form-field">
               <label className="form-label">Vai trò</label>
               <select className="form-input" value={form.vaiTro} onChange={e => setForm({ ...form, vaiTro: e.target.value })}>
-                {vaiTros.map(vt => <option key={vt.TenVaiTro} value={vt.TenVaiTro}>{vt.TenVaiTro}</option>)}
+                {vaiTros.map(vt => <option key={vt.ID} value={vt.ID}>{vt.TenVaiTro}</option>)}
               </select>
             </div>
             <div className="modal-footer">
@@ -241,7 +249,7 @@ export default function QuanLyNguoiDung() {
             <label className="form-label">Vai trò mới</label>
             <select className="form-input" defaultValue={showRoleModal.VaiTro}
               onChange={e => handleUpdateRole(showRoleModal.ID, e.target.value)}>
-              {vaiTros.map(vt => <option key={vt.TenVaiTro} value={vt.TenVaiTro}>{vt.TenVaiTro}</option>)}
+              {vaiTros.map(vt => <option key={vt.ID} value={vt.ID}>{vt.TenVaiTro}</option>)}
             </select>
           </div>
           <div className="modal-footer">

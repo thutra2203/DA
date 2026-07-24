@@ -4,7 +4,7 @@ import { FiPlus, FiTrash2, FiShield, FiLock } from 'react-icons/fi';
 import '../styles/shared.css';
 import './QuanLyVaiTro.css';
 
-const DEFAULT_ROLES = ['Admin', 'QuanLy', 'NhanVien'];
+const DEFAULT_ROLES = ['ADMIN'];
 
 export default function QuanLyVaiTro() {
   const [roles, setRoles] = useState([]);
@@ -55,9 +55,16 @@ export default function QuanLyVaiTro() {
   const isDefault = (tenVaiTro) => DEFAULT_ROLES.includes(tenVaiTro);
 
   const roleColors = {
-    Admin:    { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a' },
-    QuanLy:   { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9' },
-    NhanVien: { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7' },
+    ADMIN:      { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a' },
+    QUAN_LY:    { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9' },
+    THU_KHO:    { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7' },
+    KIEM_KE:    { bg: '#fff3e0', color: '#e65100', border: '#ffcc80' },
+    NHAP_XUAT:  { bg: '#e0f2f1', color: '#00695c', border: '#80cbc4' },
+    KY_THUAT:   { bg: '#ede7f6', color: '#4527a0', border: '#b39ddb' },
+    PHE_DUYET:  { bg: '#fff8e1', color: '#f57f17', border: '#ffe082' },
+    BAO_CAO:    { bg: '#e1f5fe', color: '#0277bd', border: '#81d4fa' },
+    CHI_XEM:    { bg: '#f1f8e9', color: '#558b2f', border: '#c5e1a5' },
+    KHACH:      { bg: '#eceff1', color: '#455a64', border: '#b0bec5' },
   };
   const defaultColor = { bg: '#f3e5f5', color: '#6a1b9a', border: '#ce93d8' };
 
@@ -110,9 +117,7 @@ export default function QuanLyVaiTro() {
                   </div>
                 </div>
                 <div className="vt-role-card-bottom">
-                  <span className="vt-role-date">
-                    Tạo: {new Date(role.NgayTao).toLocaleDateString('vi-VN')}
-                  </span>
+                  <span className="vt-role-date">Mã vai trò: {role.ID}</span>
                   {!locked && (
                     <button className="vt-btn-delete" onClick={() => handleDelete(role)} title="Xóa vai trò">
                       <FiTrash2 size={13} /> Xóa

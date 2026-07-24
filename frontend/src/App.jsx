@@ -31,34 +31,33 @@ function AppRoutes() {
               <Route path="/phan-quyen" element={<PhanQuyen />} />
               <Route path="/vai-tro" element={<QuanLyVaiTro />} />
               <Route path="/nhat-ky" element={<NhatKyHoatDong />} />
-              <Route path="/danh-muc/don-vi" element={<DanhMucPage type="don-vi" />} />
+              <Route path="/danh-muc/nhom-spkt" element={<DanhMucPage type="nhom-spkt" />} />
+              <Route path="/danh-muc/loai-spkt" element={<DanhMucPage type="loai-spkt" />} />
+              <Route path="/danh-muc/kieu-spkt" element={<DanhMucPage type="kieu-spkt" />} />
+              <Route path="/danh-muc/loai-tbdb" element={<DanhMucPage type="loai-tbdb" />} />
+
               <Route path="/danh-muc/cap-bac" element={<DanhMucPage type="cap-bac" />} />
               <Route path="/danh-muc/chuc-vu" element={<DanhMucPage type="chuc-vu" />} />
-              <Route path="/danh-muc/to-chuc-nhan-su" element={<DanhMucPage type="to-chuc-nhan-su" />} />
-              <Route path="/danh-muc/to-chuc-kho" element={<DanhMucPage type="to-chuc-kho" />} />
 
               <Route path="/danh-muc/tinh" element={<DanhMucPage type="tinh" />} />
               <Route path="/danh-muc/xa" element={<DanhMucPage type="xa" />} />
 
               <Route path="/danh-muc/loai-kho" element={<DanhMucPage type="loai-kho" />} />
+              <Route path="/danh-muc/kho" element={<DanhMucPage type="kho" />} />
 
-              <Route path="/danh-muc/phan-nhom-tbkt" element={<DanhMucPage type="phan-nhom-tbkt" />} />
-              <Route path="/danh-muc/phan-loai-tbkt" element={<DanhMucPage type="phan-loai-tbkt" />} />
-              <Route path="/danh-muc/kieu-tbkt" element={<DanhMucPage type="kieu-tbkt" />} />
-              <Route path="/danh-muc/nhom-dong-bo" element={<DanhMucPage type="nhom-dong-bo" />} />
-              <Route path="/danh-muc/chi-tiet-dong-bo" element={<DanhMucPage type="chi-tiet-dong-bo" />} />
-              <Route path="/danh-muc/tinh-trang-trang-bi" element={<DanhMucPage type="tinh-trang-trang-bi" />} />
-              <Route path="/danh-muc/tinh-trang-kho-gui" element={<DanhMucPage type="tinh-trang-kho-gui" />} />
+              <Route path="/danh-muc/dvt" element={<DanhMucPage type="dvt" />} />
+              <Route path="/danh-muc/nsx" element={<DanhMucPage type="nsx" />} />
+              <Route path="/danh-muc/hang-sx" element={<DanhMucPage type="hang-sx" />} />
+              <Route path="/danh-muc/ncc" element={<DanhMucPage type="ncc" />} />
+              <Route path="/danh-muc/cap-chat-luong" element={<DanhMucPage type="cap-chat-luong" />} />
+
+              <Route path="/danh-muc/httt" element={<DanhMucPage type="httt" />} />
+              <Route path="/danh-muc/ht-van-chuyen" element={<DanhMucPage type="ht-van-chuyen" />} />
+              <Route path="/danh-muc/tinh-chat-nhap-xuat" element={<DanhMucPage type="tinh-chat-nhap-xuat" />} />
+              <Route path="/danh-muc/chi-tiet-tcnx" element={<DanhMucPage type="chi-tiet-tcnx" />} />
               <Route path="/danh-muc/hinh-thuc-niem-cat" element={<DanhMucPage type="hinh-thuc-niem-cat" />} />
-              <Route path="/danh-muc/phan-loai-dong-bo" element={<DanhMucPage type="phan-loai-dong-bo" />} />
-
-              <Route path="/danh-muc/phan-cap-chat-luong" element={<DanhMucPage type="phan-cap-chat-luong" />} />
-              <Route path="/danh-muc/don-vi-tinh" element={<DanhMucPage type="don-vi-tinh" />} />
-              <Route path="/danh-muc/nuoc-san-xuat" element={<DanhMucPage type="nuoc-san-xuat" />} />
-              <Route path="/danh-muc/hang-san-xuat" element={<DanhMucPage type="hang-san-xuat" />} />
-              <Route path="/danh-muc/nha-cung-cap" element={<DanhMucPage type="nha-cung-cap" />} />
-              <Route path="/danh-muc/hinh-thuc-thanh-toan" element={<DanhMucPage type="hinh-thuc-thanh-toan" />} />
-              <Route path="/danh-muc/hinh-thuc-cap-chuyen" element={<DanhMucPage type="hinh-thuc-cap-chuyen" />} />
+              <Route path="/danh-muc/tinh-trang-bao-goi" element={<DanhMucPage type="tinh-trang-bao-goi" />} />
+              <Route path="/danh-muc/trang-thai-tb" element={<DanhMucPage type="trang-thai-tb" />} />
 
               <Route path="/spkt" element={<ComingSoon title="Quản lý SPKT" icon="🎯" desc="Chức năng quản lý súng pháo kỹ thuật đang được thiết kế cấu trúc dữ liệu." />} />
               <Route path="/tb-dong-bo" element={<ComingSoon title="Quản lý TB đồng bộ" icon="🧩" desc="Chức năng quản lý trang bị đồng bộ đang được thiết kế cấu trúc dữ liệu." />} />
