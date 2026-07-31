@@ -35,7 +35,11 @@ public partial class Lenh
 
     public string? GhiChu { get; set; }
 
+    public string? MaNcc { get; set; }
+
     public virtual ICollection<ChiTietLenh> ChiTietLenhs { get; set; } = new List<ChiTietLenh>();
+
+    public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
 
     public virtual Httt? MaHtttNavigation { get; set; }
 
@@ -46,4 +50,6 @@ public partial class Lenh
     public virtual ChiTietTcnx? MaLenhChiTietNavigation { get; set; }
 
     public virtual TinhChatNhapXuat MaLoaiLenhNavigation { get; set; } = null!;
+
+    public virtual Ncc? MaNccNavigation { get; set; }
 }

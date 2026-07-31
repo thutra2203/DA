@@ -18,6 +18,4 @@ public partial class Tang
     public virtual ICollection<Hom> Homs { get; set; } = new List<Hom>();
 
     public virtual GiaHang MaGiaNavigation { get; set; } = null!;
-
-    public virtual ICollection<Tbdb> Tbdbs { get; set; } = new List<Tbdb>();
 }

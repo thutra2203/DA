@@ -21,8 +21,6 @@ public partial class ChiTietLenh
 
     public string? GhiChu { get; set; }
 
-    public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
-
     public virtual CapChatLuong? MaCclNavigation { get; set; }
 
     public virtual Lenh MaLenhNavigation { get; set; } = null!;

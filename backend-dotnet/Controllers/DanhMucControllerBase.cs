@@ -43,7 +43,9 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
     }
 
     private object? ConvertPk(string raw)
-        => _pk.ClrType == typeof(int) ? int.Parse(raw) : raw;
+        => _pk.ClrType == typeof(int) ? int.Parse(raw)
+         : _pk.ClrType == typeof(long) ? long.Parse(raw)
+         : raw;
 
     private static object? ConvertJson(JsonElement el, Type targetType)
     {
@@ -75,9 +77,11 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
     public async Task<IActionResult> GetAll()
     {
         var list = await _db.Set<TEntity>().ToListAsync();
-        var ordered = _pk.ClrType == typeof(int)
+        IEnumerable<TEntity> ordered = _pk.ClrType == typeof(int)
             ? list.OrderBy(e => (int)_pk.PropertyInfo!.GetValue(e)!)
-            : list.OrderBy(e => (string)_pk.PropertyInfo!.GetValue(e)!, StringComparer.Ordinal);
+            : _pk.ClrType == typeof(long)
+                ? list.OrderBy(e => (long)_pk.PropertyInfo!.GetValue(e)!)
+                : list.OrderBy(e => (string)_pk.PropertyInfo!.GetValue(e)!, StringComparer.Ordinal);
         return Ok(ordered.Select(ToDict));
     }
 

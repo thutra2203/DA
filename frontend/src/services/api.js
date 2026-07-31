@@ -50,6 +50,50 @@ export const danhMucAPI = {
   remove: (type, id) => api.delete(`/danh-muc/${type}/${id}`),
 };
 
+export const tbDongBoAPI = {
+  getByKho: (maKho) => api.get('/tb-dong-bo/ho-so/by-kho', { params: { maKho } }),
+  getChiTiet: (maTbdb, maKho) => api.get(`/tb-dong-bo/ho-so/${maTbdb}/chi-tiet`, { params: { maKho } }),
+  getCtdbKhaDung: (maTbdb) => api.get(`/tb-dong-bo/ho-so/${maTbdb}/ctdb-kha-dung`),
+  create: (data) => api.post('/tb-dong-bo/ho-so', data),
+  update: (id, data) => api.put(`/tb-dong-bo/ho-so/${id}`, data),
+  remove: (id) => api.delete(`/tb-dong-bo/ho-so/${id}`),
+
+  lo: {
+    create: (data) => api.post('/tb-dong-bo/lo', data),
+    update: (id, data) => api.put(`/tb-dong-bo/lo/${id}`, data),
+    remove: (id) => api.delete(`/tb-dong-bo/lo/${id}`),
+  },
+  tonKho: {
+    create: (data) => api.post('/tb-dong-bo/ton-kho', data),
+    update: (id, data) => api.put(`/tb-dong-bo/ton-kho/${id}`, data),
+    remove: (id) => api.delete(`/tb-dong-bo/ton-kho/${id}`),
+  },
+};
+
+export const lenhTbDongBoAPI = {
+  getAll: (maLoaiLenh, maKho) => api.get('/tb-dong-bo/lenh', { params: { maLoaiLenh, maKho } }),
+  getOne: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}`),
+  create: (data) => api.post('/tb-dong-bo/lenh', data),
+  update: (maLenh, data) => api.put(`/tb-dong-bo/lenh/${maLenh}`, data),
+  remove: (maLenh) => api.delete(`/tb-dong-bo/lenh/${maLenh}`),
+
+  chiTiet: {
+    getAll: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/chi-tiet`),
+    create: (maLenh, data) => api.post(`/tb-dong-bo/lenh/${maLenh}/chi-tiet`, data),
+    update: (maLenh, maCtdongBoLenh, data) => api.put(`/tb-dong-bo/lenh/${maLenh}/chi-tiet/${maCtdongBoLenh}`, data),
+    remove: (maLenh, maCtdongBoLenh) => api.delete(`/tb-dong-bo/lenh/${maLenh}/chi-tiet/${maCtdongBoLenh}`),
+    taoLo: (maLenh, maCtdongBoLenh, data) => api.post(`/tb-dong-bo/lenh/${maLenh}/chi-tiet/${maCtdongBoLenh}/tao-lo`, data),
+  },
+
+  hoanThanh: (maLenh) => api.post(`/tb-dong-bo/lenh/${maLenh}/hoan-thanh`),
+  taiMauNhapLo: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/mau-nhap-lo`, { responseType: 'blob' }),
+  nhapLoTuFile: (maLenh, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/tb-dong-bo/lenh/${maLenh}/nhap-lo-file`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+};
+
 export const statsAPI = {
   get: () => api.get('/stats'),
 };

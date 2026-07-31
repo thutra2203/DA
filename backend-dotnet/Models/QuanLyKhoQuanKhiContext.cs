@@ -6,10 +6,6 @@ namespace backend_dotnet.Models;
 
 public partial class QuanLyKhoQuanKhiContext : DbContext
 {
-    public QuanLyKhoQuanKhiContext()
-    {
-    }
-
     public QuanLyKhoQuanKhiContext(DbContextOptions<QuanLyKhoQuanKhiContext> options)
         : base(options)
     {
@@ -63,11 +59,11 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
     public virtual DbSet<Lenh> Lenhs { get; set; }
 
+    public virtual DbSet<LoTbdb> LoTbdbs { get; set; }
+
     public virtual DbSet<LoaiKho> LoaiKhos { get; set; }
 
     public virtual DbSet<LoaiSpkt> LoaiSpkts { get; set; }
-
-    public virtual DbSet<LoaiTbbd> LoaiTbbds { get; set; }
 
     public virtual DbSet<LoaiTbdb> LoaiTbdbs { get; set; }
 
@@ -103,6 +99,8 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
     public virtual DbSet<TinhTrangBaoGoi> TinhTrangBaoGois { get; set; }
 
+    public virtual DbSet<TonKhoTbdb> TonKhoTbdbs { get; set; }
+
     public virtual DbSet<TrangThaiTb> TrangThaiTbs { get; set; }
 
     public virtual DbSet<VaiTro> VaiTros { get; set; }
@@ -111,22 +109,11 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
     public virtual DbSet<Xa> Xas { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        // Chuỗi kết nối thật được cấu hình qua appsettings.json + Program.cs (AddDbContext).
-        // Nhánh này chỉ dùng khi chạy DbContext độc lập (vd. công cụ `dotnet ef` ngoài Program.cs).
-        if (!optionsBuilder.IsConfigured)
-        {
-            // Chỉ dùng cho `dotnet ef` khi cần chạy độc lập ngoài Program.cs — không chứa mật khẩu thật.
-            optionsBuilder.UseSqlServer("Server=localhost,14330;Database=QuanLyKhoQuanKhi;User Id=sa;Password=CHANGE_ME;TrustServerCertificate=True;");
-        }
-    }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<CapBac>(entity =>
         {
-            entity.HasKey(e => e.MaCapBac).HasName("PK__CapBac__0284A533314F9970");
+            entity.HasKey(e => e.MaCapBac).HasName("PK__CapBac__0284A5335FAED640");
 
             entity.ToTable("CapBac");
 
@@ -142,7 +129,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<CapChatLuong>(entity =>
         {
-            entity.HasKey(e => e.MaCap).HasName("PK__CapChatL__2C8F2FF4CDF92A37");
+            entity.HasKey(e => e.MaCap).HasName("PK__CapChatL__2C8F2FF46C723650");
 
             entity.ToTable("CapChatLuong");
 
@@ -196,7 +183,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChiTietKiemKe>(entity =>
         {
-            entity.HasKey(e => e.MaCtkiemKe).HasName("PK__ChiTietK__2B0E672F1FA5BA42");
+            entity.HasKey(e => e.MaCtkiemKe).HasName("PK__ChiTietK__2B0E672FC7C31F4B");
 
             entity.ToTable("ChiTietKiemKe");
 
@@ -244,7 +231,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChiTietLenh>(entity =>
         {
-            entity.HasKey(e => e.MaCtlenh).HasName("PK__ChiTietL__4E322F6340DBC5DE");
+            entity.HasKey(e => e.MaCtlenh).HasName("PK__ChiTietL__4E322F63984A1194");
 
             entity.ToTable("ChiTietLenh");
 
@@ -288,7 +275,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChiTietTcnx>(entity =>
         {
-            entity.HasKey(e => e.MaCtnx).HasName("PK__ChiTietT__FD27ADA61F58AE96");
+            entity.HasKey(e => e.MaCtnx).HasName("PK__ChiTietT__FD27ADA6E22C010A");
 
             entity.ToTable("ChiTietTCNX");
 
@@ -315,7 +302,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChucNang>(entity =>
         {
-            entity.HasKey(e => e.MaCn).HasName("PK__ChucNang__7A3E0CE86B473117");
+            entity.HasKey(e => e.MaCn).HasName("PK__ChucNang__7A3E0CE82E43E84F");
 
             entity.ToTable("ChucNang");
 
@@ -333,7 +320,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChucVu>(entity =>
         {
-            entity.HasKey(e => e.MaChucVu).HasName("PK__ChucVu__6E42BCD9499E422D");
+            entity.HasKey(e => e.MaChucVu).HasName("PK__ChucVu__6E42BCD9C0A0457B");
 
             entity.ToTable("ChucVu");
 
@@ -351,7 +338,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<ChuyenKy>(entity =>
         {
-            entity.HasKey(e => e.MaChuyenKy).HasName("PK__ChuyenKy__74A7910E514D5815");
+            entity.HasKey(e => e.MaChuyenKy).HasName("PK__ChuyenKy__74A7910EF758B1AB");
 
             entity.ToTable("ChuyenKy");
 
@@ -384,115 +371,49 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<CtdongBoTrongLenh>(entity =>
         {
-            entity.HasKey(e => new { e.MaCtlenh, e.MaTbdb });
+            entity.HasKey(e => e.MaCtdongBoLenh);
 
             entity.ToTable("CTDongBoTrongLenh");
 
-            entity.Property(e => e.MaCtlenh).HasColumnName("maCTLenh");
+            entity.HasIndex(e => new { e.MaLenh, e.MaTbdb, e.MaCcl }, "UQ_CTDBTL_Lenh_TBDB_CCL").IsUnique();
+
+            entity.Property(e => e.MaCtdongBoLenh).HasColumnName("maCTDongBoLenh");
+            entity.Property(e => e.DonGiaTheoLenh)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("donGiaTheoLenh");
+            entity.Property(e => e.GhiChu)
+                .HasMaxLength(500)
+                .HasColumnName("ghiChu");
+            entity.Property(e => e.MaCcl).HasColumnName("maCCL");
+            entity.Property(e => e.MaLenh)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasColumnName("maLenh");
             entity.Property(e => e.MaTbdb)
                 .HasMaxLength(30)
                 .IsUnicode(false)
                 .HasColumnName("maTBDB");
-            entity.Property(e => e.DonGia)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("donGia");
-            entity.Property(e => e.GhiChu)
-                .HasMaxLength(1000)
-                .HasColumnName("ghiChu");
-            entity.Property(e => e.HinhThucNiemCat)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("hinhThucNiemCat");
-            entity.Property(e => e.MaCcl).HasColumnName("maCCL");
-            entity.Property(e => e.MaHom)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maHom");
-            entity.Property(e => e.MaKho)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKho");
-            entity.Property(e => e.MaKhoi)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKhoi");
-            entity.Property(e => e.MaKhu)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKhu");
-            entity.Property(e => e.MaLoaiTb)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maLoaiTB");
-            entity.Property(e => e.MaNhaKho)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maNhaKho");
-            entity.Property(e => e.MaNuocSx)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maNuocSX");
-            entity.Property(e => e.MaTang)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maTang");
-            entity.Property(e => e.MaTinhTrangBaoGoi)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maTinhTrangBaoGoi");
-            entity.Property(e => e.MaTrangThaiTb)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maTrangThaiTB");
-            entity.Property(e => e.NamSx).HasColumnName("namSX");
-            entity.Property(e => e.SoLuong).HasColumnName("soLuong");
+            entity.Property(e => e.SoLuongTheoLenh).HasColumnName("soLuongTheoLenh");
             entity.Property(e => e.SoLuongThuc).HasColumnName("soLuongThuc");
-            entity.Property(e => e.ThanhTien)
-                .HasComputedColumnSql("(isnull([soLuong],(0))*isnull([donGia],(0)))", true)
-                .HasColumnType("decimal(29, 2)")
-                .HasColumnName("thanhTien");
-            entity.Property(e => e.ViTri)
-                .HasMaxLength(500)
-                .HasColumnName("viTri");
-
-            entity.HasOne(d => d.HinhThucNiemCatNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.HinhThucNiemCat)
-                .HasConstraintName("FK_CTDBTL_HTNC");
 
             entity.HasOne(d => d.MaCclNavigation).WithMany(p => p.CtdongBoTrongLenhs)
                 .HasForeignKey(d => d.MaCcl)
-                .HasConstraintName("FK_CTDBTL_CCL");
+                .HasConstraintName("FK_CTDBTL_CapChatLuong");
 
-            entity.HasOne(d => d.MaCtlenhNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.MaCtlenh)
+            entity.HasOne(d => d.MaLenhNavigation).WithMany(p => p.CtdongBoTrongLenhs)
+                .HasForeignKey(d => d.MaLenh)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CTDBTL_CTL");
-
-            entity.HasOne(d => d.MaHomNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.MaHom)
-                .HasConstraintName("FK_CTDBTL_Hom");
-
-            entity.HasOne(d => d.MaNuocSxNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.MaNuocSx)
-                .HasConstraintName("FK_CTDBTL_NSX");
+                .HasConstraintName("FK_CTDBTL_Lenh");
 
             entity.HasOne(d => d.MaTbdbNavigation).WithMany(p => p.CtdongBoTrongLenhs)
                 .HasForeignKey(d => d.MaTbdb)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_CTDBTL_TBDB");
-
-            entity.HasOne(d => d.MaTinhTrangBaoGoiNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.MaTinhTrangBaoGoi)
-                .HasConstraintName("FK_CTDBTL_TTBG");
-
-            entity.HasOne(d => d.MaTrangThaiTbNavigation).WithMany(p => p.CtdongBoTrongLenhs)
-                .HasForeignKey(d => d.MaTrangThaiTb)
-                .HasConstraintName("FK_CTDBTL_TrangThai");
         });
 
         modelBuilder.Entity<DinhKhu>(entity =>
         {
-            entity.HasKey(e => e.MaDinhKhu).HasName("PK__DinhKhu__A38802907F8EA29C");
+            entity.HasKey(e => e.MaDinhKhu).HasName("PK__DinhKhu__A3880290EE99A779");
 
             entity.ToTable("DinhKhu");
 
@@ -519,7 +440,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<DotKiemKe>(entity =>
         {
-            entity.HasKey(e => e.MaDotKiemKe).HasName("PK__DotKiemK__7FA866392445BA47");
+            entity.HasKey(e => e.MaDotKiemKe).HasName("PK__DotKiemK__7FA866397C13F0E1");
 
             entity.ToTable("DotKiemKe");
 
@@ -546,7 +467,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Dvt>(entity =>
         {
-            entity.HasKey(e => e.MaDvt).HasName("PK__DVT__24304B491B34FFE5");
+            entity.HasKey(e => e.MaDvt).HasName("PK__DVT__24304B492D6A3B14");
 
             entity.ToTable("DVT");
 
@@ -569,7 +490,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<GiaHang>(entity =>
         {
-            entity.HasKey(e => e.MaGia).HasName("PK__GiaHang__2D875869B189808F");
+            entity.HasKey(e => e.MaGia).HasName("PK__GiaHang__2D8758697ACFFE44");
 
             entity.ToTable("GiaHang");
 
@@ -596,7 +517,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<HangSx>(entity =>
         {
-            entity.HasKey(e => e.MaHsx).HasName("PK__HangSX__2CC883ED295480BE");
+            entity.HasKey(e => e.MaHsx).HasName("PK__HangSX__2CC883ED28DF2DA3");
 
             entity.ToTable("HangSX");
 
@@ -633,7 +554,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<HinhThucNiemCat>(entity =>
         {
-            entity.HasKey(e => e.MaHtnc).HasName("PK__HinhThuc__C6B82D3111072744");
+            entity.HasKey(e => e.MaHtnc).HasName("PK__HinhThuc__C6B82D31BC6D980E");
 
             entity.ToTable("HinhThucNiemCat");
 
@@ -648,7 +569,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<HoSoSpkt>(entity =>
         {
-            entity.HasKey(e => e.SoHieu).HasName("PK__HoSoSPKT__4D8C6127688FEB04");
+            entity.HasKey(e => e.SoHieu).HasName("PK__HoSoSPKT__4D8C6127FBF97EA2");
 
             entity.ToTable("HoSoSPKT");
 
@@ -781,7 +702,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Hom>(entity =>
         {
-            entity.HasKey(e => e.MaHom).HasName("PK__Hom__2CC96FB54A1403BC");
+            entity.HasKey(e => e.MaHom).HasName("PK__Hom__2CC96FB52A70A903");
 
             entity.ToTable("Hom");
 
@@ -805,7 +726,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Httt>(entity =>
         {
-            entity.HasKey(e => e.MaHttt).HasName("PK__HTTT__C6B9FF886FF2AB7B");
+            entity.HasKey(e => e.MaHttt).HasName("PK__HTTT__C6B9FF889FE2DD4C");
 
             entity.ToTable("HTTT");
 
@@ -826,7 +747,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<HtvanChuyen>(entity =>
         {
-            entity.HasKey(e => e.MaHtvc).HasName("PK__HTVanChu__C6B9EE3BEC747787");
+            entity.HasKey(e => e.MaHtvc).HasName("PK__HTVanChu__C6B9EE3B5518C9DE");
 
             entity.ToTable("HTVanChuyen");
 
@@ -847,7 +768,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Kho>(entity =>
         {
-            entity.HasKey(e => e.MaKho).HasName("PK__Kho__26DF73D4B63D96D5");
+            entity.HasKey(e => e.MaKho).HasName("PK__Kho__26DF73D44C7CE97F");
 
             entity.ToTable("Kho");
 
@@ -896,7 +817,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<KhoiHang>(entity =>
         {
-            entity.HasKey(e => e.MaKhoi).HasName("PK__KhoiHang__C79B8C2ACAC3AAE2");
+            entity.HasKey(e => e.MaKhoi).HasName("PK__KhoiHang__C79B8C2A1AEC0179");
 
             entity.ToTable("KhoiHang");
 
@@ -923,7 +844,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<KieuSpkt>(entity =>
         {
-            entity.HasKey(e => e.MaKieu).HasName("PK__KieuSPKT__C7DFEB4884A67F2C");
+            entity.HasKey(e => e.MaKieu).HasName("PK__KieuSPKT__C7DFEB4848B518FA");
 
             entity.ToTable("KieuSPKT");
 
@@ -973,7 +894,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Lenh>(entity =>
         {
-            entity.HasKey(e => e.MaLenh).HasName("PK__Lenh__FFB81945ACC04B56");
+            entity.HasKey(e => e.MaLenh).HasName("PK__Lenh__FFB819453F699BFB");
 
             entity.ToTable("Lenh");
 
@@ -1008,6 +929,10 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("maLoaiLenh");
+            entity.Property(e => e.MaNcc)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("maNCC");
             entity.Property(e => e.Ngay).HasColumnName("ngay");
             entity.Property(e => e.NgayHieuLuc).HasColumnName("ngayHieuLuc");
             entity.Property(e => e.NguoiTao)
@@ -1044,11 +969,83 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
                 .HasForeignKey(d => d.MaLoaiLenh)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Lenh_TinhChatNhapXuat");
+
+            entity.HasOne(d => d.MaNccNavigation).WithMany(p => p.Lenhs)
+                .HasForeignKey(d => d.MaNcc)
+                .HasConstraintName("FK_Lenh_NhaCungCap");
+        });
+
+        modelBuilder.Entity<LoTbdb>(entity =>
+        {
+            entity.HasKey(e => e.MaLoTbdb);
+
+            entity.ToTable("LoTBDB");
+
+            entity.HasIndex(e => e.MaCtdongBoLenh, "UQ_LoTBDB_CTDongBo").IsUnique();
+
+            entity.Property(e => e.MaLoTbdb)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasColumnName("maLoTBDB");
+            entity.Property(e => e.CapNhatMoiNhat).HasColumnName("capNhatMoiNhat");
+            entity.Property(e => e.DonGia)
+                .HasColumnType("decimal(18, 2)")
+                .HasColumnName("donGia");
+            entity.Property(e => e.GhiChu)
+                .HasMaxLength(500)
+                .HasColumnName("ghiChu");
+            entity.Property(e => e.MaCcl).HasColumnName("maCCL");
+            entity.Property(e => e.MaCtdongBoLenh).HasColumnName("maCTDongBoLenh");
+            entity.Property(e => e.MaNuocSx)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("maNuocSX");
+            entity.Property(e => e.MaTbdb)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasColumnName("maTBDB");
+            entity.Property(e => e.MaTinhTrangBaoGoi)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("maTinhTrangBaoGoi");
+            entity.Property(e => e.NamSx).HasColumnName("namSX");
+            entity.Property(e => e.SoLuongNhap).HasColumnName("soLuongNhap");
+            entity.Property(e => e.ThoiGianTao)
+                .HasDefaultValueSql("(sysdatetime())")
+                .HasColumnName("thoiGianTao");
+            entity.Property(e => e.TrangThaiLo)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("NHAP")
+                .HasColumnName("trangThaiLo");
+
+            entity.HasOne(d => d.MaCclNavigation).WithMany(p => p.LoTbdbs)
+                .HasForeignKey(d => d.MaCcl)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_LoTBDB_CCL");
+
+            entity.HasOne(d => d.MaCtdongBoLenhNavigation).WithOne(p => p.LoTbdb)
+                .HasForeignKey<LoTbdb>(d => d.MaCtdongBoLenh)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_LoTBDB_CTDongBoLenh");
+
+            entity.HasOne(d => d.MaNuocSxNavigation).WithMany(p => p.LoTbdbs)
+                .HasForeignKey(d => d.MaNuocSx)
+                .HasConstraintName("FK_LoTBDB_NuocSX");
+
+            entity.HasOne(d => d.MaTbdbNavigation).WithMany(p => p.LoTbdbs)
+                .HasForeignKey(d => d.MaTbdb)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_LoTBDB_TBDB");
+
+            entity.HasOne(d => d.MaTinhTrangBaoGoiNavigation).WithMany(p => p.LoTbdbs)
+                .HasForeignKey(d => d.MaTinhTrangBaoGoi)
+                .HasConstraintName("FK_LoTBDB_TinhTrangBaoGoi");
         });
 
         modelBuilder.Entity<LoaiKho>(entity =>
         {
-            entity.HasKey(e => e.MaLoaiKho).HasName("PK__LoaiKho__451C930DB3E6F995");
+            entity.HasKey(e => e.MaLoaiKho).HasName("PK__LoaiKho__451C930D0E3D599F");
 
             entity.ToTable("LoaiKho");
 
@@ -1066,7 +1063,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<LoaiSpkt>(entity =>
         {
-            entity.HasKey(e => e.MaLoai).HasName("PK__LoaiSPKT__E5A6B22888547BB4");
+            entity.HasKey(e => e.MaLoai).HasName("PK__LoaiSPKT__E5A6B2284636DD3F");
 
             entity.ToTable("LoaiSPKT");
 
@@ -1106,27 +1103,9 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
                 .HasConstraintName("FK_LoaiSPKT_NhomSPKT");
         });
 
-        modelBuilder.Entity<LoaiTbbd>(entity =>
-        {
-            entity.HasKey(e => e.MaLoai).HasName("PK__LoaiTBBD__E5A6B22866CFE075");
-
-            entity.ToTable("LoaiTBBD");
-
-            entity.Property(e => e.MaLoai)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maLoai");
-            entity.Property(e => e.GhiChu)
-                .HasMaxLength(200)
-                .HasColumnName("ghiChu");
-            entity.Property(e => e.TenLoai)
-                .HasMaxLength(100)
-                .HasColumnName("tenLoai");
-        });
-
         modelBuilder.Entity<LoaiTbdb>(entity =>
         {
-            entity.HasKey(e => e.MaLoai).HasName("PK__LoaiTBDB__E5A6B228D31B0FE5");
+            entity.HasKey(e => e.MaLoai).HasName("PK__LoaiTBDB__E5A6B22818DB9FBD");
 
             entity.ToTable("LoaiTBDB");
 
@@ -1144,7 +1123,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Ncc>(entity =>
         {
-            entity.HasKey(e => e.MaNcc).HasName("PK__NCC__2699C45FCA8C712F");
+            entity.HasKey(e => e.MaNcc).HasName("PK__NCC__2699C45FCFAA2D9E");
 
             entity.ToTable("NCC");
 
@@ -1181,13 +1160,13 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<NguoiDung>(entity =>
         {
-            entity.HasKey(e => e.MaNd).HasName("PK__NguoiDun__7A3EC7CB40340707");
+            entity.HasKey(e => e.MaNd).HasName("PK__NguoiDun__7A3EC7CBBEF084BB");
 
             entity.ToTable("NguoiDung");
 
-            entity.HasIndex(e => e.TenDangNhap, "UQ__NguoiDun__59267D4A438F17D4").IsUnique();
+            entity.HasIndex(e => e.TenDangNhap, "UQ__NguoiDun__59267D4A327853F2").IsUnique();
 
-            entity.HasIndex(e => e.Email, "UQ__NguoiDun__AB6E6164A189BB0D").IsUnique();
+            entity.HasIndex(e => e.Email, "UQ__NguoiDun__AB6E6164EAD21098").IsUnique();
 
             entity.Property(e => e.MaNd).HasColumnName("maND");
             entity.Property(e => e.AvatarUrl)
@@ -1290,7 +1269,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<NhaKho>(entity =>
         {
-            entity.HasKey(e => e.MaNhaKho).HasName("PK__NhaKho__3CBEE0C1D77359EA");
+            entity.HasKey(e => e.MaNhaKho).HasName("PK__NhaKho__3CBEE0C11C256E2E");
 
             entity.ToTable("NhaKho");
 
@@ -1317,7 +1296,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<NhatKyHoatDong>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__NhatKyHo__3213E83F326C6BF1");
+            entity.HasKey(e => e.Id).HasName("PK__NhatKyHo__3213E83FA2578CB6");
 
             entity.ToTable("NhatKyHoatDong");
 
@@ -1391,7 +1370,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<NhomSpkt>(entity =>
         {
-            entity.HasKey(e => e.MaNhom).HasName("PK__NhomSPKT__8316C8AFF6F48658");
+            entity.HasKey(e => e.MaNhom).HasName("PK__NhomSPKT__8316C8AF6F47270E");
 
             entity.ToTable("NhomSPKT");
 
@@ -1411,7 +1390,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Nsx>(entity =>
         {
-            entity.HasKey(e => e.MaNsx).HasName("PK__NSX__26994274713A7A4F");
+            entity.HasKey(e => e.MaNsx).HasName("PK__NSX__269942743C53AE9F");
 
             entity.ToTable("NSX");
 
@@ -1429,7 +1408,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<PhieuKiemKe>(entity =>
         {
-            entity.HasKey(e => e.MaPhieuKiemKe).HasName("PK__PhieuKie__0B5EA6B4AC91ED9F");
+            entity.HasKey(e => e.MaPhieuKiemKe).HasName("PK__PhieuKie__0B5EA6B4B9682BD9");
 
             entity.ToTable("PhieuKiemKe");
 
@@ -1477,11 +1456,11 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Quyen>(entity =>
         {
-            entity.HasKey(e => e.MaQuyen).HasName("PK__Quyen__97001DA3F22F9508");
+            entity.HasKey(e => e.MaQuyen).HasName("PK__Quyen__97001DA313CE1767");
 
             entity.ToTable("Quyen");
 
-            entity.HasIndex(e => e.TenQuyen, "UQ__Quyen__2302FA4EFD8D733D").IsUnique();
+            entity.HasIndex(e => e.TenQuyen, "UQ__Quyen__2302FA4EAEAD9AB4").IsUnique();
 
             entity.Property(e => e.MaQuyen).HasColumnName("maQuyen");
             entity.Property(e => e.GhiChu)
@@ -1602,7 +1581,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Tang>(entity =>
         {
-            entity.HasKey(e => e.MaTang).HasName("PK__Tang__2918EFC912BB8A84");
+            entity.HasKey(e => e.MaTang).HasName("PK__Tang__2918EFC9676DD786");
 
             entity.ToTable("Tang");
 
@@ -1629,7 +1608,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Tbdb>(entity =>
         {
-            entity.HasKey(e => e.MaTbdb).HasName("PK__TBDB__40B37F589B6AC32C");
+            entity.HasKey(e => e.MaTbdb).HasName("PK__TBDB__40B37F58602CAA84");
 
             entity.ToTable("TBDB");
 
@@ -1638,134 +1617,37 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
                 .IsUnicode(false)
                 .HasColumnName("maTBDB");
             entity.Property(e => e.CapNhatMoiNhat).HasColumnName("capNhatMoiNhat");
-            entity.Property(e => e.DonGia)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("donGia");
             entity.Property(e => e.GhiChu)
                 .HasMaxLength(1000)
                 .HasColumnName("ghiChu");
-            entity.Property(e => e.MaCcl).HasColumnName("maCCL");
             entity.Property(e => e.MaDvt)
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("maDVT");
-            entity.Property(e => e.MaHinhThucNiemCat)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maHinhThucNiemCat");
-            entity.Property(e => e.MaHom)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maHom");
-            entity.Property(e => e.MaKho)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKho");
-            entity.Property(e => e.MaKhoi)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKhoi");
-            entity.Property(e => e.MaKhu)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maKhu");
             entity.Property(e => e.MaLoaiTbdb)
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("maLoaiTBDB");
-            entity.Property(e => e.MaNhaKho)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maNhaKho");
-            entity.Property(e => e.MaNuocSx)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maNuocSX");
-            entity.Property(e => e.MaTang)
-                .HasMaxLength(30)
-                .IsUnicode(false)
-                .HasColumnName("maTang");
-            entity.Property(e => e.MaTinhTrangBaoGoi)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maTinhTrangBaoGoi");
-            entity.Property(e => e.MaTrangThaiTb)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("maTrangThaiTB");
-            entity.Property(e => e.NamSx).HasColumnName("namSX");
-            entity.Property(e => e.SoLuong).HasColumnName("soLuong");
             entity.Property(e => e.TenTbdb)
                 .HasMaxLength(100)
                 .HasColumnName("tenTBDB");
-            entity.Property(e => e.ThanhTien)
-                .HasComputedColumnSql("(isnull([soLuong],(0))*isnull([donGia],(0)))", true)
-                .HasColumnType("decimal(29, 2)")
-                .HasColumnName("thanhTien");
             entity.Property(e => e.ThoiGianTao)
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("thoiGianTao");
-            entity.Property(e => e.ViTri)
-                .HasMaxLength(500)
-                .HasColumnName("viTri");
-
-            entity.HasOne(d => d.MaCclNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaCcl)
-                .HasConstraintName("FK_TBDB_CCL");
 
             entity.HasOne(d => d.MaDvtNavigation).WithMany(p => p.Tbdbs)
                 .HasForeignKey(d => d.MaDvt)
                 .HasConstraintName("FK_TBDB_DVT");
 
-            entity.HasOne(d => d.MaHinhThucNiemCatNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaHinhThucNiemCat)
-                .HasConstraintName("FK_TBDB_HTNC");
-
-            entity.HasOne(d => d.MaHomNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaHom)
-                .HasConstraintName("FK_TBDB_Hom");
-
-            entity.HasOne(d => d.MaKhoNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaKho)
-                .HasConstraintName("FK_TBDB_Kho");
-
-            entity.HasOne(d => d.MaKhoiNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaKhoi)
-                .HasConstraintName("FK_TBDB_Khoi");
-
-            entity.HasOne(d => d.MaKhuNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaKhu)
-                .HasConstraintName("FK_TBDB_DinhKhu");
-
             entity.HasOne(d => d.MaLoaiTbdbNavigation).WithMany(p => p.Tbdbs)
                 .HasForeignKey(d => d.MaLoaiTbdb)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_TBDB_Loai");
-
-            entity.HasOne(d => d.MaNhaKhoNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaNhaKho)
-                .HasConstraintName("FK_TBDB_NhaKho");
-
-            entity.HasOne(d => d.MaNuocSxNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaNuocSx)
-                .HasConstraintName("FK_TBDB_NSX");
-
-            entity.HasOne(d => d.MaTangNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaTang)
-                .HasConstraintName("FK_TBDB_Tang");
-
-            entity.HasOne(d => d.MaTinhTrangBaoGoiNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaTinhTrangBaoGoi)
-                .HasConstraintName("FK_TBDB_TTBG");
-
-            entity.HasOne(d => d.MaTrangThaiTbNavigation).WithMany(p => p.Tbdbs)
-                .HasForeignKey(d => d.MaTrangThaiTb)
-                .HasConstraintName("FK_TBDB_TrangThai");
         });
 
         modelBuilder.Entity<Tinh>(entity =>
         {
-            entity.HasKey(e => e.MaTinh).HasName("PK__Tinh__135EFA381BAC159C");
+            entity.HasKey(e => e.MaTinh).HasName("PK__Tinh__135EFA3888A90BDD");
 
             entity.ToTable("Tinh");
 
@@ -1787,7 +1669,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<TinhChatNhapXuat>(entity =>
         {
-            entity.HasKey(e => e.MaNx).HasName("PK__TinhChat__7A3EC7D742BF157D");
+            entity.HasKey(e => e.MaNx).HasName("PK__TinhChat__7A3EC7D7BFDA13A2");
 
             entity.ToTable("TinhChatNhapXuat");
 
@@ -1809,7 +1691,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<TinhTrangBaoGoi>(entity =>
         {
-            entity.HasKey(e => e.MaTtbg).HasName("PK__TinhTran__27FB0C0881E9F525");
+            entity.HasKey(e => e.MaTtbg).HasName("PK__TinhTran__27FB0C0847F1544B");
 
             entity.ToTable("TinhTrangBaoGoi");
 
@@ -1825,9 +1707,73 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
                 .HasColumnName("tenTTBG");
         });
 
+        modelBuilder.Entity<TonKhoTbdb>(entity =>
+        {
+            entity.HasKey(e => e.MaTonKho);
+
+            entity.ToTable("TonKhoTBDB");
+
+            entity.Property(e => e.MaTonKho).HasColumnName("maTonKho");
+            entity.Property(e => e.CapNhatMoiNhat)
+                .HasDefaultValueSql("(sysdatetime())")
+                .HasColumnName("capNhatMoiNhat");
+            entity.Property(e => e.GhiChu)
+                .HasMaxLength(500)
+                .HasColumnName("ghiChu");
+            entity.Property(e => e.MaKho)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasColumnName("maKho");
+            entity.Property(e => e.MaLoTbdb)
+                .HasMaxLength(30)
+                .IsUnicode(false)
+                .HasColumnName("maLoTBDB");
+            entity.Property(e => e.MaTrangThaiTb)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("maTrangThaiTB");
+            entity.Property(e => e.MoTaViTri)
+                .HasMaxLength(300)
+                .HasColumnName("moTaViTri");
+            entity.Property(e => e.SoLuong).HasColumnName("soLuong");
+            entity.Property(e => e.TenDinhKhu)
+                .HasMaxLength(100)
+                .HasColumnName("tenDinhKhu");
+            entity.Property(e => e.TenGia)
+                .HasMaxLength(100)
+                .HasColumnName("tenGia");
+            entity.Property(e => e.TenHom)
+                .HasMaxLength(100)
+                .HasColumnName("tenHom");
+            entity.Property(e => e.TenKhoi)
+                .HasMaxLength(100)
+                .HasColumnName("tenKhoi");
+            entity.Property(e => e.TenNhaKho)
+                .HasMaxLength(100)
+                .HasColumnName("tenNhaKho");
+            entity.Property(e => e.TenTang)
+                .HasMaxLength(100)
+                .HasColumnName("tenTang");
+
+            entity.HasOne(d => d.MaKhoNavigation).WithMany(p => p.TonKhoTbdbs)
+                .HasForeignKey(d => d.MaKho)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TonKhoTBDB_Kho");
+
+            entity.HasOne(d => d.MaLoTbdbNavigation).WithMany(p => p.TonKhoTbdbs)
+                .HasForeignKey(d => d.MaLoTbdb)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TonKhoTBDB_LoTBDB");
+
+            entity.HasOne(d => d.MaTrangThaiTbNavigation).WithMany(p => p.TonKhoTbdbs)
+                .HasForeignKey(d => d.MaTrangThaiTb)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_TonKhoTBDB_TrangThai");
+        });
+
         modelBuilder.Entity<TrangThaiTb>(entity =>
         {
-            entity.HasKey(e => e.MaTttb).HasName("PK__TrangTha__27FB8278271AB701");
+            entity.HasKey(e => e.MaTttb).HasName("PK__TrangTha__27FB827886C044A0");
 
             entity.ToTable("TrangThaiTB");
 
@@ -1845,7 +1791,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<VaiTro>(entity =>
         {
-            entity.HasKey(e => e.MaVaiTro).HasName("PK__VaiTro__BFC88AB7701E37CE");
+            entity.HasKey(e => e.MaVaiTro).HasName("PK__VaiTro__BFC88AB7E0424E35");
 
             entity.ToTable("VaiTro");
 
@@ -1895,7 +1841,7 @@ public partial class QuanLyKhoQuanKhiContext : DbContext
 
         modelBuilder.Entity<Xa>(entity =>
         {
-            entity.HasKey(e => e.MaXa).HasName("PK__Xa__7A2182CF73868C68");
+            entity.HasKey(e => e.MaXa).HasName("PK__Xa__7A2182CF1387215A");
 
             entity.ToTable("Xa");
 

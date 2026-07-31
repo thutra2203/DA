@@ -8,6 +8,8 @@ import {
   FiBookOpen, FiGrid, FiArchive, FiBook,
   FiLogOut, FiUser, FiShield, FiClock,
   FiTarget, FiLayers, FiBarChart2, FiMapPin, FiMap,
+  FiFileText, FiPlusSquare, FiEdit, FiPackage,
+  FiCheckSquare, FiAward, FiTrash2, FiRepeat, FiCornerUpRight,
 } from 'react-icons/fi';
 import logoMTA from '../../assets/logo-hvktqs.png';
 import './MainLayout.css';
@@ -77,7 +79,21 @@ const menuItems = [
     ],
   },
   { label: 'Quản lý SPKT', path: '/spkt', icon: <FiTarget /> },
-  { label: 'Quản lý TB đồng bộ', path: '/tb-dong-bo', icon: <FiLayers /> },
+  {
+    label: 'Quản lý TB đồng bộ',
+    icon: <FiLayers />,
+    children: [
+      { label: 'Hồ sơ TB đồng bộ', path: '/tb-dong-bo/ho-so', icon: <FiFileText /> },
+      { label: 'Tạo lệnh nhập/xuất', path: '/tb-dong-bo/tao-lenh-nhap-xuat', icon: <FiPlusSquare /> },
+      { label: 'Cập nhật lệnh nhập/xuất', path: '/tb-dong-bo/cap-nhat-lenh-nhap-xuat', icon: <FiEdit /> },
+      { label: 'Tồn đầu', path: '/tb-dong-bo/ton-dau', icon: <FiPackage /> },
+      { label: 'Kiểm kê', path: '/tb-dong-bo/kiem-ke', icon: <FiCheckSquare /> },
+      { label: 'Quản lý phân cấp chất lượng', path: '/tb-dong-bo/phan-cap-chat-luong', icon: <FiAward /> },
+      { label: 'Hủy/Thanh lý', path: '/tb-dong-bo/huy-thanh-ly', icon: <FiTrash2 /> },
+      { label: 'Chuyển nước, chuyển loại', path: '/tb-dong-bo/chuyen-nuoc-chuyen-loai', icon: <FiRepeat /> },
+      { label: 'Chuyển thành VTPT', path: '/tb-dong-bo/chuyen-thanh-vtpt', icon: <FiCornerUpRight /> },
+    ],
+  },
   { label: 'Tổng hợp, báo cáo', path: '/bao-cao', icon: <FiBarChart2 /> },
 ];
 

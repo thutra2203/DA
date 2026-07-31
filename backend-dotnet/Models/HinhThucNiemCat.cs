@@ -9,11 +9,7 @@ public partial class HinhThucNiemCat
 
     public string TenHtnc { get; set; } = null!;
 
-    public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
-
     public virtual ICollection<HoSoSpkt> HoSoSpkts { get; set; } = new List<HoSoSpkt>();
 
     public virtual ICollection<SpkttrongLenh> SpkttrongLenhs { get; set; } = new List<SpkttrongLenh>();
-
-    public virtual ICollection<Tbdb> Tbdbs { get; set; } = new List<Tbdb>();
 }

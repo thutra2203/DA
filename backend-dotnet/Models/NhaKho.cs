@@ -18,6 +18,4 @@ public partial class NhaKho
     public virtual ICollection<HoSoSpkt> HoSoSpkts { get; set; } = new List<HoSoSpkt>();
 
     public virtual Kho MaKhoNavigation { get; set; } = null!;
-
-    public virtual ICollection<Tbdb> Tbdbs { get; set; } = new List<Tbdb>();
 }

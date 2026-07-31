@@ -9,6 +9,9 @@ import PhanQuyen from './pages/PhanQuyen';
 import QuanLyVaiTro from './pages/QuanLyVaiTro';
 import NhatKyHoatDong from './pages/NhatKyHoatDong';
 import ComingSoon from './pages/ComingSoon';
+import HoSoTbDongBo from './pages/tbDongBo/HoSoTbDongBo';
+import LenhTbDongBo from './pages/tbDongBo/LenhTbDongBo';
+import CapNhatLenhTbDongBo from './pages/tbDongBo/CapNhatLenhTbDongBo';
 import { PermissionProvider } from './context/PermissionContext';
 
 function PrivateRoute({ children }) {
@@ -60,7 +63,17 @@ function AppRoutes() {
               <Route path="/danh-muc/trang-thai-tb" element={<DanhMucPage type="trang-thai-tb" />} />
 
               <Route path="/spkt" element={<ComingSoon title="Quản lý SPKT" icon="🎯" desc="Chức năng quản lý súng pháo kỹ thuật đang được thiết kế cấu trúc dữ liệu." />} />
-              <Route path="/tb-dong-bo" element={<ComingSoon title="Quản lý TB đồng bộ" icon="🧩" desc="Chức năng quản lý trang bị đồng bộ đang được thiết kế cấu trúc dữ liệu." />} />
+
+              <Route path="/tb-dong-bo/ho-so" element={<HoSoTbDongBo />} />
+              <Route path="/tb-dong-bo/tao-lenh-nhap-xuat" element={<LenhTbDongBo />} />
+              <Route path="/tb-dong-bo/cap-nhat-lenh-nhap-xuat" element={<CapNhatLenhTbDongBo />} />
+              <Route path="/tb-dong-bo/ton-dau" element={<ComingSoon title="Tồn đầu" icon="📦" desc="Chức năng khai báo tồn đầu trang bị đồng bộ đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/kiem-ke" element={<ComingSoon title="Kiểm kê" icon="✅" desc="Chức năng kiểm kê trang bị đồng bộ đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/phan-cap-chat-luong" element={<ComingSoon title="Quản lý phân cấp chất lượng" icon="🏅" desc="Chức năng quản lý phân cấp chất lượng trang bị đồng bộ đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/huy-thanh-ly" element={<ComingSoon title="Hủy/Thanh lý" icon="🗑️" desc="Chức năng hủy/thanh lý trang bị đồng bộ đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/chuyen-nuoc-chuyen-loai" element={<ComingSoon title="Chuyển nước, chuyển loại" icon="🔄" desc="Chức năng chuyển nước, chuyển loại trang bị đồng bộ đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/chuyen-thanh-vtpt" element={<ComingSoon title="Chuyển thành VTPT" icon="↪️" desc="Chức năng chuyển trang bị đồng bộ thành VTPT đang được xây dựng." />} />
+
               <Route path="/bao-cao" element={<ComingSoon title="Tổng hợp, báo cáo" icon="📊" desc="Chức năng tổng hợp báo cáo đang được xây dựng." />} />
             </Routes>
           </MainLayout>

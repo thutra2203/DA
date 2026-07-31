@@ -19,5 +19,7 @@ public partial class Ncc
 
     public string? MaNsx { get; set; }
 
+    public virtual ICollection<Lenh> Lenhs { get; set; } = new List<Lenh>();
+
     public virtual Nsx? MaNsxNavigation { get; set; }
 }

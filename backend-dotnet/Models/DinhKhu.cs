@@ -18,6 +18,4 @@ public partial class DinhKhu
     public virtual ICollection<KhoiHang> KhoiHangs { get; set; } = new List<KhoiHang>();
 
     public virtual NhaKho MaNhaKhoNavigation { get; set; } = null!;
-
-    public virtual ICollection<Tbdb> Tbdbs { get; set; } = new List<Tbdb>();
 }
