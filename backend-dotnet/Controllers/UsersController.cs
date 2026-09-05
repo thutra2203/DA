@@ -21,6 +21,8 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
             from ndvt in vtJoin.DefaultIfEmpty()
             join vt in db.VaiTros on ndvt.MaVaiTro equals vt.MaVaiTro into vtJoin2
             from vt in vtJoin2.DefaultIfEmpty()
+            join kho in db.Khos on nd.MaDonVi equals kho.MaKho into khoJoin
+            from kho in khoJoin.DefaultIfEmpty()
             orderby nd.CreatedAt descending
             select new UserListItem
             {
@@ -30,6 +32,8 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
                 VaiTro = vt.MaVaiTro,
                 TrangThai = nd.BiKhoa ? 0 : 1,
                 NgayTao = nd.CreatedAt,
+                MaDonVi = nd.MaDonVi,
+                TenDonVi = kho.TenKho,
             }
         ).ToListAsync();
 
@@ -59,9 +63,12 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
             IsActive = true,
             BiKhoa = false,
             CreatedAt = DateTime.Now,
+            MaDonVi = string.IsNullOrWhiteSpace(body.MaDonVi) ? null : body.MaDonVi,
         };
         db.NguoiDungs.Add(newUser);
-        await db.SaveChangesAsync();
+
+        try { await db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) { return BadRequest(new { message = DbErrorTranslator.Translate(ex) }); }
 
         db.NguoiDungVaiTros.Add(new NguoiDungVaiTro { MaNguoiDung = newUser.MaNd, MaVaiTro = body.VaiTro! });
         await db.SaveChangesAsync();
@@ -87,6 +94,24 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
             $"Đổi vai trò tài khoản ID {id} thành \"{body.VaiTro}\"");
 
         return Ok(new { message = "Cập nhật quyền thành công" });
+    }
+
+    [HttpPut("{id:int}/kho")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> UpdateKho(int id, [FromBody] UpdateUserKhoRequest body)
+    {
+        var user = await db.NguoiDungs.FindAsync(id);
+        if (user == null) return NotFound(new { message = "Không tìm thấy tài khoản" });
+
+        user.MaDonVi = string.IsNullOrWhiteSpace(body.MaDonVi) ? null : body.MaDonVi;
+
+        try { await db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) { return BadRequest(new { message = DbErrorTranslator.Translate(ex) }); }
+
+        await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "NguoiDung", id.ToString(),
+            $"Gán kho cho tài khoản ID {id}: {(user.MaDonVi ?? "(không giới hạn)")}");
+
+        return Ok(new { message = "Cập nhật kho thành công" });
     }
 
     [HttpPut("{id:int}/reset-password")]

@@ -17,7 +17,7 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
         if (string.IsNullOrEmpty(body.Username) || string.IsNullOrEmpty(body.Password))
             return BadRequest(new { message = "Vui lòng nhập tài khoản và mật khẩu" });
 
-        var user = await db.NguoiDungs.FirstOrDefaultAsync(u => u.TenDangNhap == body.Username);
+        var user = await db.NguoiDungs.Include(u => u.MaDonViNavigation).FirstOrDefaultAsync(u => u.TenDangNhap == body.Username);
 
         if (user == null)
         {
@@ -48,14 +48,14 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
         user.LanDangNhapCuoi = DateTime.Now;
         await db.SaveChangesAsync();
 
-        var token = tokenService.GenerateToken(user.MaNd, user.TenDangNhap, maVaiTro ?? "");
+        var token = tokenService.GenerateToken(user.MaNd, user.TenDangNhap, maVaiTro ?? "", user.MaDonVi);
 
         await log.LogAsync(user.MaNd, user.TenDangNhap, "DANG_NHAP", ketQua: "THANH_CONG");
 
         return Ok(new LoginResponse(
             "Đăng nhập thành công",
             token,
-            new UserSummary(user.MaNd, user.TenDangNhap, user.HoTen, maVaiTro)));
+            new UserSummary(user.MaNd, user.TenDangNhap, user.HoTen, maVaiTro, user.MaDonVi, user.MaDonViNavigation?.TenKho)));
     }
 
     [HttpPost("logout")]

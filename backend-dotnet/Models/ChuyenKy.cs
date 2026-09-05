@@ -22,4 +22,6 @@ public partial class ChuyenKy
     public string? GhiChu { get; set; }
 
     public virtual PhieuKiemKe MaPhieuKiemKeNavigation { get; set; } = null!;
+
+    public virtual ICollection<TonDauKy> TonDauKies { get; set; } = new List<TonDauKy>();
 }

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { nhatKyAPI } from '../services/api';
-import { FiClock, FiSearch, FiShieldOff } from 'react-icons/fi';
+import { FiSearch, FiShieldOff } from 'react-icons/fi';
 import SkeletonTable from '../components/ui/SkeletonTable';
 import Pagination from '../components/ui/Pagination';
+import { usePageTitle } from '../context/PageHeaderContext';
 import '../styles/shared.css';
 
 const PAGE_SIZE = 20;
@@ -36,6 +37,7 @@ const ketQuaConfig = {
 };
 
 export default function NhatKyHoatDong() {
+  usePageTitle('Nhật ký hoạt động');
   const { user } = useAuth();
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
@@ -71,13 +73,7 @@ export default function NhatKyHoatDong() {
   return (
     <div>
       <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon" style={{ background: '#e8eaf6' }}><FiClock size={20} color="#3949ab" /></div>
-          <div>
-            <h2 className="page-title">Nhật ký hoạt động</h2>
-            <p className="page-sub">Theo dõi đăng nhập, đăng xuất và các thao tác trong hệ thống (chỉ Admin)</p>
-          </div>
-        </div>
+        <p className="page-sub">Theo dõi đăng nhập, đăng xuất và các thao tác trong hệ thống (chỉ Admin)</p>
       </div>
 
       <div className="data-card">
@@ -130,11 +126,11 @@ export default function NhatKyHoatDong() {
                         <td className="td-muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                           {new Date(log.ThoiGian).toLocaleString('vi-VN')}
                         </td>
-                        <td className="main-value">{log.TenDangNhap || '—'}</td>
+                        <td className="main-value">{log.TenDangNhap || ''}</td>
                         <td>
                           <span className="badge" style={{ background: ac.bg, color: ac.color }}>{ac.label}</span>
                         </td>
-                        <td>{log.MoTa || log.LyDoThatBai || '—'}</td>
+                        <td>{log.MoTa || log.LyDoThatBai || ''}</td>
                         <td>
                           <span className="badge" style={{ background: kc.bg, color: kc.color }}>{kc.label}</span>
                         </td>

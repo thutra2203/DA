@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { lenhTbDongBoAPI, tbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { lenhTbDongBoAPI, danhMucAPI } from '../../services/api';
+import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
+import { usePageTitle } from '../../context/PageHeaderContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useAuth } from '../../context/AuthContext';
+import LenhPrintView from './LenhPrintView';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
@@ -9,34 +14,75 @@ import './HoSoTbDongBo.css';
 const PAGE_SIZE = 10;
 const CAP_LIST = [1, 2, 3, 4, 5];
 
-const fmtMoney = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('vi-VN'));
-const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : '—');
+const fmtMoney = (v) => (v === null || v === undefined ? '' : Number(v).toLocaleString('vi-VN'));
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : '');
 
 const isXuat = (tenLoaiLenh) => (tenLoaiLenh || '').toLowerCase().includes('xuất');
 
+// Quá hạn: lệnh chưa kết thúc mà "Giá trị đến ngày" đã qua (so sánh theo ngày, bỏ giờ phút).
+const isQuaHan = (row) => {
+  if (!row.giaTriDenNgay) return false;
+  const hetHan = new Date(row.giaTriDenNgay); hetHan.setHours(0, 0, 0, 0);
+  const homNay = new Date(); homNay.setHours(0, 0, 0, 0);
+  return hetHan < homNay;
+};
+
 export default function LenhTbDongBo() {
+  usePageTitle('Lệnh nhập/xuất TB đồng bộ');
+  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const maKhoNguoiDung = user?.maDonVi || null;
   const [loaiLenhList, setLoaiLenhList] = useState([]);
   const [activeLoaiLenh, setActiveLoaiLenh] = useState('');
   const [lyDoList, setLyDoList] = useState([]);
   const [htttList, setHtttList] = useState([]);
   const [khoList, setKhoList] = useState([]);
   const [nccList, setNccList] = useState([]);
-  const [cclList, setCclList] = useState([]);
-  const [tbdbList, setTbdbList] = useState([]);
-  const [loaiTbdbList, setLoaiTbdbList] = useState([]);
+  const [htVanChuyenList, setHtVanChuyenList] = useState([]);
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedKho, setSelectedKho] = useState(maKhoNguoiDung || 'ALL');
+  const [selectedLyDo, setSelectedLyDo] = useState('ALL');
+  const [selectedTrangThai, setSelectedTrangThai] = useState('ALL');
   const [page, setPage] = useState(1);
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
-  const [detailLenh, setDetailLenh] = useState(null);
+  const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
+  const [printData, setPrintData] = useState(null); // { lenh, rows } — dữ liệu của lệnh đang chuẩn bị in
+  const [dangInLenh, setDangInLenh] = useState(false);
+  const [maLenhChonIn, setMaLenhChonIn] = useState(null); // chỉ chọn được đúng 1 lệnh để in tại 1 thời điểm
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
+
+  const toggleChonIn = (maLenh) => setMaLenhChonIn(prev => (prev === maLenh ? null : maLenh));
+
+  // In nhanh ngay từ danh sách, không cần điều hướng sang trang chi tiết — tự tải thông tin lệnh
+  // + danh sách dòng chi tiết của lệnh đang được chọn (checkbox), render ẩn (LenhPrintView) rồi mở
+  // hộp thoại in ngay khi có đủ dữ liệu.
+  const handlePrint = async () => {
+    if (!maLenhChonIn) return;
+    setDangInLenh(true);
+    try {
+      const [lenhRes, ctRes] = await Promise.all([
+        lenhTbDongBoAPI.getOne(maLenhChonIn),
+        lenhTbDongBoAPI.chiTiet.getAll(maLenhChonIn),
+      ]);
+      setPrintData({ lenh: lenhRes.data, rows: ctRes.data });
+    } catch { showToast('Không tải được dữ liệu để in', 'error'); }
+    finally { setDangInLenh(false); }
+  };
+
+  useEffect(() => {
+    if (!printData) return;
+    const t = setTimeout(() => window.print(), 150);
+    return () => clearTimeout(t);
+  }, [printData]);
 
   useEffect(() => {
     Promise.all([
@@ -45,45 +91,58 @@ export default function LenhTbDongBo() {
       danhMucAPI.getAll('httt').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('kho').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('ncc').then(res => res.data).catch(() => []),
-      danhMucAPI.getAll('cap-chat-luong').then(res => res.data).catch(() => []),
-      danhMucAPI.getAll('loai-tbdb').then(res => res.data).catch(() => []),
-      tbDongBoAPI.getByKho('ALL').then(res => res.data).catch(() => []),
-    ]).then(([nx, ctnx, httt, kho, ncc, ccl, loaiTbdb, tbdb]) => {
-      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB');
+      danhMucAPI.getAll('ht-van-chuyen').then(res => res.data).catch(() => []),
+    ]).then(([nx, ctnx, httt, kho, ncc, htvc]) => {
+      // Loại "Xuất hủy/thanh lý" (NX05) đã có màn hình riêng ("Hủy/Thanh lý" ở menu), không hiện
+      // lại ở đây để tránh trùng chức năng.
+      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && n.maNX !== 'NX05');
       setLoaiLenhList(nxTbdb);
       setActiveLoaiLenh(nxTbdb[0]?.maNX || '');
       setLyDoList(ctnx);
       setHtttList(httt);
       setKhoList(kho);
       setNccList(ncc);
-      setCclList(ccl);
-      setLoaiTbdbList(loaiTbdb);
-      setTbdbList(tbdb);
+      setHtVanChuyenList(htvc);
     });
   }, []);
 
-  const loadItems = (maLoaiLenh) => {
+  const loadItems = (maLoaiLenh, maKho) => {
     if (!maLoaiLenh) return;
     setLoading(true);
-    return lenhTbDongBoAPI.getAll(maLoaiLenh)
+    return lenhTbDongBoAPI.getAll(maLoaiLenh, maKho && maKho !== 'ALL' ? maKho : undefined)
       .then(res => setItems(res.data))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadItems(activeLoaiLenh); }, [activeLoaiLenh]);
+  useEffect(() => { loadItems(activeLoaiLenh, selectedKho); }, [activeLoaiLenh, selectedKho]);
+  useEffect(() => { setSelectedLyDo('ALL'); setMaLenhChonIn(null); }, [activeLoaiLenh]);
 
   const activeLoai = loaiLenhList.find(n => n.maNX === activeLoaiLenh);
   const xuat = isXuat(activeLoai?.tenNX);
+  // khoMap giữ TOÀN BỘ kho (kể cả KNV) để vẫn hiển thị đúng tên cho dữ liệu lịch sử nếu có; chỉ danh
+  // sách CHỌN trong form/bộ lọc mới giới hạn kho vật lý — kho nghiệp vụ (KNV, VD "Kho chuyển cấp"/
+  // "Kho hủy/thanh lý") là kho nội bộ dành riêng cho 2 chức năng đó, không tham gia lệnh Nhập/Xuất chung.
   const khoMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.tenKho])), [khoList]);
+  const khoVatLyList = useMemo(() => khoList.filter(k => k.maLoaiKho !== 'KNV'), [khoList]);
 
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(l => [l.maLenh, l.veViec, l.canCu, l.tenLyDo].some(v => String(v ?? '').toLowerCase().includes(q)));
-  }, [items, search]);
+    return items.filter(l => {
+      if (selectedLyDo !== 'ALL' && l.maLenhChiTiet !== selectedLyDo) return false;
+      if (selectedTrangThai !== 'ALL') {
+        const daHoanThanh = l.trangThai === 'HOAN_THANH';
+        const quaHan = !daHoanThanh && isQuaHan(l);
+        if (selectedTrangThai === 'HOAN_THANH' && !daHoanThanh) return false;
+        if (selectedTrangThai === 'QUA_HAN' && !quaHan) return false;
+        if (selectedTrangThai === 'DANG_XU_LY' && (daHoanThanh || quaHan)) return false;
+      }
+      if (!q) return true;
+      return [l.maLenh, l.veViec, l.canCu, l.tenLyDo].some(v => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [items, search, selectedLyDo, selectedTrangThai]);
 
-  useEffect(() => { setPage(1); }, [activeLoaiLenh, search]);
+  useEffect(() => { setPage(1); }, [activeLoaiLenh, selectedKho, selectedLyDo, selectedTrangThai, search]);
   const paged = bySearch.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
 
@@ -91,8 +150,9 @@ export default function LenhTbDongBo() {
     setEditing(null);
     setForm({
       maLenh: '', maLenhChiTiet: '', ngay: new Date().toISOString().slice(0, 10), ngayHieuLuc: '', giaTriDenNgay: '',
-      trangThai: '', canCu: '', veViec: '', maHttt: '', maKhoNhap: '', maKhoXuat: '', maNcc: '', doiTacLoai: 'KHO', ptVanChuyen: '', ghiChu: '',
+      trangThai: 'DANG_XU_LY', canCu: '', veViec: '', maHttt: '', maKhoNhap: '', maKhoXuat: '', maNcc: '', doiTacLoai: 'KHO', ptVanChuyen: '', donViChuyen: '', ghiChu: '',
     });
+    setErrors({});
     setShowModal(true);
   };
   const openEdit = (row) => {
@@ -102,9 +162,35 @@ export default function LenhTbDongBo() {
       giaTriDenNgay: row.giaTriDenNgay ?? '', trangThai: row.trangThai ?? '', canCu: row.canCu ?? '', veViec: row.veViec ?? '',
       maHttt: row.maHttt ?? '', maKhoNhap: row.maKhoNhap ?? '', maKhoXuat: row.maKhoXuat ?? '', maNcc: row.maNcc ?? '',
       doiTacLoai: row.maNcc ? 'NCC' : 'KHO',
-      ptVanChuyen: row.ptVanChuyen ?? '', ghiChu: row.ghiChu ?? '',
+      ptVanChuyen: row.ptVanChuyen ?? '', donViChuyen: row.donViChuyen ?? '', ghiChu: row.ghiChu ?? '',
     });
+    setErrors({});
     setShowModal(true);
+  };
+
+  const clearError = (col) => setErrors(prev => {
+    if (!prev[col]) return prev;
+    const next = { ...prev };
+    delete next[col];
+    return next;
+  });
+
+  // khoTuThan = kho đang thao tác (kho nhập cho lệnh Nhập, kho xuất cho lệnh Xuất).
+  // doiTac = bên đối diện (NCC hoặc kho khác), dùng chung state maKhoNhap/maKhoXuat tùy chiều lệnh.
+  const validate = () => {
+    const next = {};
+    if (!form.maLenh || !form.maLenh.trim()) next.maLenh = 'Số lệnh không được để trống';
+    if (!form.ngay) next.ngay = 'Ngày không được để trống';
+    const khoTuThan = xuat ? form.maKhoXuat : form.maKhoNhap;
+    if (!khoTuThan) next.khoTuThan = xuat ? 'Kho xuất không được để trống' : 'Kho nhập không được để trống';
+    if (form.doiTacLoai === 'NCC') {
+      if (!form.maNcc) next.doiTac = 'Nhà cung cấp/đối tác không được để trống';
+    } else {
+      const khoDoiTac = xuat ? form.maKhoNhap : form.maKhoXuat;
+      if (!khoDoiTac) next.doiTac = 'Kho đối tác không được để trống';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const buildPayload = () => ({
@@ -122,30 +208,34 @@ export default function LenhTbDongBo() {
     maKhoXuat: xuat ? (form.maKhoXuat || null) : (form.doiTacLoai === 'KHO' ? (form.maKhoXuat || null) : null),
     maNcc: form.doiTacLoai === 'NCC' ? (form.maNcc || null) : null,
     ptVanChuyen: form.ptVanChuyen || null,
+    donViChuyen: form.donViChuyen || null,
     ghiChu: form.ghiChu || null,
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       if (editing) {
         await lenhTbDongBoAPI.update(editing.maLenh, buildPayload());
         showToast('Cập nhật thành công!');
+        setShowModal(false);
+        loadItems(activeLoaiLenh, selectedKho);
       } else {
+        const maLenhMoi = form.maLenh;
         await lenhTbDongBoAPI.create(buildPayload());
-        showToast('Thêm mới thành công!');
+        setShowModal(false);
+        navigate(`/tb-dong-bo/tao-lenh-nhap-xuat/${maLenhMoi}`, { state: { flash: 'Tạo lệnh thành công!' } });
       }
-      setShowModal(false);
-      loadItems(activeLoaiLenh);
     } catch (err) { showToast(err.response?.data?.message || 'Lỗi thao tác', 'error'); }
   };
 
   const handleDelete = async (row) => {
-    if (!window.confirm(`Xóa lệnh "${row.maLenh}"? Chỉ xóa được khi chưa có dòng chi tiết.`)) return;
+    if (!(await confirm(`Xóa lệnh "${row.maLenh}"? Chỉ xóa được khi chưa có dòng chi tiết.`))) return;
     try {
       await lenhTbDongBoAPI.remove(row.maLenh);
       showToast('Xóa thành công!');
-      loadItems(activeLoaiLenh);
+      loadItems(activeLoaiLenh, selectedKho);
     } catch (err) { showToast(err.response?.data?.message || 'Không thể xóa, lệnh đang có dữ liệu liên quan', 'error'); }
   };
 
@@ -159,20 +249,19 @@ export default function LenhTbDongBo() {
         </div>
       )}
 
-      <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon" style={{ background: '#f0f4ff', fontSize: 22 }}>📝</div>
-          <div>
-            <h2 className="page-title">Lệnh nhập/xuất TB đồng bộ</h2>
-            <p className="page-sub">Tạo và cập nhật lệnh nhập/xuất, quản lý chi tiết đồng bộ theo lệnh</p>
+      <div className="data-card">
+        <div className="table-toolbar">
+          <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lệnh</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-print" onClick={handlePrint} disabled={!maLenhChonIn || dangInLenh}>
+              <FiPrinter style={{ marginRight: 6 }} /> {dangInLenh ? 'Đang tải...' : 'In lệnh'}
+            </button>
+            <button className="btn-add" onClick={openAdd} disabled={!activeLoaiLenh}>
+              <FiPlus style={{ marginRight: 6 }} /> Thêm lệnh
+            </button>
           </div>
         </div>
-        <button className="btn-add" onClick={openAdd} disabled={!activeLoaiLenh}>
-          <FiPlus style={{ marginRight: 6 }} /> Thêm lệnh
-        </button>
-      </div>
 
-      <div className="data-card">
         <div className="tbdb-loai-row">
           {loaiLenhList.map(n => (
             <button
@@ -185,20 +274,35 @@ export default function LenhTbDongBo() {
           ))}
         </div>
 
-        <div className="table-toolbar">
-          <div className="search-wrap" style={{ width: 260 }}>
-            <FiSearch className="search-icon" />
-            <input className="search-input" placeholder="Tìm theo số lệnh, về việc, căn cứ..."
-              value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="table-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="search-wrap" style={{ width: 260 }}>
+              <FiSearch className="search-icon" />
+              <input className="search-input" placeholder="Tìm theo số lệnh, về việc, căn cứ..."
+                value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select className="tbdb-filter-select" value={selectedLyDo} onChange={e => setSelectedLyDo(e.target.value)}>
+              <option value="ALL">Tất cả lý do</option>
+              {lyDoTrongLoai.map(l => <option key={l.maCTNX} value={l.maCTNX}>{l.tenCTNX}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)} disabled={!!maKhoNguoiDung}>
+              {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
+              {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedTrangThai} onChange={e => setSelectedTrangThai(e.target.value)}>
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="HOAN_THANH">Đã hoàn thành</option>
+              <option value="DANG_XU_LY">Đang xử lý</option>
+              <option value="QUA_HAN">Quá hạn</option>
+            </select>
           </div>
-          <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lệnh</span>
         </div>
 
         {loading ? (
-          <SkeletonTable cols={9} rows={6} />
+          <SkeletonTable cols={12} rows={6} />
         ) : bySearch.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📝</div>
+
             <div className="empty-state-title">Chưa có lệnh {activeLoai?.tenNX?.toLowerCase()} nào</div>
             <div className="empty-state-desc">Nhấn "+ Thêm lệnh" để tạo lệnh {activeLoai?.tenNX?.toLowerCase()} đầu tiên</div>
           </div>
@@ -208,41 +312,58 @@ export default function LenhTbDongBo() {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 36, textAlign: 'center' }}></th>
                     <th style={{ width: 50 }}>STT</th>
                     <th>Số lệnh</th>
                     <th>Ngày</th>
+                    <th>Ngày hết hạn</th>
                     <th>Lý do</th>
                     <th>{xuat ? 'Kho xuất' : 'Kho nhập'}</th>
                     <th>Đối tác</th>
                     <th>Về việc</th>
                     <th style={{ textAlign: 'center' }}>Số dòng</th>
+                    <th>Trạng thái</th>
                     <th style={{ width: 150, textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map((row, i) => (
-                    <tr key={row.maLenh}>
-                      <td className="td-muted td-center">{startIdx + i + 1}</td>
-                      <td><span className="sub-value">{row.maLenh}</span></td>
-                      <td>{fmtDate(row.ngay)}</td>
-                      <td>{row.tenLyDo || row.maLenhChiTiet || '—'}</td>
-                      <td>{xuat ? (row.tenKhoXuat || khoMap[row.maKhoXuat] || '—') : (row.tenKhoNhap || khoMap[row.maKhoNhap] || '—')}</td>
-                      <td>
-                        {row.maNcc
-                          ? <span className="badge tbdb-status-badge">{row.tenNcc || row.maNcc}</span>
-                          : (xuat ? (row.tenKhoNhap || khoMap[row.maKhoNhap] || '—') : (row.tenKhoXuat || khoMap[row.maKhoXuat] || '—'))}
-                      </td>
-                      <td>{row.veViec || '—'}</td>
-                      <td className="td-center"><span className="badge tbdb-status-badge">{row.soDongChiTiet}</span></td>
-                      <td className="td-center">
-                        <div className="td-actions">
-                          <button className="btn-icon-edit" onClick={() => setDetailLenh(row)} title="Chi tiết"><FiEye size={13} /></button>
-                          <button className="btn-icon-edit" onClick={() => openEdit(row)} title="Sửa"><FiEdit2 size={13} /></button>
-                          <button className="btn-icon-delete" onClick={() => handleDelete(row)} title="Xóa"><FiTrash2 size={13} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {paged.map((row, i) => {
+                    const daHoanThanh = row.trangThai === 'HOAN_THANH';
+                    return (
+                      <tr key={row.maLenh}>
+                        <td className="td-center">
+                          <input type="checkbox" checked={maLenhChonIn === row.maLenh} onChange={() => toggleChonIn(row.maLenh)} title="Chọn để in" />
+                        </td>
+                        <td className="td-muted td-center">{startIdx + i + 1}</td>
+                        <td><span className="sub-value">{row.maLenh}</span></td>
+                        <td>{fmtDate(row.ngay)}</td>
+                        <td>{fmtDate(row.giaTriDenNgay)}</td>
+                        <td>{row.tenLyDo || row.maLenhChiTiet || ''}</td>
+                        <td>{xuat ? (row.tenKhoXuat || khoMap[row.maKhoXuat] || '') : (row.tenKhoNhap || khoMap[row.maKhoNhap] || '')}</td>
+                        <td>
+                          {row.maNcc
+                            ? (row.tenNcc || row.maNcc)
+                            : (xuat ? (row.tenKhoNhap || khoMap[row.maKhoNhap] || '') : (row.tenKhoXuat || khoMap[row.maKhoXuat] || ''))}
+                        </td>
+                        <td>{row.veViec || ''}</td>
+                        <td className="td-center"><span className="badge tbdb-status-badge">{row.soDongChiTiet}</span></td>
+                        <td>
+                          {daHoanThanh
+                            ? <span className="badge badge--active"><FiCheckCircle size={11} style={{ marginRight: 4 }} />Đã hoàn thành</span>
+                            : isQuaHan(row)
+                              ? <span className="badge badge--locked">Quá hạn</span>
+                              : <span className="badge badge--pending">Đang xử lý</span>}
+                        </td>
+                        <td className="td-center">
+                          <div className="td-actions">
+                            <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/tao-lenh-nhap-xuat/${row.maLenh}`)} title="Chi tiết"><FiEye size={13} /></button>
+                            <button className="btn-icon-warn" disabled={daHoanThanh} onClick={() => openEdit(row)} title={daHoanThanh ? 'Lệnh đã hoàn thành, không thể sửa' : 'Sửa'}><FiEdit2 size={13} /></button>
+                            <button className="btn-icon-delete" disabled={daHoanThanh} onClick={() => handleDelete(row)} title={daHoanThanh ? 'Lệnh đã hoàn thành, không thể xóa' : 'Xóa'}><FiTrash2 size={13} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -255,15 +376,16 @@ export default function LenhTbDongBo() {
         <div className="overlay">
           <div className="modal modal--form fade-in">
             <div className="modal-header">
-              <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} — Lệnh {activeLoai?.tenNX}</h3>
+              <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} - Lệnh {activeLoai?.tenNX}</h3>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-body">
+            <form onSubmit={handleSubmit} className="modal-body" noValidate>
               <div className="form-grid-2col">
                 <div className="form-field">
                   <label className="form-label">Số lệnh *</label>
-                  <input className="form-input" required disabled={!!editing} value={form.maLenh ?? ''}
-                    onChange={e => setForm({ ...form, maLenh: e.target.value })} placeholder="VD: LNTB2026001" />
+                  <input className={`form-input${errors.maLenh ? ' form-input--invalid' : ''}`} disabled={!!editing} value={form.maLenh ?? ''}
+                    onChange={e => { setForm({ ...form, maLenh: e.target.value }); clearError('maLenh'); }} placeholder="VD: LNTB2026001" />
+                  {errors.maLenh && <p className="form-error-text">{errors.maLenh}</p>}
                 </div>
                 <div className="form-field">
                   <label className="form-label">Lý do</label>
@@ -275,8 +397,9 @@ export default function LenhTbDongBo() {
                 </div>
                 <div className="form-field">
                   <label className="form-label">Ngày *</label>
-                  <input className="form-input" type="date" required value={form.ngay ?? ''}
-                    onChange={e => setForm({ ...form, ngay: e.target.value })} />
+                  <input className={`form-input${errors.ngay ? ' form-input--invalid' : ''}`} type="date" value={form.ngay ?? ''}
+                    onChange={e => { setForm({ ...form, ngay: e.target.value }); clearError('ngay'); }} />
+                  {errors.ngay && <p className="form-error-text">{errors.ngay}</p>}
                 </div>
                 <div className="form-field">
                   <label className="form-label">Ngày hiệu lực</label>
@@ -309,65 +432,74 @@ export default function LenhTbDongBo() {
                 {!xuat ? (
                   <div className="form-field">
                     <label className="form-label">Kho nhập *</label>
-                    <select className="form-input" required value={form.maKhoNhap ?? ''}
-                      onChange={e => setForm({ ...form, maKhoNhap: e.target.value })}>
+                    <select className={`form-input${errors.khoTuThan ? ' form-input--invalid' : ''}`} value={form.maKhoNhap ?? ''}
+                      onChange={e => { setForm({ ...form, maKhoNhap: e.target.value }); clearError('khoTuThan'); }}>
                       <option value="">-- Chọn kho --</option>
-                      {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+                      {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
                     </select>
+                    {errors.khoTuThan && <p className="form-error-text">{errors.khoTuThan}</p>}
                   </div>
                 ) : (
                   <div className="form-field">
                     <label className="form-label">Kho xuất *</label>
-                    <select className="form-input" required value={form.maKhoXuat ?? ''}
-                      onChange={e => setForm({ ...form, maKhoXuat: e.target.value })}>
+                    <select className={`form-input${errors.khoTuThan ? ' form-input--invalid' : ''}`} value={form.maKhoXuat ?? ''}
+                      onChange={e => { setForm({ ...form, maKhoXuat: e.target.value }); clearError('khoTuThan'); }}>
                       <option value="">-- Chọn kho --</option>
-                      {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+                      {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
                     </select>
+                    {errors.khoTuThan && <p className="form-error-text">{errors.khoTuThan}</p>}
                   </div>
                 )}
                 <div className="form-field">
-                  <label className="form-label">{xuat ? 'Đối tác nhận (kho hoặc NCC)' : 'Đối tác giao (kho hoặc NCC)'} *</label>
+                  <label className="form-label">{xuat ? 'Kho xuất)' : 'Kho xuất'} *</label>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                     <button type="button"
                       className={`tbdb-loai-chip${form.doiTacLoai === 'KHO' ? ' tbdb-loai-chip--active' : ''}`}
                       onClick={() => setForm({ ...form, doiTacLoai: 'KHO' })}>
-                      <span className="tbdb-loai-chip-label">Kho nội bộ khác</span>
+                      <span className="tbdb-loai-chip-label">Kho nội bộ</span>
                     </button>
                     <button type="button"
                       className={`tbdb-loai-chip${form.doiTacLoai === 'NCC' ? ' tbdb-loai-chip--active' : ''}`}
                       onClick={() => setForm({ ...form, doiTacLoai: 'NCC' })}>
-                      <span className="tbdb-loai-chip-label">Nhà cung cấp/đối tác ngoài</span>
+                      <span className="tbdb-loai-chip-label">Nhà cung cấp</span>
                     </button>
                   </div>
                   {form.doiTacLoai === 'NCC' ? (
-                    <select className="form-input" required value={form.maNcc ?? ''}
-                      onChange={e => setForm({ ...form, maNcc: e.target.value })}>
-                      <option value="">-- Chọn nhà cung cấp/đối tác --</option>
+                    <select className={`form-input${errors.doiTac ? ' form-input--invalid' : ''}`} value={form.maNcc ?? ''}
+                      onChange={e => { setForm({ ...form, maNcc: e.target.value }); clearError('doiTac'); }}>
+                      <option value="">-- Chọn nhà cung cấp --</option>
                       {nccList.map(n => <option key={n.maNCC} value={n.maNCC}>{n.tenNCC}</option>)}
                     </select>
                   ) : xuat ? (
-                    <select className="form-input" required value={form.maKhoNhap ?? ''}
-                      onChange={e => setForm({ ...form, maKhoNhap: e.target.value })}>
+                    <select className={`form-input${errors.doiTac ? ' form-input--invalid' : ''}`} value={form.maKhoNhap ?? ''}
+                      onChange={e => { setForm({ ...form, maKhoNhap: e.target.value }); clearError('doiTac'); }}>
                       <option value="">-- Chọn kho --</option>
-                      {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+                      {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
                     </select>
                   ) : (
-                    <select className="form-input" required value={form.maKhoXuat ?? ''}
-                      onChange={e => setForm({ ...form, maKhoXuat: e.target.value })}>
+                    <select className={`form-input${errors.doiTac ? ' form-input--invalid' : ''}`} value={form.maKhoXuat ?? ''}
+                      onChange={e => { setForm({ ...form, maKhoXuat: e.target.value }); clearError('doiTac'); }}>
                       <option value="">-- Chọn kho --</option>
-                      {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+                      {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
                     </select>
                   )}
+                  {errors.doiTac && <p className="form-error-text">{errors.doiTac}</p>}
                 </div>
                 <div className="form-field">
                   <label className="form-label">Phương thức vận chuyển</label>
-                  <input className="form-input" value={form.ptVanChuyen ?? ''}
-                    onChange={e => setForm({ ...form, ptVanChuyen: e.target.value })} placeholder="VD: Ô tô" />
+                  <select className="form-input" value={form.ptVanChuyen ?? ''}
+                    onChange={e => setForm({ ...form, ptVanChuyen: e.target.value })}>
+                    <option value="">-- Chọn --</option>
+                    {form.ptVanChuyen && !htVanChuyenList.some(h => h.tenHTVC === form.ptVanChuyen) && (
+                      <option value={form.ptVanChuyen}>{form.ptVanChuyen}</option>
+                    )}
+                    {htVanChuyenList.map(h => <option key={h.maHTVC} value={h.tenHTVC}>{h.tenHTVC}</option>)}
+                  </select>
                 </div>
                 <div className="form-field">
-                  <label className="form-label">Trạng thái</label>
-                  <input className="form-input" value={form.trangThai ?? ''}
-                    onChange={e => setForm({ ...form, trangThai: e.target.value })} />
+                  <label className="form-label">Đơn vị chuyển</label>
+                  <input className="form-input" value={form.donViChuyen ?? ''}
+                    onChange={e => setForm({ ...form, donViChuyen: e.target.value })} />
                 </div>
                 <div className="form-field form-field--full">
                   <label className="form-label">Ghi chú</label>
@@ -386,303 +518,7 @@ export default function LenhTbDongBo() {
         </div>
       )}
 
-      {detailLenh && (
-        <ChiTietLenhModal
-          lenh={detailLenh}
-          xuat={isXuat(detailLenh.tenLoaiLenh)}
-          tbdbList={tbdbList}
-          loaiTbdbList={loaiTbdbList}
-          cclList={cclList}
-          onClose={() => setDetailLenh(null)}
-          onChanged={() => loadItems(activeLoaiLenh)}
-        />
-      )}
+      <LenhPrintView lenh={printData?.lenh} rows={printData?.rows} />
     </div>
   );
 }
-
-function ChiTietLenhModal({ lenh, xuat, tbdbList, loaiTbdbList, cclList, onClose, onChanged }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
-  const [addModal, setAddModal] = useState(null); // { maTbdb, soLuongTheoCap: {1:'',2:'',...}, donGia, ghiChu, selectedLoai, search }
-  const [editModal, setEditModal] = useState(null); // { row, soLuongTheoLenh, donGiaTheoLenh, ghiChu }
-
-  const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 2500); };
-
-  const load = () => {
-    setLoading(true);
-    return lenhTbDongBoAPI.chiTiet.getAll(lenh.maLenh)
-      .then(res => setRows(res.data))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, [lenh.maLenh]);
-
-  const soLuongLabel = xuat ? 'SL phải xuất' : 'SL phải nhập';
-
-  const openAdd = () => setAddModal({
-    maTbdb: '', soLuongTheoCap: { 1: '', 2: '', 3: '', 4: '', 5: '' }, donGia: '', ghiChu: '', selectedLoai: 'ALL', search: '',
-  });
-
-  const submitAdd = async (e) => {
-    e.preventDefault();
-    if (!addModal.maTbdb) { showToast('Chưa chọn trang bị đồng bộ', 'error'); return; }
-    const caps = CAP_LIST.filter(c => addModal.soLuongTheoCap[c] !== '' && Number(addModal.soLuongTheoCap[c]) > 0);
-    if (caps.length === 0) { showToast('Nhập ít nhất 1 cấp chất lượng có số lượng > 0', 'error'); return; }
-    try {
-      for (const cap of caps) {
-        await lenhTbDongBoAPI.chiTiet.create(lenh.maLenh, {
-          maTbdb: addModal.maTbdb,
-          maCcl: cap,
-          soLuongTheoLenh: Number(addModal.soLuongTheoCap[cap]),
-          donGiaTheoLenh: addModal.donGia === '' ? null : Number(addModal.donGia),
-          ghiChu: addModal.ghiChu || null,
-        });
-      }
-      showToast('Thêm dòng chi tiết thành công!');
-      setAddModal(null);
-      load();
-      onChanged();
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi thao tác', 'error'); }
-  };
-
-  const submitEdit = async (e) => {
-    e.preventDefault();
-    try {
-      await lenhTbDongBoAPI.chiTiet.update(lenh.maLenh, editModal.row.maCtdongBoLenh, {
-        maTbdb: editModal.row.maTbdb,
-        maCcl: editModal.row.maCcl,
-        soLuongTheoLenh: Number(editModal.soLuongTheoLenh),
-        donGiaTheoLenh: editModal.donGiaTheoLenh === '' ? null : Number(editModal.donGiaTheoLenh),
-        ghiChu: editModal.ghiChu || null,
-      });
-      showToast('Cập nhật thành công!');
-      setEditModal(null);
-      load();
-      onChanged();
-    } catch (err) { showToast(err.response?.data?.message || 'Lỗi thao tác', 'error'); }
-  };
-
-  const deleteRow = async (row) => {
-    if (row.daTaoLo) { showToast('Dòng này đã tạo lô, không thể xóa', 'error'); return; }
-    if (!window.confirm(`Xóa dòng "${row.tenTbdb || row.maTbdb}" (cấp ${row.maCcl})?`)) return;
-    try {
-      await lenhTbDongBoAPI.chiTiet.remove(lenh.maLenh, row.maCtdongBoLenh);
-      showToast('Xóa thành công!');
-      load();
-      onChanged();
-    } catch (err) { showToast(err.response?.data?.message || 'Không thể xóa', 'error'); }
-  };
-
-  const tbdbTrongLoai = (loai, q) => tbdbList.filter(t =>
-    (loai === 'ALL' || t.maLoaiTbdb === loai) &&
-    (!q || `${t.maTbdb} ${t.tenTbdb}`.toLowerCase().includes(q.toLowerCase()))
-  );
-
-  const tongSoLuongAdd = addModal
-    ? CAP_LIST.reduce((sum, cap) => sum + (Number(addModal.soLuongTheoCap[cap]) || 0), 0)
-    : 0;
-
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal modal--wide fade-in" onClick={e => e.stopPropagation()}>
-        {toast && (
-          <div className={`toast toast--${toast.type === 'error' ? 'error' : 'success'}`}>
-            {toast.type === 'error' ? '✗' : '✓'} {toast.text}
-          </div>
-        )}
-        <div className="modal-header">
-          <h3 className="modal-title">Chi tiết lệnh {lenh.tenLoaiLenh} — {lenh.maLenh}</h3>
-          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
-        </div>
-        <div className="modal-body">
-          <div className="tbdb-tab-toolbar">
-            <span className="form-hint">{lenh.veViec} {lenh.tenLyDo ? `— ${lenh.tenLyDo}` : ''}</span>
-            <button className="btn-add" style={{ padding: '7px 14px' }} onClick={openAdd}><FiPlus style={{ marginRight: 4 }} />Thêm dòng</button>
-          </div>
-
-          {loading ? (
-            <div className="empty-state" style={{ padding: '24px 0' }}>Đang tải...</div>
-          ) : rows.length === 0 ? (
-            <div className="empty-state" style={{ padding: '24px 0' }}>Chưa có dòng chi tiết nào</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Mã TB</th>
-                    <th>Tên TB</th>
-                    <th>Cấp chất lượng</th>
-                    <th style={{ textAlign: 'center' }}>{soLuongLabel}</th>
-                    <th style={{ textAlign: 'right' }}>Đơn giá</th>
-                    <th style={{ textAlign: 'right' }}>Thành tiền</th>
-                    <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(r => (
-                    <tr key={r.maCtdongBoLenh}>
-                      <td><span className="sub-value">{r.maTbdb}</span></td>
-                      <td>{r.tenTbdb || '—'}</td>
-                      <td>{r.tenCcl || r.maCcl}</td>
-                      <td className="td-center">{r.soLuongTheoLenh}</td>
-                      <td style={{ textAlign: 'right' }}>{fmtMoney(r.donGiaTheoLenh)}</td>
-                      <td style={{ textAlign: 'right' }}>{fmtMoney((r.donGiaTheoLenh || 0) * r.soLuongTheoLenh)}</td>
-                      <td className="td-center">
-                        <div className="td-actions">
-                          <button className="btn-icon-edit" onClick={() => setEditModal({ row: r, soLuongTheoLenh: r.soLuongTheoLenh, donGiaTheoLenh: r.donGiaTheoLenh ?? '', ghiChu: r.ghiChu ?? '' })} title="Sửa"><FiEdit2 size={12} /></button>
-                          <button className="btn-icon-delete" onClick={() => deleteRow(r)} title="Xóa"><FiTrash2 size={12} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer" style={{ padding: '0 24px 20px' }}>
-          <button type="button" className="btn-cancel" onClick={onClose}>Đóng</button>
-        </div>
-      </div>
-
-      {addModal && (
-        <div className="overlay" onClick={e => e.stopPropagation()}>
-          <div className="modal modal--form-wide fade-in" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Thêm dòng chi tiết — {lenh.tenLoaiLenh}</h3>
-              <button className="modal-close-btn" onClick={() => setAddModal(null)}>✕</button>
-            </div>
-            <form onSubmit={submitAdd} className="modal-body">
-              <div className="form-grid-pick">
-                <div className="form-field">
-                  <label className="form-label">Trang bị đồng bộ *</label>
-                  <div className="tbdb-loai-row" style={{ padding: '0 0 10px' }}>
-                    <button type="button"
-                      className={`tbdb-loai-chip${addModal.selectedLoai === 'ALL' ? ' tbdb-loai-chip--active' : ''}`}
-                      onClick={() => setAddModal({ ...addModal, selectedLoai: 'ALL' })}>
-                      <span className="tbdb-loai-chip-label">Tất cả</span>
-                    </button>
-                    {loaiTbdbList.map(l => (
-                      <button type="button" key={l.maLoai}
-                        className={`tbdb-loai-chip${addModal.selectedLoai === l.maLoai ? ' tbdb-loai-chip--active' : ''}`}
-                        onClick={() => setAddModal({ ...addModal, selectedLoai: l.maLoai })}>
-                        <span className="tbdb-loai-chip-label">{l.tenLoai}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <input className="form-input" placeholder="Tìm theo mã/tên..." value={addModal.search}
-                    onChange={e => setAddModal({ ...addModal, search: e.target.value })} style={{ marginBottom: 8 }} />
-                  <div className="tbdb-pick-list">
-                    {tbdbTrongLoai(addModal.selectedLoai, addModal.search).length === 0 ? (
-                      <div className="form-hint" style={{ padding: 12 }}>Không tìm thấy trang bị phù hợp</div>
-                    ) : tbdbTrongLoai(addModal.selectedLoai, addModal.search).map(t => {
-                      const daCo = rows.some(r => r.maTbdb === t.maTbdb);
-                      return (
-                        <button type="button" key={t.maTbdb}
-                          className={`tbdb-pick-item${addModal.maTbdb === t.maTbdb ? ' tbdb-pick-item--active' : ''}`}
-                          onClick={() => setAddModal({ ...addModal, maTbdb: t.maTbdb })}>
-                          <span className="tbdb-pick-item-main">
-                            <span className="sub-value">{t.maTbdb}</span> — {t.tenTbdb}
-                          </span>
-                          <span className="tbdb-pick-item-meta">
-                            {t.tenDvt || t.maDvt || ''}
-                            {daCo && <span className="badge tbdb-status-badge" style={{ marginLeft: 6 }}>Đã có trong lệnh</span>}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {addModal.maTbdb && (
-                    <div className="form-hint" style={{ marginTop: 6 }}>
-                      Đã chọn: <strong>{addModal.maTbdb} — {tbdbList.find(t => t.maTbdb === addModal.maTbdb)?.tenTbdb}</strong>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="form-field">
-                    <label className="form-label">Số lượng theo từng cấp chất lượng ({soLuongLabelStatic(xuat)})</label>
-                    <div className="form-hint" style={{ marginBottom: 8 }}>Chỉ nhập cấp nào có hàng, để trống các cấp còn lại</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                      {CAP_LIST.map(cap => {
-                        const tenCap = cclList.find(c => String(c.maCap) === String(cap))?.tenCap || `Cấp ${cap}`;
-                        return (
-                          <div key={cap}>
-                            <label className="form-hint" style={{ display: 'block', marginBottom: 4 }}>{tenCap}</label>
-                            <input className="form-input" type="number" min="0" value={addModal.soLuongTheoCap[cap]}
-                              onChange={e => setAddModal({ ...addModal, soLuongTheoCap: { ...addModal.soLuongTheoCap, [cap]: e.target.value } })} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="form-field">
-                    <label className="form-label">Đơn giá theo lệnh (áp dụng chung cho các cấp vừa nhập)</label>
-                    <input className="form-input" type="number" min="0" value={addModal.donGia}
-                      onChange={e => setAddModal({ ...addModal, donGia: e.target.value })} />
-                  </div>
-                  {tongSoLuongAdd > 0 && (
-                    <div className="tbdb-tab-toolbar" style={{ background: '#f8faff', padding: '10px 14px', borderRadius: 8, marginBottom: 16 }}>
-                      <span>Tổng SL: <strong>{tongSoLuongAdd}</strong></span>
-                      <span>Thành tiền: <strong>{fmtMoney(tongSoLuongAdd * (Number(addModal.donGia) || 0))}</strong></span>
-                    </div>
-                  )}
-                  <div className="form-field">
-                    <label className="form-label">Ghi chú</label>
-                    <input className="form-input" value={addModal.ghiChu}
-                      onChange={e => setAddModal({ ...addModal, ghiChu: e.target.value })} />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-cancel" onClick={() => setAddModal(null)}>Hủy</button>
-                <button type="submit" className="btn-primary">Lưu</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {editModal && (
-        <div className="overlay" onClick={e => e.stopPropagation()}>
-          <div className="modal fade-in" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Sửa dòng chi tiết — {editModal.row.tenTbdb || editModal.row.maTbdb}</h3>
-              <button className="modal-close-btn" onClick={() => setEditModal(null)}>✕</button>
-            </div>
-            <form onSubmit={submitEdit} className="modal-body">
-              <div className="form-field">
-                <label className="form-label">Cấp chất lượng</label>
-                <input className="form-input" disabled value={editModal.row.tenCcl || editModal.row.maCcl} />
-              </div>
-              <div className="form-field">
-                <label className="form-label">{soLuongLabelStatic(xuat)} *</label>
-                <input className="form-input" type="number" min="1" required value={editModal.soLuongTheoLenh}
-                  onChange={e => setEditModal({ ...editModal, soLuongTheoLenh: e.target.value })} />
-              </div>
-              <div className="form-field">
-                <label className="form-label">Đơn giá</label>
-                <input className="form-input" type="number" min="0" value={editModal.donGiaTheoLenh}
-                  onChange={e => setEditModal({ ...editModal, donGiaTheoLenh: e.target.value })} />
-              </div>
-              <div className="form-field">
-                <label className="form-label">Ghi chú</label>
-                <input className="form-input" value={editModal.ghiChu}
-                  onChange={e => setEditModal({ ...editModal, ghiChu: e.target.value })} />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-cancel" onClick={() => setEditModal(null)}>Hủy</button>
-                <button type="submit" className="btn-primary">Lưu</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function soLuongLabelStatic(xuat) { return xuat ? 'SL phải xuất' : 'SL phải nhập'; }

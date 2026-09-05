@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import { vaiTroAPI } from '../services/api';
-import { FiPlus, FiTrash2, FiShield, FiLock } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLock } from 'react-icons/fi';
+import { usePageTitle } from '../context/PageHeaderContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/shared.css';
 import './QuanLyVaiTro.css';
 
 const DEFAULT_ROLES = ['ADMIN'];
 
 export default function QuanLyVaiTro() {
+  usePageTitle('Quản lý vai trò');
+  const confirm = useConfirm();
   const [roles, setRoles] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ tenVaiTro: '', moTa: '' });
+  const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,13 +33,25 @@ export default function QuanLyVaiTro() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const clearError = (col) => setErrors(prev => {
+    if (!prev[col]) return prev;
+    const next = { ...prev };
+    delete next[col];
+    return next;
+  });
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.tenVaiTro || !form.tenVaiTro.trim()) {
+      setErrors({ tenVaiTro: 'Tên vai trò không được để trống' });
+      return;
+    }
     try {
       await vaiTroAPI.create(form);
       showToast(`Đã tạo vai trò "${form.tenVaiTro}" thành công!`);
       setShowModal(false);
       setForm({ tenVaiTro: '', moTa: '' });
+      setErrors({});
       load();
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi tạo vai trò', 'error');
@@ -42,7 +59,7 @@ export default function QuanLyVaiTro() {
   };
 
   const handleDelete = async (role) => {
-    if (!window.confirm(`Xóa vai trò "${role.TenVaiTro}"?`)) return;
+    if (!(await confirm(`Xóa vai trò "${role.TenVaiTro}"?`))) return;
     try {
       await vaiTroAPI.remove(role.ID);
       showToast(`Đã xóa vai trò "${role.TenVaiTro}"`);
@@ -77,22 +94,19 @@ export default function QuanLyVaiTro() {
       )}
 
       <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon vt-page-icon"><FiShield size={20} color="#6a1b9a" /></div>
-          <div>
-            <h2 className="page-title">Quản lý vai trò</h2>
-            <p className="page-sub">Tạo và quản lý các vai trò trong hệ thống</p>
-          </div>
-        </div>
-        <button className="vt-btn-add" onClick={() => setShowModal(true)}>
-          <FiPlus style={{ marginRight: 6 }} /> Thêm vai trò
-        </button>
+        <p className="page-sub">Tạo và quản lý các vai trò trong hệ thống</p>
       </div>
 
       <div className="vt-info-banner">
         <FiLock size={14} style={{ marginRight: 8, flexShrink: 0 }} />
         Vai trò mặc định <strong>Admin, QuanLy, NhanVien</strong> không thể xóa.
         Sau khi tạo vai trò mới, vào <strong>Phân quyền</strong> để cấu hình quyền chi tiết.
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '14px 0' }}>
+        <button className="vt-btn-add" onClick={() => { setErrors({}); setShowModal(true); }}>
+          <FiPlus style={{ marginRight: 6 }} /> Thêm vai trò
+        </button>
       </div>
 
       {loading ? <p style={{ color: '#999', padding: 20 }}>Đang tải...</p> : (
@@ -128,7 +142,7 @@ export default function QuanLyVaiTro() {
             );
           })}
 
-          <div className="vt-add-card" onClick={() => setShowModal(true)}>
+          <div className="vt-add-card" onClick={() => { setErrors({}); setShowModal(true); }}>
             <div className="vt-add-icon"><FiPlus size={28} color="#bbb" /></div>
             <p className="vt-add-text">Thêm vai trò mới</p>
           </div>
@@ -142,16 +156,16 @@ export default function QuanLyVaiTro() {
               <h3 className="modal-title">Thêm vai trò mới</h3>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleCreate} className="modal-body">
+            <form onSubmit={handleCreate} className="modal-body" noValidate>
               <div className="form-field">
                 <label className="form-label">Tên vai trò <span style={{ color: 'red' }}>*</span></label>
                 <input
-                  className="form-input"
+                  className={`form-input${errors.tenVaiTro ? ' form-input--invalid' : ''}`}
                   value={form.tenVaiTro}
-                  onChange={e => setForm({ ...form, tenVaiTro: e.target.value })}
+                  onChange={e => { setForm({ ...form, tenVaiTro: e.target.value }); clearError('tenVaiTro'); }}
                   placeholder="VD: KiemSoatVien, TruongKho..."
-                  required
                 />
+                {errors.tenVaiTro && <p className="form-error-text">{errors.tenVaiTro}</p>}
                 <p className="form-hint">Không dùng khoảng trắng, không dấu tiếng Việt</p>
               </div>
               <div className="form-field">

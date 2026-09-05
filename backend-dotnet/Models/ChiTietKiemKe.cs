@@ -13,6 +13,8 @@ public partial class ChiTietKiemKe
 
     public string? MaTbdb { get; set; }
 
+    public int? MaCcl { get; set; }
+
     public int SoLuongKyTruoc { get; set; }
 
     public int SoTang { get; set; }
@@ -28,6 +30,10 @@ public partial class ChiTietKiemKe
     public int? Thieu { get; set; }
 
     public string? GhiChu { get; set; }
+
+    public virtual CapChatLuong? MaCclNavigation { get; set; }
+
+    public virtual ICollection<ChiTietKiemKeViTri> ChiTietKiemKeViTris { get; set; } = new List<ChiTietKiemKeViTri>();
 
     public virtual LoaiSpkt? MaLoaiSpktNavigation { get; set; }
 

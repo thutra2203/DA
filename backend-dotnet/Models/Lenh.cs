@@ -31,6 +31,8 @@ public partial class Lenh
 
     public string? PtVanChuyen { get; set; }
 
+    public string? DonViChuyen { get; set; }
+
     public string? NguoiTao { get; set; }
 
     public string? GhiChu { get; set; }

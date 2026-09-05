@@ -19,6 +19,8 @@ public partial class LoTbdb
 
     public string? MaTinhTrangBaoGoi { get; set; }
 
+    public string? MaHinhThucNiemCat { get; set; }
+
     public decimal DonGia { get; set; }
 
     public int SoLuongNhap { get; set; }
@@ -40,6 +42,10 @@ public partial class LoTbdb
     public virtual Tbdb MaTbdbNavigation { get; set; } = null!;
 
     public virtual TinhTrangBaoGoi? MaTinhTrangBaoGoiNavigation { get; set; }
+
+    public virtual HinhThucNiemCat? MaHinhThucNiemCatNavigation { get; set; }
+
+    public virtual ICollection<ChiTietKiemKeViTri> ChiTietKiemKeViTris { get; set; } = new List<ChiTietKiemKeViTri>();
 
     public virtual ICollection<TonKhoTbdb> TonKhoTbdbs { get; set; } = new List<TonKhoTbdb>();
 }

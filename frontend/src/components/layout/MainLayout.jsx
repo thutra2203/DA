@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { PageHeaderProvider, useHeaderTitle } from '../../context/PageHeaderContext';
 import {
   FiUsers, FiList, FiChevronDown, FiChevronUp,
   FiMenu, FiX, FiHome,
@@ -9,7 +10,7 @@ import {
   FiLogOut, FiUser, FiShield, FiClock,
   FiTarget, FiLayers, FiBarChart2, FiMapPin, FiMap,
   FiFileText, FiPlusSquare, FiEdit, FiPackage,
-  FiCheckSquare, FiAward, FiTrash2, FiRepeat, FiCornerUpRight,
+  FiCheckSquare, FiAward, FiTrash2, FiClipboard, FiRefreshCw,
 } from 'react-icons/fi';
 import logoMTA from '../../assets/logo-hvktqs.png';
 import './MainLayout.css';
@@ -87,21 +88,59 @@ const menuItems = [
       { label: 'Tạo lệnh nhập/xuất', path: '/tb-dong-bo/tao-lenh-nhap-xuat', icon: <FiPlusSquare /> },
       { label: 'Cập nhật lệnh nhập/xuất', path: '/tb-dong-bo/cap-nhat-lenh-nhap-xuat', icon: <FiEdit /> },
       { label: 'Tồn đầu', path: '/tb-dong-bo/ton-dau', icon: <FiPackage /> },
-      { label: 'Kiểm kê', path: '/tb-dong-bo/kiem-ke', icon: <FiCheckSquare /> },
-      { label: 'Quản lý phân cấp chất lượng', path: '/tb-dong-bo/phan-cap-chat-luong', icon: <FiAward /> },
-      { label: 'Hủy/Thanh lý', path: '/tb-dong-bo/huy-thanh-ly', icon: <FiTrash2 /> },
-      { label: 'Chuyển nước, chuyển loại', path: '/tb-dong-bo/chuyen-nuoc-chuyen-loai', icon: <FiRepeat /> },
-      { label: 'Chuyển thành VTPT', path: '/tb-dong-bo/chuyen-thanh-vtpt', icon: <FiCornerUpRight /> },
+      {
+        label: 'Kiểm kê',
+        icon: <FiCheckSquare />,
+        children: [
+          { label: 'Danh mục đợt kiểm kê', path: '/danh-muc/dot-kiem-ke', icon: <FiClipboard /> },
+          { label: 'Kiểm kê TBĐB', path: '/tb-dong-bo/kiem-ke', icon: <FiCheckSquare /> },
+          { label: 'Chuyển kỳ', path: '/tb-dong-bo/chuyen-ky', icon: <FiRefreshCw /> },
+        ],
+      },
+      {
+        label: 'Quản lý phân cấp chất lượng',
+        icon: <FiAward />,
+        children: [
+          { label: 'Tạo lệnh chuyển cấp', path: '/tb-dong-bo/chuyen-cap/tao-lenh', icon: <FiPlusSquare /> },
+          { label: 'Chuyển cấp chất lượng', path: '/tb-dong-bo/chuyen-cap', icon: <FiAward /> },
+        ],
+      },
+      {
+        label: 'Hủy/Thanh lý',
+        icon: <FiTrash2 />,
+        children: [
+          { label: 'Tạo lệnh hủy/thanh lý', path: '/tb-dong-bo/huy-thanh-ly/tao-lenh', icon: <FiPlusSquare /> },
+          { label: 'Cập nhật lệnh xuất hủy/thanh lý', path: '/tb-dong-bo/huy-thanh-ly/cap-nhat', icon: <FiEdit /> },
+        ],
+      },
+      {
+        label: 'Thay đổi vị trí',
+        icon: <FiMapPin />,
+        children: [
+          { label: 'Tạo lệnh thay đổi vị trí', path: '/tb-dong-bo/thay-doi-vi-tri/tao-lenh', icon: <FiPlusSquare /> },
+          { label: 'Thay đổi vị trí', path: '/tb-dong-bo/thay-doi-vi-tri', icon: <FiMapPin /> },
+        ],
+      },
     ],
   },
   { label: 'Tổng hợp, báo cáo', path: '/bao-cao', icon: <FiBarChart2 /> },
 ];
 
 export default function MainLayout({ children }) {
+  return (
+    <PageHeaderProvider>
+      <MainLayoutInner>{children}</MainLayoutInner>
+    </PageHeaderProvider>
+  );
+}
+
+function MainLayoutInner({ children }) {
+  const headerTitle = useHeaderTitle();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState('');
+  const [openSub, setOpenSub] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [flyoutPos, setFlyoutPos] = useState(null);
@@ -111,6 +150,7 @@ export default function MainLayout({ children }) {
     if (openMenu === label) {
       setOpenMenu('');
       setFlyoutPos(null);
+      setOpenSub('');
       return;
     }
     if (collapsed) {
@@ -118,11 +158,59 @@ export default function MainLayout({ children }) {
       setFlyoutPos({ top: rect.top, left: rect.right + 8 });
     }
     setOpenMenu(label);
+    setOpenSub('');
+  };
+
+  const toggleSub = (label) => setOpenSub(openSub === label ? '' : label);
+
+  // 1 mục con có thể là link lá (child.path) hoặc 1 nhóm con lồng thêm 1 cấp nữa (child.children,
+  // VD "Kiểm kê" bên trong "Quản lý TB đồng bộ") — dùng chung cho cả sub-group thường và flyout.
+  const renderChild = (child, flyoutMode) => {
+    if (child.children) {
+      return (
+        <div key={child.label}>
+          <div
+            className={`sub-item sub-item--group${isGroupActive(child.children) ? ' sub-item--active' : ''}`}
+            onClick={() => toggleSub(child.label)}
+          >
+            <span style={{ marginRight: 8, opacity: 0.7 }}>{child.icon}</span>
+            <span style={{ flex: 1 }}>{child.label}</span>
+            {openSub === child.label ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+          </div>
+          {openSub === child.label && (
+            <div className="sub-group sub-group--nested">
+              {child.children.map(grandchild => (
+                <Link
+                  key={grandchild.path}
+                  to={grandchild.path}
+                  className={`sub-item sub-item--nested${isActive(grandchild.path) ? ' sub-item--active' : ''}`}
+                  onClick={flyoutMode ? () => { setOpenMenu(''); setOpenSub(''); setFlyoutPos(null); } : undefined}
+                >
+                  <span style={{ marginRight: 8, opacity: 0.7 }}>{grandchild.icon}</span>
+                  {grandchild.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <Link
+        key={child.path}
+        to={child.path}
+        className={`sub-item${flyoutMode ? ' sub-item--flyout' : ''}${isActive(child.path) ? ' sub-item--active' : ''}`}
+        onClick={flyoutMode ? () => { setOpenMenu(''); setFlyoutPos(null); } : undefined}
+      >
+        <span style={{ marginRight: 8, opacity: 0.7 }}>{child.icon}</span>
+        {child.label}
+      </Link>
+    );
   };
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
   const isActive = (path) => location.pathname === path;
-  const isGroupActive = (children) => children.some(c => location.pathname === c.path);
+  const isGroupActive = (children) => children.some(c => c.path ? location.pathname === c.path : (c.children && isGroupActive(c.children)));
 
   useEffect(() => {
     const handler = (e) => {
@@ -175,16 +263,7 @@ export default function MainLayout({ children }) {
                   </div>
                   {!collapsed && openMenu === item.label && (
                     <div className="sub-group">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          className={`sub-item${isActive(child.path) ? ' sub-item--active' : ''}`}
-                        >
-                          <span style={{ marginRight: 8, opacity: 0.7 }}>{child.icon}</span>
-                          {child.label}
-                        </Link>
-                      ))}
+                      {item.children.map((child) => renderChild(child, false))}
                     </div>
                   )}
                   {collapsed && openMenu === item.label && flyoutPos && createPortal(
@@ -193,17 +272,7 @@ export default function MainLayout({ children }) {
                       style={{ top: flyoutPos.top, left: flyoutPos.left }}
                     >
                       <div className="sub-group-title">{item.label}</div>
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          className={`sub-item sub-item--flyout${isActive(child.path) ? ' sub-item--active' : ''}`}
-                          onClick={() => { setOpenMenu(''); setFlyoutPos(null); }}
-                        >
-                          <span style={{ marginRight: 8, opacity: 0.7 }}>{child.icon}</span>
-                          {child.label}
-                        </Link>
-                      ))}
+                      {item.children.map((child) => renderChild(child, true))}
                     </div>,
                     document.body
                   )}
@@ -238,8 +307,7 @@ export default function MainLayout({ children }) {
               <FiMenu size={18} />
             </button>
             <div>
-              <h3 className="header-title">HỆ THỐNG QUẢN LÝ VŨ KHÍ TRANG BỊ</h3>
-              <p className="header-sub">Kho quân khí — Phần mềm quản lý tổng hợp</p>
+              <h3 className="header-title">{headerTitle}</h3>
             </div>
           </div>
 

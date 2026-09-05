@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { statsAPI } from '../services/api';
+import { usePageTitle } from '../context/PageHeaderContext';
 import { FiUsers, FiArchive, FiBook, FiGrid, FiRefreshCw } from 'react-icons/fi';
 import logoMTA from '../assets/logo-hvktqs.png';
 import './Dashboard.css';
@@ -20,6 +21,7 @@ const quickLinks = [
 ];
 
 export default function Dashboard() {
+  usePageTitle('Tổng quan');
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);

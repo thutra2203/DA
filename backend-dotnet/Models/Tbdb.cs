@@ -30,4 +30,6 @@ public partial class Tbdb
     public virtual Dvt? MaDvtNavigation { get; set; }
 
     public virtual LoaiTbdb MaLoaiTbdbNavigation { get; set; } = null!;
+
+    public virtual ICollection<TonDauKy> TonDauKies { get; set; } = new List<TonDauKy>();
 }

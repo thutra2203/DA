@@ -38,4 +38,6 @@ public partial class TonKhoTbdb
     public virtual LoTbdb MaLoTbdbNavigation { get; set; } = null!;
 
     public virtual TrangThaiTb MaTrangThaiTbNavigation { get; set; } = null!;
+
+    public virtual ICollection<ChiTietKiemKeViTri> ChiTietKiemKeViTris { get; set; } = new List<ChiTietKiemKeViTri>();
 }

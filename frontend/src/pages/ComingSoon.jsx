@@ -1,16 +1,12 @@
 import '../styles/shared.css';
+import { usePageTitle } from '../context/PageHeaderContext';
 
 export default function ComingSoon({ title, icon, desc }) {
+  usePageTitle(title);
   return (
     <div>
       <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon" style={{ background: '#f0f4ff', fontSize: 22 }}>{icon}</div>
-          <div>
-            <h2 className="page-title">{title}</h2>
-            <p className="page-sub">Chức năng nghiệp vụ</p>
-          </div>
-        </div>
+        <p className="page-sub">Chức năng nghiệp vụ</p>
       </div>
 
       <div className="data-card">

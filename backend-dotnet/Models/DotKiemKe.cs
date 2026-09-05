@@ -19,5 +19,7 @@ public partial class DotKiemKe
 
     public string? GhiChu { get; set; }
 
+    public int? Nam { get; set; }
+
     public virtual ICollection<PhieuKiemKe> PhieuKiemKes { get; set; } = new List<PhieuKiemKe>();
 }

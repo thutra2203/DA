@@ -2,15 +2,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 16px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid #f5f5f5;
 }
+
 .tbdb-loai-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 8px 10px;
+  border-radius: 4px;
   border: 1.5px solid #e0e0e0;
   background: #fff;
   color: #555;
@@ -19,16 +20,24 @@
   font-weight: 500;
   transition: all 0.15s;
 }
-.tbdb-loai-chip:hover { border-color: #b0c4e8; }
+
+.tbdb-loai-chip:hover {
+  border-color: #b0c4e8;
+}
+
 .tbdb-loai-chip--active {
   background: linear-gradient(135deg, #1a3a5c, #0d5c3a);
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 3px 10px rgba(26,58,92,0.3);
+  box-shadow: 0 3px 10px rgba(26, 58, 92, 0.3);
 }
-.tbdb-loai-chip-label { white-space: nowrap; }
+
+.tbdb-loai-chip-label {
+  white-space: nowrap;
+}
+
 .tbdb-loai-chip-count {
-  background: rgba(0,0,0,0.06);
+  background: rgba(0, 0, 0, 0.06);
   color: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -37,44 +46,174 @@
   min-width: 20px;
   text-align: center;
 }
-.tbdb-loai-chip--active .tbdb-loai-chip-count { background: rgba(255,255,255,0.25); }
 
-.tbdb-toolbar-right { display: flex; align-items: center; gap: 14px; }
+.tbdb-loai-chip--active .tbdb-loai-chip-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tbdb-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .tbdb-filter-select {
+  height: 36px;
   padding: 8px 12px;
   border: 1.5px solid #e8ecf0;
-  border-radius: 8px;
+  border-radius: 3px;
   font-size: 13px;
   background: #fafafa;
   color: #333;
   font-family: inherit;
   cursor: pointer;
+  box-sizing: border-box;
 }
-.tbdb-status-badge { background: #eef2f7; color: #3b587a; }
+
+.tbdb-status-badge {
+  background: #eef2f7;
+  color: #3b587a;
+}
+
+.tbdb-finished-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #0d5c3a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(13, 92, 58, 0.35);
+}
 
 .tbdb-detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px 20px;
+  gap: 12px 24px;
 }
-.tbdb-detail-item { min-width: 0; }
-.tbdb-detail-label { font-size: 11px; color: #999; margin-bottom: 3px; }
-.tbdb-detail-value { font-size: 14px; color: #222; font-weight: 600; word-break: break-word; }
 
-.modal--wide { width: 1200px; max-width: 96vw; }
-.modal--form { width: 680px; max-width: 92vw; display: flex; flex-direction: column; max-height: 88vh; }
-.modal--form .modal-body { overflow-y: auto; }
-.modal--form-wide { width: 920px; max-width: 96vw; display: flex; flex-direction: column; max-height: 88vh; }
-.modal--form-wide .modal-body { overflow-y: auto; }
+.tbdb-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tbdb-detail-item--full {
+  grid-column: 1 / -1;
+}
+
+.tbdb-detail-label {
+  flex: 0 0 120px;
+  font-size: 12.5px;
+  color: #1a3a5c;
+  font-weight: 700;
+}
+
+.tbdb-detail-value {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fafafa;
+  font-size: 13px;
+  color: #222;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.modal--wide {
+  width: 1200px;
+  max-width: 96vw;
+}
+
+.modal--form {
+  width: 680px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.modal--form .modal-body {
+  overflow-y: auto;
+}
+
+.modal--form-wide {
+  width: 1050px;
+  max-width: 96vw;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.modal--form-wide .modal-body {
+  overflow-y: auto;
+}
+
+.modal--form-xwide {
+  width: 1400px;
+  max-width: 97vw;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.modal--form-xwide .modal-body {
+  overflow-y: auto;
+}
+
+.modal--form-xwide .data-table th,
+.modal--form-xwide .data-table td {
+  padding: 4px 6px;
+}
+
+/* Bảng xem trước nhập lô có rất nhiều cột hẹp (Mã TB, Mã lô, SL...) — .data-table mặc định
+   width:100% ép bảng co lại vừa khung nhìn, làm mọi cột bị bóp nhỏ hơn width đã khai dù có cuộn
+   ngang. Đổi sang width theo nội dung để bảng được rộng đúng như khai báo, tràn thì cuộn ngang. */
+.modal--form-xwide .data-table {
+  width: max-content;
+  min-width: 100%;
+}
 
 .form-grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px 20px;
 }
-.form-grid-2col .form-field--full { grid-column: 1 / -1; }
+
+.form-grid-2col .form-field--full {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 640px) {
-  .form-grid-2col { grid-template-columns: 1fr; }
+  .form-grid-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.form-grid-3col .form-field--full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 800px) {
+  .form-grid-3col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-grid-3col {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-grid-pick {
@@ -83,8 +222,11 @@
   gap: 4px 24px;
   align-items: start;
 }
+
 @media (max-width: 720px) {
-  .form-grid-pick { grid-template-columns: 1fr; }
+  .form-grid-pick {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tbdb-tabs {
@@ -93,6 +235,7 @@
   padding: 0 24px;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .tbdb-tab-btn {
   padding: 12px 16px;
   background: none;
@@ -103,7 +246,11 @@
   color: #888;
   cursor: pointer;
 }
-.tbdb-tab-btn:hover { color: #1a3a5c; }
+
+.tbdb-tab-btn:hover {
+  color: #1a3a5c;
+}
+
 .tbdb-tab-btn--active {
   color: #1a3a5c;
   border-bottom-color: #0d5c3a;
@@ -124,6 +271,7 @@
   overflow-y: auto;
   background: #fafafa;
 }
+
 .tbdb-pick-item {
   display: flex;
   align-items: center;
@@ -139,11 +287,226 @@
   font-size: 13px;
   color: #333;
 }
-.tbdb-pick-item:last-child { border-bottom: none; }
-.tbdb-pick-item:hover { background: #eef2f7; }
+
+.tbdb-pick-item:last-child {
+  border-bottom: none;
+}
+
+.tbdb-pick-item:hover {
+  background: #eef2f7;
+}
+
 .tbdb-pick-item--active {
   background: #e3f2fd;
   box-shadow: inset 3px 0 0 #1a3a5c;
 }
-.tbdb-pick-item-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tbdb-pick-item-meta { font-size: 11px; color: #888; white-space: nowrap; }
+
+.tbdb-pick-item-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tbdb-pick-item-meta {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+
+.data-table--split thead th {
+  background: #eaf0fb;
+  color: #071631;
+  border: 1px solid #ebe7e7;
+  text-align: center;
+  vertical-align: middle;
+  padding: 12px 8px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.data-table--split thead .group-header th {
+  padding: 4px 8px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.data-table--split .col-group-start {
+  border-left: 1px solid #ebe7e7;
+}
+
+/* Chỉ áp dụng cho bảng "Xử lý lệnh" (XuLyLenhPage) — ép cột theo đúng width khai báo thay vì co
+   giãn theo nội dung, để cột Mã lô có thể nhỏ hơn cả nội dung (cắt bớt, xem đầy đủ qua title/hover
+   hoặc focus vào ô). Không dùng chung cho .data-table--split vì sẽ ảnh hưởng các trang khác. */
+.tbdb-fixed-table {
+  table-layout: fixed;
+}
+
+.tbdb-fixed-table .col-lo-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tbdb-fixed-table .col-lo-truncate .form-input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* .data-table mặc định width:100% ép bảng co lại vừa khung nhìn, làm các cột (Mã lô, Đơn giá,
+   Nước SX...) bị bóp nhỏ hơn width đã khai dù có cuộn ngang. Đổi sang width theo nội dung để bảng
+   rộng đúng như khai báo, tràn thì cuộn ngang thay vì bóp chữ trong ô. */
+.data-table--split {
+  border: 1px solid #ebe7e7;
+  width: max-content;
+  min-width: 100%;
+}
+
+.data-table--split tbody td {
+  border: 1px solid #ebe7e7;
+  padding: 14px 8px;
+  color: #000;
+  font-size: 15px;
+}
+
+/* Ô cần nhập liệu (giống mẫu tham khảo: PCCL/Số lượng tô cyan để biết ngay đây là ô phải điền,
+   phân biệt với các ô chỉ hiển thị). */
+.form-input--cell {
+  background: #d7f5f7 !important;
+  border-color: #7fd3dc !important;
+}
+
+.form-input--cell:focus {
+  background: #fff !important;
+}
+
+.data-table--split tbody tr:nth-child(even) td {
+  background: #fafbfc;
+}
+
+.data-table--split tbody tr:hover td {
+  background: #f0f4ff;
+}
+
+/* ===== IN PHIẾU (window.print) =====
+   .print-only ẩn khi xem trên màn hình, chỉ hiện khi in — tách khỏi phần UI thao tác (nút, form,
+   sidebar...) để bản in chỉ còn đúng nội dung phiếu. */
+.print-only {
+  display: none;
+}
+
+.print-quochieu {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.print-quochieu-dong1 {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.print-quochieu-dong2 {
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: underline;
+  margin-top: 2px;
+}
+
+.print-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.print-info {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.print-info td {
+  padding: 3px 6px;
+  vertical-align: top;
+  width: 50%;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-bottom: 24px;
+}
+
+.print-table th,
+.print-table td {
+  border: 1px solid #333;
+  padding: 5px 8px;
+}
+
+.print-table th {
+  background: #f0f0f0;
+  text-align: center;
+}
+
+.print-table tbody tr {
+  height: 26px;
+}
+
+.print-summary-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 4px 0 4px 60px;
+  font-size: 13px;
+}
+
+.print-dots {
+  flex: 1;
+  border-bottom: 1px dotted #333;
+  min-height: 14px;
+}
+
+.print-signatures {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  margin-top: 24px;
+}
+
+.print-signature-top {
+  font-size: 13px;
+  margin-bottom: 50px;
+}
+
+.print-signature-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+
+  .print-only {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+  }
+}

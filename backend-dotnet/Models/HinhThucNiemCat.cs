@@ -11,5 +11,7 @@ public partial class HinhThucNiemCat
 
     public virtual ICollection<HoSoSpkt> HoSoSpkts { get; set; } = new List<HoSoSpkt>();
 
+    public virtual ICollection<LoTbdb> LoTbdbs { get; set; } = new List<LoTbdb>();
+
     public virtual ICollection<SpkttrongLenh> SpkttrongLenhs { get; set; } = new List<SpkttrongLenh>();
 }

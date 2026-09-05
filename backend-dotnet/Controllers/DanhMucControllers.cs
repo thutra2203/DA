@@ -84,7 +84,16 @@ public class XaController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : Dan
 
 [Microsoft.AspNetCore.Mvc.Route("api/danh-muc/kho")]
 public class KhoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<Kho>(db, log)
-{ protected override string TableLabel => "Kho"; }
+{
+    protected override string TableLabel => "Kho";
+
+    // Người dùng bị giới hạn theo kho chỉ thấy đúng kho của mình trong mọi dropdown "chọn kho".
+    protected override IQueryable<Kho> ApplyScope(IQueryable<Kho> query)
+        => this.IsGioiHanKho() ? query.Where(k => k.MaKho == this.CurrentMaKho()) : query;
+
+    protected override bool DuocPhepSuaXoa(Kho entity)
+        => !this.IsGioiHanKho() || entity.MaKho == this.CurrentMaKho();
+}
 
 [Microsoft.AspNetCore.Mvc.Route("api/danh-muc/loai-spkt")]
 public class LoaiSpktController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<LoaiSpkt>(db, log)
@@ -93,3 +102,7 @@ public class LoaiSpktController(QuanLyKhoQuanKhiContext db, IActivityLogger log)
 [Microsoft.AspNetCore.Mvc.Route("api/danh-muc/chi-tiet-tcnx")]
 public class ChiTietTcnxController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<ChiTietTcnx>(db, log)
 { protected override string TableLabel => "Chi tiết tính chất nhập xuất"; }
+
+[Microsoft.AspNetCore.Mvc.Route("api/danh-muc/dot-kiem-ke")]
+public class DotKiemKeController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<DotKiemKe>(db, log)
+{ protected override string TableLabel => "Đợt kiểm kê"; }

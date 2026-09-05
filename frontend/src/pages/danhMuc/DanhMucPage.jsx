@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { danhMucAPI } from '../../services/api';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch } from 'react-icons/fi';
 import { usePermission } from '../../context/PermissionContext';
+import { usePageTitle } from '../../context/PageHeaderContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
@@ -13,6 +15,21 @@ const VUNG_MIEN_OPTIONS = [
   { value: 'TRUNG', label: 'Trung' },
   { value: 'NAM', label: 'Nam' },
 ];
+
+const TRANG_THAI_DOT_KIEM_KE_OPTIONS = [
+  { value: 'DANG_DIEN_RA', label: 'Đang diễn ra' },
+  { value: 'KET_THUC', label: 'Kết thúc' },
+];
+
+// Quá ngày kết thúc thì luôn coi là "Kết thúc" khi hiển thị, bất kể giá trị đang lưu trong CSDL —
+// không cần job nền chạy định kỳ để cập nhật lại cột trangThai.
+const trangThaiDotKiemKeHienThi = (row) => {
+  if (row.ngayKetThuc) {
+    const homNay = new Date(); homNay.setHours(0, 0, 0, 0);
+    if (new Date(row.ngayKetThuc) < homNay) return 'KET_THUC';
+  }
+  return row.trangThai || 'DANG_DIEN_RA';
+};
 
 const CONFIG = {
   // ==== Nhóm không có khóa ngoại bắt buộc ====
@@ -223,6 +240,23 @@ const CONFIG = {
       { col: 'ghiChu', label: 'Ghi chú' },
     ],
   },
+  'dot-kiem-ke': {
+    title: 'Đợt kiểm kê', wide: true,
+    fields: [
+      { col: 'maDotKiemKe', label: 'Mã đợt', pk: true, required: true },
+      { col: 'nam', label: 'Năm', type: 'number' },
+      { col: 'tenDotKiemKe', label: 'Tên đợt', required: true, display: true, full: true },
+      { col: 'ngayBatDau', label: 'Ngày bắt đầu', required: true, type: 'date' },
+      { col: 'ngayKetThuc', label: 'Ngày kết thúc', type: 'date' },
+      { col: 'trangThai', label: 'Trạng thái', type: 'select', options: TRANG_THAI_DOT_KIEM_KE_OPTIONS, compute: trangThaiDotKiemKeHienThi },
+      { col: 'noiDung', label: 'Nội dung', full: true },
+      { col: 'ghiChu', label: 'Ghi chú', full: true },
+    ],
+    filters: [
+      { col: 'nam', label: 'Năm', optionsFromData: true },
+      { col: 'trangThai', label: 'Trạng thái', options: TRANG_THAI_DOT_KIEM_KE_OPTIONS, compute: trangThaiDotKiemKeHienThi },
+    ],
+  },
 };
 
 // Trong schema mới, quyền được cấp theo chức năng lớn (10 mục), không theo từng bảng danh mục —
@@ -231,6 +265,8 @@ const MODULE_KEY = 'DANH_MUC';
 
 export default function DanhMucPage({ type }) {
   const config = CONFIG[type] || { fields: [] };
+  usePageTitle(config.title || 'Danh mục');
+  const confirm = useConfirm();
   const pkField = config.fields.find(f => f.pk);
   const { can } = usePermission();
   const canThem = can(MODULE_KEY, 'them');
@@ -241,10 +277,12 @@ export default function DanhMucPage({ type }) {
   const [filtered, setFiltered] = useState([]);
   const [refData, setRefData] = useState({});
   const [search, setSearch] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
+  const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [page, setPage] = useState(1);
 
@@ -259,7 +297,7 @@ export default function DanhMucPage({ type }) {
 
   useEffect(() => {
     load();
-    setForm({}); setEditing(null); setSearch(''); setPage(1);
+    setForm({}); setEditing(null); setSearch(''); setFilterValues({}); setPage(1);
 
     const selectFields = config.fields.filter(f => f.type === 'select' && f.optionsFrom);
     if (selectFields.length === 0) { setRefData({}); return; }
@@ -273,18 +311,40 @@ export default function DanhMucPage({ type }) {
 
   useEffect(() => {
     const q = search.toLowerCase();
-    setFiltered(data.filter(row =>
+    let result = data.filter(row =>
       config.fields.some(f => String(displayValue(f, row) ?? '').toLowerCase().includes(q))
-    ));
+    );
+    (config.filters || []).forEach(f => {
+      const val = filterValues[f.col];
+      if (val === undefined || val === '') return;
+      result = result.filter(row => {
+        const raw = f.compute ? f.compute(row) : row[f.col];
+        return String(raw ?? '') === val;
+      });
+    });
+    setFiltered(result);
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, data, refData]);
+  }, [search, data, refData, filterValues]);
+
+  // Tuỳ chọn lọc động: lấy giá trị duy nhất đang có trong dữ liệu (VD các năm đợt kiểm kê đã tạo).
+  const filterOptions = (f) => {
+    if (f.options) return f.options;
+    if (f.optionsFromData) {
+      return [...new Set(data.map(r => r[f.col]).filter(v => v !== null && v !== undefined && v !== ''))]
+        .sort((a, b) => (typeof a === 'number' && typeof b === 'number' ? b - a : String(a).localeCompare(String(b))))
+        .map(v => ({ value: String(v), label: String(v) }));
+    }
+    return [];
+  };
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
   // Với cột dạng select (FK hoặc enum tĩnh), hiển thị tên thân thiện thay vì mã thô trong bảng.
+  // f.compute cho phép hiển thị 1 giá trị suy ra thay vì đọc thẳng từ cột (VD trạng thái đợt
+  // kiểm kê tự chuyển "Kết thúc" khi đã qua ngày kết thúc, không cần job nền cập nhật CSDL).
   const displayValue = (f, row) => {
-    const raw = row[f.col];
+    const raw = f.compute ? f.compute(row) : row[f.col];
     if (raw === null || raw === undefined || raw === '') return raw;
     if (f.type === 'select') {
       if (f.options) {
@@ -298,13 +358,27 @@ export default function DanhMucPage({ type }) {
     return raw;
   };
 
-  const openAdd = () => { setEditing(null); setForm({}); setShowModal(true); };
+  const openAdd = () => { setEditing(null); setForm({}); setErrors({}); setShowModal(true); };
   const openEdit = (row) => {
     setEditing(row);
     const f = {};
     config.fields.forEach(field => { f[field.col] = row[field.col] ?? ''; });
     setForm(f);
+    setErrors({});
     setShowModal(true);
+  };
+
+  // Validate các trường bắt buộc phía client để tự hiển thị cảnh báo đỏ theo đúng field thay vì
+  // để trình duyệt bật popup mặc định (native "Please fill out this field").
+  const validate = () => {
+    const next = {};
+    config.fields.forEach(f => {
+      if (f.required && (form[f.col] === undefined || form[f.col] === null || String(form[f.col]).trim() === '')) {
+        next[f.col] = `${f.label} không được để trống`;
+      }
+    });
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const buildPayload = () => {
@@ -322,6 +396,7 @@ export default function DanhMucPage({ type }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       if (editing) {
         await danhMucAPI.update(type, editing[pkField.col], buildPayload());
@@ -337,7 +412,7 @@ export default function DanhMucPage({ type }) {
 
   const handleDelete = async (row) => {
     const name = displayName(row);
-    if (!window.confirm(`Bạn có chắc muốn xóa "${name}"?`)) return;
+    if (!(await confirm(`Bạn có chắc muốn xóa "${name}"?`))) return;
     try {
       await danhMucAPI.remove(type, row[pkField.col]);
       showToast('Xóa thành công!');
@@ -350,15 +425,21 @@ export default function DanhMucPage({ type }) {
     return displayField ? row[displayField.col] : '';
   };
 
+  const clearError = (col) => setErrors(prev => {
+    if (!prev[col]) return prev;
+    const next = { ...prev };
+    delete next[col];
+    return next;
+  });
+
   const renderInput = (f) => {
     if (f.type === 'select') {
       const opts = f.options || (refData[f.optionsFrom] || []).map(r => ({ value: r[f.optionValueKey], label: `${r[f.optionValueKey]} — ${r[f.optionLabelKey]}` }));
       return (
         <select
-          className="form-input"
+          className={`form-input${errors[f.col] ? ' form-input--invalid' : ''}`}
           value={form[f.col] ?? ''}
-          onChange={(e) => setForm({ ...form, [f.col]: e.target.value })}
-          required={f.required}
+          onChange={(e) => { setForm({ ...form, [f.col]: e.target.value }); clearError(f.col); }}
           disabled={f.pk && !!editing}
         >
           <option value="">-- Chọn --</option>
@@ -368,13 +449,12 @@ export default function DanhMucPage({ type }) {
     }
     return (
       <input
-        className="form-input"
-        type={f.type === 'number' ? 'number' : 'text'}
+        className={`form-input${errors[f.col] ? ' form-input--invalid' : ''}`}
+        type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
         value={form[f.col] ?? ''}
-        onChange={(e) => setForm({ ...form, [f.col]: e.target.value })}
-        required={f.required}
+        onChange={(e) => { setForm({ ...form, [f.col]: e.target.value }); clearError(f.col); }}
         disabled={f.pk && !!editing}
-        placeholder={`Nhập ${f.label.toLowerCase()}...`}
+        placeholder={f.type === 'date' ? undefined : `Nhập ${f.label.toLowerCase()}...`}
       />
     );
   };
@@ -391,35 +471,42 @@ export default function DanhMucPage({ type }) {
         </div>
       )}
 
-      <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon" style={{ background: '#f0f4ff', fontSize: 22 }}>{config.icon}</div>
-          <div>
-            <h2 className="page-title">{config.title}</h2>
-            <p className="page-sub">Quản lý danh mục — thêm, sửa, xóa dữ liệu</p>
-          </div>
-        </div>
-        {canThem && (
-          <button className="btn-add" onClick={openAdd}>
-            <FiPlus style={{ marginRight: 6 }} /> Thêm mới
-          </button>
-        )}
-      </div>
-
       <div className="data-card">
         <div className="table-toolbar">
-          <div className="search-wrap" style={{ width: 280 }}>
-            <FiSearch className="search-icon" />
-            <input
-              className="search-input"
-              placeholder="Tìm kiếm..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
           <span className="table-total">
             Tổng: <strong>{filtered.length}</strong> bản ghi
           </span>
+          {canThem && (
+            <button className="btn-add" onClick={openAdd}>
+              <FiPlus style={{ marginRight: 6 }} /> Thêm mới
+            </button>
+          )}
+        </div>
+
+        <div className="table-toolbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="search-wrap" style={{ width: 280 }}>
+              <FiSearch className="search-icon" />
+              <input
+                className="search-input"
+                placeholder="Tìm kiếm..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {(config.filters || []).map(f => (
+              <select
+                key={f.col}
+                className="form-input"
+                style={{ width: 160 }}
+                value={filterValues[f.col] ?? ''}
+                onChange={e => setFilterValues({ ...filterValues, [f.col]: e.target.value })}
+              >
+                <option value="">-- {f.label} --</option>
+                {filterOptions(f).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            ))}
+          </div>
         </div>
 
         {loading ? (
@@ -456,14 +543,14 @@ export default function DanhMucPage({ type }) {
                         <td key={f.col}>
                           {f.display
                             ? <span className="main-value">{displayValue(f, row)}</span>
-                            : <span className="sub-value">{displayValue(f, row) ?? '—'}</span>
+                            : <span className="sub-value">{displayValue(f, row) ?? ''}</span>
                           }
                         </td>
                       ))}
                       <td className="td-center">
                         <div className="td-actions">
                           {canSua && (
-                            <button className="btn-icon-edit" onClick={() => openEdit(row)} title="Sửa">
+                            <button className="btn-icon-warn" onClick={() => openEdit(row)} title="Sửa">
                               <FiEdit2 size={13} />
                             </button>
                           )}
@@ -487,7 +574,7 @@ export default function DanhMucPage({ type }) {
 
       {showModal && (
         <div className="overlay">
-          <div className="modal fade-in">
+          <div className={`modal fade-in${config.wide ? ' modal--form' : ''}`}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 22 }}>{config.icon}</span>
@@ -495,13 +582,16 @@ export default function DanhMucPage({ type }) {
               </div>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-body">
-              {config.fields.map(f => (
-                <div key={f.col} className="form-field">
-                  <label className="form-label">{f.label}{f.required ? ' *' : ''}</label>
-                  {renderInput(f)}
-                </div>
-              ))}
+            <form onSubmit={handleSubmit} className="modal-body" noValidate>
+              <div className={config.wide ? 'form-grid-2col' : undefined}>
+                {config.fields.map(f => (
+                  <div key={f.col} className={`form-field${config.wide && f.full ? ' form-field--full' : ''}`}>
+                    <label className="form-label">{f.label}{f.required ? ' *' : ''}</label>
+                    {renderInput(f)}
+                    {errors[f.col] && <p className="form-error-text">{errors[f.col]}</p>}
+                  </div>
+                ))}
+              </div>
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Hủy</button>
                 <button type="submit" className="btn-primary">

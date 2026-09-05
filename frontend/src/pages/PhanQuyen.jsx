@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { vaiTroAPI } from '../services/api';
-import { FiShield, FiSave } from 'react-icons/fi';
+import { FiSave } from 'react-icons/fi';
+import { usePageTitle } from '../context/PageHeaderContext';
 import '../styles/shared.css';
 import './PhanQuyen.css';
 
@@ -26,6 +27,7 @@ const ACTIONS = [
 ];
 
 export default function PhanQuyen() {
+  usePageTitle('Phân quyền động');
   const [data, setData] = useState({});
   const [vaiTros, setVaiTros] = useState([]);
   const [saving, setSaving] = useState(null);
@@ -117,13 +119,7 @@ export default function PhanQuyen() {
       )}
 
       <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon pq-page-icon"><FiShield size={20} color="#1a3a5c" /></div>
-          <div>
-            <h2 className="page-title">Phân quyền động</h2>
-            <p className="page-sub">Cấu hình quyền Xem / Thêm / Sửa / Xóa cho từng vai trò</p>
-          </div>
-        </div>
+        <p className="page-sub">Cấu hình quyền Xem / Thêm / Sửa / Xóa cho từng vai trò</p>
       </div>
 
       {/* Tab chọn vai trò */}

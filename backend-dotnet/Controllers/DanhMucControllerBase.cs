@@ -57,6 +57,8 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
         if (t == typeof(double)) return el.ValueKind == JsonValueKind.String ? double.Parse(el.GetString()!) : el.GetDouble();
         if (t == typeof(decimal)) return el.ValueKind == JsonValueKind.String ? decimal.Parse(el.GetString()!) : el.GetDecimal();
         if (t == typeof(bool)) return el.GetBoolean();
+        if (t == typeof(DateOnly)) return DateOnly.Parse(el.GetString()!);
+        if (t == typeof(DateTime)) return el.GetDateTime();
         return el.GetRawText();
     }
 
@@ -73,10 +75,14 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
         }
     }
 
+    // Hook cho phép controller con giới hạn dữ liệu trả về (ví dụ KhoController giới hạn theo
+    // kho của người dùng đang đăng nhập) mà không cần override lại toàn bộ GetAll/ToDict.
+    protected virtual IQueryable<TEntity> ApplyScope(IQueryable<TEntity> query) => query;
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _db.Set<TEntity>().ToListAsync();
+        var list = await ApplyScope(_db.Set<TEntity>()).ToListAsync();
         IEnumerable<TEntity> ordered = _pk.ClrType == typeof(int)
             ? list.OrderBy(e => (int)_pk.PropertyInfo!.GetValue(e)!)
             : _pk.ClrType == typeof(long)
@@ -108,11 +114,16 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
         return StatusCode(201, new { message = "Thêm mới thành công" });
     }
 
+    // Hook cho phép controller con chặn sửa/xóa bản ghi ngoài phạm vi được phép (ví dụ
+    // TbDongBoTonKhoController chặn sửa/xóa tồn kho của kho khác).
+    protected virtual bool DuocPhepSuaXoa(TEntity entity) => true;
+
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, [FromBody] JsonElement body)
+    public virtual async Task<IActionResult> Update(string id, [FromBody] JsonElement body)
     {
         var entity = await _db.Set<TEntity>().FindAsync(ConvertPk(id));
         if (entity == null) return NotFound(new { message = "Không tìm thấy bản ghi" });
+        if (!DuocPhepSuaXoa(entity)) return NotFound(new { message = "Không tìm thấy bản ghi" });
 
         ApplyBody(entity, body, skipPk: true);
 
@@ -132,10 +143,11 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Remove(string id)
+    public virtual async Task<IActionResult> Remove(string id)
     {
         var entity = await _db.Set<TEntity>().FindAsync(ConvertPk(id));
         if (entity == null) return NotFound(new { message = "Không tìm thấy bản ghi" });
+        if (!DuocPhepSuaXoa(entity)) return NotFound(new { message = "Không tìm thấy bản ghi" });
 
         _db.Set<TEntity>().Remove(entity);
 

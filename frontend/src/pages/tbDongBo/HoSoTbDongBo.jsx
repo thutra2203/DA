@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { tbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiX, FiDownload } from 'react-icons/fi';
+import { usePageTitle } from '../../context/PageHeaderContext';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useAuth } from '../../context/AuthContext';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
@@ -8,17 +11,26 @@ import './HoSoTbDongBo.css';
 
 const PAGE_SIZE = 10;
 
-const fmtMoney = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('vi-VN'));
-const fmtDate = (v) => (v ? new Date(v).toLocaleString('vi-VN') : '—');
+const fmtMoney = (v) => (v === null || v === undefined ? '' : Number(v).toLocaleString('vi-VN'));
 
 export default function HoSoTbDongBo() {
+  usePageTitle('HỒ SƠ TRANG BỊ ĐB');
+  const confirm = useConfirm();
+  const { user } = useAuth();
+  const maKhoNguoiDung = user?.maDonVi || null; // null = không bị giới hạn theo kho (ADMIN hoặc chưa gán kho)
   const [items, setItems] = useState([]);
   const [loaiList, setLoaiList] = useState([]);
   const [khoList, setKhoList] = useState([]);
   const [dvtList, setDvtList] = useState([]);
+  const [kieuSpktList, setKieuSpktList] = useState([]);
+  const [capList, setCapList] = useState([]);
+  const [trangThaiList, setTrangThaiList] = useState([]);
 
-  const [selectedKho, setSelectedKho] = useState('ALL');
+  const [selectedKho, setSelectedKho] = useState(maKhoNguoiDung || 'ALL');
   const [selectedLoai, setSelectedLoai] = useState('ALL');
+  const [selectedKieuSpkt, setSelectedKieuSpkt] = useState('ALL');
+  const [selectedCcl, setSelectedCcl] = useState('ALL');
+  const [selectedTrangThai, setSelectedTrangThai] = useState('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -26,8 +38,10 @@ export default function HoSoTbDongBo() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
+  const [errors, setErrors] = useState({});
   const [detailTbdb, setDetailTbdb] = useState(null);
   const [toast, setToast] = useState(null);
+  const [dangXuatExcel, setDangXuatExcel] = useState(false);
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -35,25 +49,53 @@ export default function HoSoTbDongBo() {
     danhMucAPI.getAll('loai-tbdb').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('kho').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('dvt').then(res => res.data).catch(() => []),
-  ]).then(([loai, kho, dvt]) => {
+    danhMucAPI.getAll('kieu-spkt').then(res => res.data).catch(() => []),
+    danhMucAPI.getAll('cap-chat-luong').then(res => res.data).catch(() => []),
+    danhMucAPI.getAll('trang-thai-tb').then(res => res.data).catch(() => []),
+  ]).then(([loai, kho, dvt, kieuSpkt, cap, trangThai]) => {
     setLoaiList(loai);
     setKhoList(kho);
     setDvtList(dvt);
+    setKieuSpktList(kieuSpkt);
+    setCapList(cap);
+    setTrangThaiList(trangThai);
   });
 
-  const loadItems = (maKho) => {
+  const buildFilterExtra = () => {
+    const extra = {};
+    if (selectedLoai !== 'ALL') extra.maLoaiTbdb = selectedLoai;
+    if (selectedKieuSpkt !== 'ALL') extra.maKieuSpkt = selectedKieuSpkt;
+    if (selectedCcl !== 'ALL') extra.maCcl = selectedCcl;
+    if (selectedTrangThai !== 'ALL') extra.maTrangThaiTb = selectedTrangThai;
+    return extra;
+  };
+
+  const loadItems = () => {
     setLoading(true);
-    return tbDongBoAPI.getByKho(maKho)
+    return tbDongBoAPI.getByKho(selectedKho, buildFilterExtra())
       .then(res => setItems(res.data))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   };
 
+  const xuatExcel = async () => {
+    setDangXuatExcel(true);
+    try {
+      const res = await tbDongBoAPI.xuatExcel(selectedKho, buildFilterExtra(), search.trim() || undefined);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ho-so-tbdb-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { showToast('Không xuất được file Excel', 'error'); }
+    finally { setDangXuatExcel(false); }
+  };
+
   useEffect(() => { loadDanhMuc(); }, []);
-  useEffect(() => { loadItems(selectedKho); }, [selectedKho]);
+  useEffect(() => { loadItems(); }, [selectedKho, selectedLoai, selectedKieuSpkt, selectedCcl, selectedTrangThai]);
 
   const loaiMap = useMemo(() => Object.fromEntries(loaiList.map(l => [l.maLoai, l.tenLoai])), [loaiList]);
-  const khoMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.tenKho])), [khoList]);
 
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -64,23 +106,12 @@ export default function HoSoTbDongBo() {
     });
   }, [items, search]);
 
-  const loaiCounts = useMemo(() => {
-    const counts = {};
-    bySearch.forEach(t => { counts[t.maLoaiTbdb] = (counts[t.maLoaiTbdb] || 0) + 1; });
-    return counts;
-  }, [bySearch]);
+  useEffect(() => { setPage(1); }, [selectedLoai, selectedKieuSpkt, selectedKho, selectedCcl, selectedTrangThai, search]);
 
-  const visible = useMemo(
-    () => (selectedLoai === 'ALL' ? bySearch : bySearch.filter(t => t.maLoaiTbdb === selectedLoai)),
-    [bySearch, selectedLoai]
-  );
-
-  useEffect(() => { setPage(1); }, [selectedLoai, selectedKho, search]);
-
-  const paged = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged = bySearch.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
 
-  const openAdd = () => { setEditing(null); setForm({}); setShowModal(true); };
+  const openAdd = () => { setEditing(null); setForm({}); setErrors({}); setShowModal(true); };
   const openEdit = (row) => {
     setEditing(row);
     setForm({
@@ -90,7 +121,24 @@ export default function HoSoTbDongBo() {
       maDvt: row.maDvt ?? '',
       ghiChu: row.ghiChu ?? '',
     });
+    setErrors({});
     setShowModal(true);
+  };
+
+  const clearError = (col) => setErrors(prev => {
+    if (!prev[col]) return prev;
+    const next = { ...prev };
+    delete next[col];
+    return next;
+  });
+
+  const validate = () => {
+    const next = {};
+    if (!form.maTbdb || !form.maTbdb.trim()) next.maTbdb = 'Mã trang bị không được để trống';
+    if (!form.tenTbdb || !form.tenTbdb.trim()) next.tenTbdb = 'Tên trang bị không được để trống';
+    if (!form.maLoaiTbdb) next.maLoaiTbdb = 'Loại trang bị không được để trống';
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const buildPayload = () => ({
@@ -103,6 +151,7 @@ export default function HoSoTbDongBo() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       if (editing) {
         await tbDongBoAPI.update(editing.maTbdb, buildPayload());
@@ -117,7 +166,7 @@ export default function HoSoTbDongBo() {
   };
 
   const handleDelete = async (row) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa hồ sơ "${row.tenTbdb || row.maTbdb}"?`)) return;
+    if (!(await confirm(`Bạn có chắc muốn xóa hồ sơ "${row.tenTbdb || row.maTbdb}"?`))) return;
     try {
       await tbDongBoAPI.remove(row.maTbdb);
       showToast('Xóa thành công!');
@@ -133,72 +182,68 @@ export default function HoSoTbDongBo() {
         </div>
       )}
 
-      <div className="page-header">
-        <div className="page-header-left">
-          <div className="page-icon" style={{ background: '#f0f4ff', fontSize: 22 }}>🧩</div>
-          <div>
-            <h2 className="page-title">Hồ sơ TB đồng bộ</h2>
-            <p className="page-sub">Xem thực lực trang bị đồng bộ theo kho — số lượng, lô hàng, vị trí tồn kho hiện có</p>
-          </div>
-        </div>
-        <button className="btn-add" onClick={openAdd}>
-          <FiPlus style={{ marginRight: 6 }} /> Thêm hồ sơ
-        </button>
-      </div>
-
       <div className="data-card">
-        <div className="tbdb-loai-row">
-          <button
-            className={`tbdb-loai-chip${selectedLoai === 'ALL' ? ' tbdb-loai-chip--active' : ''}`}
-            onClick={() => setSelectedLoai('ALL')}
-          >
-            <span className="tbdb-loai-chip-label">Tất cả</span>
-            <span className="tbdb-loai-chip-count">{bySearch.length}</span>
-          </button>
-          {loaiList.map(l => (
-            <button
-              key={l.maLoai}
-              className={`tbdb-loai-chip${selectedLoai === l.maLoai ? ' tbdb-loai-chip--active' : ''}`}
-              onClick={() => setSelectedLoai(l.maLoai)}
-            >
-              <span className="tbdb-loai-chip-label">{l.tenLoai}</span>
-              <span className="tbdb-loai-chip-count">{loaiCounts[l.maLoai] || 0}</span>
+        <div className="table-toolbar">
+          <span className="table-total">
+            Tổng: <strong>{bySearch.length}</strong> bản ghi
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn-excel" onClick={xuatExcel} disabled={dangXuatExcel}>
+              <FiDownload style={{ marginRight: 6 }} /> {dangXuatExcel ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
-          ))}
+            <button className="btn-add" onClick={openAdd}>
+              <FiPlus style={{ marginRight: 6 }} /> Thêm mới TB
+            </button>
+          </div>
         </div>
 
-        <div className="table-toolbar">
-          <div className="search-wrap" style={{ width: 260 }}>
-            <FiSearch className="search-icon" />
-            <input
-              className="search-input"
-              placeholder="Tìm theo mã, tên, ghi chú..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="tbdb-toolbar-right">
-            <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)}>
-              <option value="ALL">Tất cả kho</option>
+        <div className="table-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="search-wrap" style={{ width: 220 }}>
+              <FiSearch className="search-icon" />
+              <input
+                className="search-input"
+                placeholder="Tìm theo mã, tên, ghi chú..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <select className="tbdb-filter-select" value={selectedLoai} onChange={e => setSelectedLoai(e.target.value)}>
+              <option value="ALL">Tất cả loại</option>
+              {loaiList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedKieuSpkt} onChange={e => setSelectedKieuSpkt(e.target.value)}>
+              <option value="ALL">Tất cả kiểu SPKT</option>
+              {kieuSpktList.map(k => <option key={k.maKieu} value={k.maKieu}>{k.tenKieu}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)} disabled={!!maKhoNguoiDung}>
+              {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
               {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
             </select>
-            <span className="table-total">
-              Tổng: <strong>{visible.length}</strong> bản ghi
-            </span>
+            <select className="tbdb-filter-select" value={selectedCcl} onChange={e => setSelectedCcl(e.target.value)}>
+              <option value="ALL">Tất cả cấp CL</option>
+              {capList.map(c => <option key={c.maCap} value={c.maCap}>{c.tenCap}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedTrangThai} onChange={e => setSelectedTrangThai(e.target.value)}>
+              <option value="ALL">Tất cả trạng thái</option>
+              {trangThaiList.map(t => <option key={t.maTTTB} value={t.maTTTB}>{t.tenTTTB}</option>)}
+            </select>
           </div>
         </div>
 
         {loading ? (
-          <SkeletonTable cols={7} rows={6} />
-        ) : visible.length === 0 ? (
+          <SkeletonTable cols={12} rows={6} />
+        ) : bySearch.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">🧩</div>
+
             <div className="empty-state-title">
-              {items.length === 0 ? 'Không có trang bị nào trong kho này' : 'Không tìm thấy kết quả'}
+              {items.length === 0 ? 'Không có trang bị nào khớp bộ lọc' : 'Không tìm thấy kết quả'}
             </div>
             <div className="empty-state-desc">
               {items.length === 0
-                ? (selectedKho === 'ALL' ? 'Chưa có trang bị đồng bộ nào trong hệ thống — nhấn "+ Thêm hồ sơ" để tạo bản ghi đầu tiên' : 'Kho này chưa có tồn kho trang bị đồng bộ nào')
+                ? (selectedKho === 'ALL' && selectedLoai === 'ALL' && selectedKieuSpkt === 'ALL' && selectedCcl === 'ALL' && selectedTrangThai === 'ALL'
+                  ? 'Chưa có trang bị đồng bộ nào trong hệ thống — nhấn "+ Thêm hồ sơ" để tạo bản ghi đầu tiên'
+                  : 'Không có trang bị nào khớp với bộ lọc đang chọn')
                 : 'Không có bản ghi nào khớp với bộ lọc / từ khóa hiện tại'}
             </div>
           </div>
@@ -213,7 +258,12 @@ export default function HoSoTbDongBo() {
                     <th>Tên TB</th>
                     <th>Loại</th>
                     <th>ĐVT</th>
-                    <th style={{ textAlign: 'center' }}>Số lượng {selectedKho !== 'ALL' ? '(trong kho)' : '(toàn hệ thống)'}</th>
+                    <th style={{ textAlign: 'center' }}>SL {selectedKho !== 'ALL' ? 'trong kho' : 'toàn hệ thống'}</th>
+                    <th style={{ textAlign: 'center' }}>Cấp 1</th>
+                    <th style={{ textAlign: 'center' }}>Cấp 2</th>
+                    <th style={{ textAlign: 'center' }}>Cấp 3</th>
+                    <th style={{ textAlign: 'center' }}>Cấp 4</th>
+                    <th style={{ textAlign: 'center' }}>Cấp 5</th>
                     <th style={{ width: 140, textAlign: 'center' }}>Thao tác</th>
                   </tr>
                 </thead>
@@ -222,16 +272,21 @@ export default function HoSoTbDongBo() {
                     <tr key={row.maTbdb}>
                       <td className="td-muted td-center">{startIdx + i + 1}</td>
                       <td><span className="sub-value">{row.maTbdb}</span></td>
-                      <td><span className="main-value">{row.tenTbdb || '—'}</span></td>
+                      <td><span className="main-value">{row.tenTbdb || ''}</span></td>
                       <td>{loaiMap[row.maLoaiTbdb] || row.maLoaiTbdb}</td>
-                      <td>{row.tenDvt || row.maDvt || '—'}</td>
+                      <td>{row.tenDvt || row.maDvt || ''}</td>
                       <td className="td-center"><span className="badge tbdb-status-badge">{row.tongSoLuong ?? 0}</span></td>
+                      <td className="td-center">{row.soLuongCap1 > 0 ? row.soLuongCap1 : ''}</td>
+                      <td className="td-center">{row.soLuongCap2 > 0 ? row.soLuongCap2 : ''}</td>
+                      <td className="td-center">{row.soLuongCap3 > 0 ? row.soLuongCap3 : ''}</td>
+                      <td className="td-center">{row.soLuongCap4 > 0 ? row.soLuongCap4 : ''}</td>
+                      <td className="td-center">{row.soLuongCap5 > 0 ? row.soLuongCap5 : ''}</td>
                       <td className="td-center">
                         <div className="td-actions">
-                          <button className="btn-icon-edit" onClick={() => setDetailTbdb(row.maTbdb)} title="Xem thực lực">
+                          <button className="btn-icon-edit" onClick={() => setDetailTbdb(row.maTbdb)} title="Xem chi tiết">
                             <FiEye size={13} />
                           </button>
-                          <button className="btn-icon-edit" onClick={() => openEdit(row)} title="Sửa hồ sơ">
+                          <button className="btn-icon-warn" onClick={() => openEdit(row)} title="Sửa hồ sơ">
                             <FiEdit2 size={13} />
                           </button>
                           <button className="btn-icon-delete" onClick={() => handleDelete(row)} title="Xóa hồ sơ">
@@ -244,7 +299,7 @@ export default function HoSoTbDongBo() {
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} total={visible.length} pageSize={PAGE_SIZE} onChange={setPage} />
+            <Pagination page={page} total={bySearch.length} pageSize={PAGE_SIZE} onChange={setPage} />
           </>
         )}
       </div>
@@ -254,29 +309,32 @@ export default function HoSoTbDongBo() {
           <div className="modal fade-in">
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🧩</span>
-                <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} — Hồ sơ trang bị đồng bộ</h3>
+
+                <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} Trang bị đồng bộ</h3>
               </div>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-body">
+            <form onSubmit={handleSubmit} className="modal-body" noValidate>
               <div className="form-field">
                 <label className="form-label">Mã trang bị *</label>
-                <input className="form-input" value={form.maTbdb ?? ''} required disabled={!!editing}
-                  onChange={e => setForm({ ...form, maTbdb: e.target.value })} placeholder="Nhập mã trang bị..." />
+                <input className={`form-input${errors.maTbdb ? ' form-input--invalid' : ''}`} value={form.maTbdb ?? ''} disabled={!!editing}
+                  onChange={e => { setForm({ ...form, maTbdb: e.target.value }); clearError('maTbdb'); }} placeholder="Nhập mã trang bị..." />
+                {errors.maTbdb && <p className="form-error-text">{errors.maTbdb}</p>}
               </div>
               <div className="form-field">
                 <label className="form-label">Tên trang bị *</label>
-                <input className="form-input" value={form.tenTbdb ?? ''} required
-                  onChange={e => setForm({ ...form, tenTbdb: e.target.value })} placeholder="Nhập tên trang bị..." />
+                <input className={`form-input${errors.tenTbdb ? ' form-input--invalid' : ''}`} value={form.tenTbdb ?? ''}
+                  onChange={e => { setForm({ ...form, tenTbdb: e.target.value }); clearError('tenTbdb'); }} placeholder="Nhập tên trang bị..." />
+                {errors.tenTbdb && <p className="form-error-text">{errors.tenTbdb}</p>}
               </div>
               <div className="form-field">
                 <label className="form-label">Loại trang bị *</label>
-                <select className="form-input" value={form.maLoaiTbdb ?? ''} required
-                  onChange={e => setForm({ ...form, maLoaiTbdb: e.target.value })}>
+                <select className={`form-input${errors.maLoaiTbdb ? ' form-input--invalid' : ''}`} value={form.maLoaiTbdb ?? ''}
+                  onChange={e => { setForm({ ...form, maLoaiTbdb: e.target.value }); clearError('maLoaiTbdb'); }}>
                   <option value="">-- Chọn --</option>
                   {loaiList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
                 </select>
+                {errors.maLoaiTbdb && <p className="form-error-text">{errors.maLoaiTbdb}</p>}
               </div>
               <div className="form-field">
                 <label className="form-label">Đơn vị tính</label>
@@ -317,10 +375,28 @@ export default function HoSoTbDongBo() {
 // Modal chỉ xem (read-only) thực lực của 1 TBDB — hồ sơ không phải nơi tạo Lô/Tồn kho, việc đó
 // do quy trình "Cập nhật lệnh nhập/xuất" xử lý khi kho thực nhập/thực xuất theo lệnh.
 function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
+  const { user } = useAuth();
+  const maKhoNguoiDung = user?.maDonVi || null;
   const [tab, setTab] = useState('chung');
   const [maKhoLoc, setMaKhoLoc] = useState(maKhoNgoai || 'ALL');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [loSearch, setLoSearch] = useState('');
+  const [loCcl, setLoCcl] = useState('ALL');
+  const [loNamSx, setLoNamSx] = useState('ALL');
+  const [loNuocSx, setLoNuocSx] = useState('ALL');
+  const [loBaoGoi, setLoBaoGoi] = useState('ALL');
+  const [loNiemCat, setLoNiemCat] = useState('ALL');
+  const [dangXuatExcelLo, setDangXuatExcelLo] = useState(false);
+
+  const [vtSearch, setVtSearch] = useState('');
+  const [vtNhaKho, setVtNhaKho] = useState('ALL');
+  const [vtKhu, setVtKhu] = useState('ALL');
+  const [vtKhoi, setVtKhoi] = useState('ALL');
+  const [vtGia, setVtGia] = useState('ALL');
+  const [vtTang, setVtTang] = useState('ALL');
+  const [dangXuatExcelVt, setDangXuatExcelVt] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -334,21 +410,132 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
 
   const khoMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.tenKho])), [khoList]);
 
+  const loCclOptions = useMemo(() => {
+    const map = new Map();
+    (data?.los || []).forEach(lo => { if (lo.maCcl != null) map.set(lo.maCcl, lo.tenCcl || lo.maCcl); });
+    return [...map.entries()];
+  }, [data]);
+  const loNamSxOptions = useMemo(() => {
+    const set = new Set((data?.los || []).map(lo => lo.namSx).filter(v => v != null));
+    return [...set].sort((a, b) => b - a);
+  }, [data]);
+  const loNuocSxOptions = useMemo(() => {
+    const map = new Map();
+    (data?.los || []).forEach(lo => { if (lo.maNuocSx != null) map.set(lo.maNuocSx, lo.tenNuocSx || lo.maNuocSx); });
+    return [...map.entries()];
+  }, [data]);
+  const loBaoGoiOptions = useMemo(() => {
+    const map = new Map();
+    (data?.los || []).forEach(lo => { if (lo.maTinhTrangBaoGoi != null) map.set(lo.maTinhTrangBaoGoi, lo.tenTinhTrangBaoGoi || lo.maTinhTrangBaoGoi); });
+    return [...map.entries()];
+  }, [data]);
+  const loNiemCatOptions = useMemo(() => {
+    const map = new Map();
+    (data?.los || []).forEach(lo => { if (lo.maHinhThucNiemCat != null) map.set(lo.maHinhThucNiemCat, lo.tenHinhThucNiemCat || lo.maHinhThucNiemCat); });
+    return [...map.entries()];
+  }, [data]);
+
+  const losFiltered = useMemo(() => {
+    const q = loSearch.trim().toLowerCase();
+    return (data?.los || []).filter(lo => {
+      if ((lo.soLuongTon ?? 0) <= 0) return false;
+      if (loCcl !== 'ALL' && String(lo.maCcl) !== loCcl) return false;
+      if (loNamSx !== 'ALL' && String(lo.namSx) !== loNamSx) return false;
+      if (loNuocSx !== 'ALL' && lo.maNuocSx !== loNuocSx) return false;
+      if (loBaoGoi !== 'ALL' && lo.maTinhTrangBaoGoi !== loBaoGoi) return false;
+      if (loNiemCat !== 'ALL' && lo.maHinhThucNiemCat !== loNiemCat) return false;
+      if (q && !`${lo.maLoTbdb} ${lo.maLenh || ''}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [data, loSearch, loCcl, loNamSx, loNuocSx, loBaoGoi, loNiemCat]);
+
+  const distinctVt = (field) => {
+    const set = new Set((data?.viTris || []).map(tk => tk[field]).filter(v => v != null && v !== ''));
+    return [...set].sort();
+  };
+  const vtNhaKhoOptions = useMemo(() => distinctVt('tenNhaKho'), [data]);
+  const vtKhuOptions = useMemo(() => distinctVt('tenDinhKhu'), [data]);
+  const vtKhoiOptions = useMemo(() => distinctVt('tenKhoi'), [data]);
+  const vtGiaOptions = useMemo(() => distinctVt('tenGia'), [data]);
+  const vtTangOptions = useMemo(() => distinctVt('tenTang'), [data]);
+
+  const viTrisFiltered = useMemo(() => {
+    const q = vtSearch.trim().toLowerCase();
+    return (data?.viTris || []).filter(tk => {
+      if (vtNhaKho !== 'ALL' && tk.tenNhaKho !== vtNhaKho) return false;
+      if (vtKhu !== 'ALL' && tk.tenDinhKhu !== vtKhu) return false;
+      if (vtKhoi !== 'ALL' && tk.tenKhoi !== vtKhoi) return false;
+      if (vtGia !== 'ALL' && tk.tenGia !== vtGia) return false;
+      if (vtTang !== 'ALL' && tk.tenTang !== vtTang) return false;
+      if (q && !`${tk.maLoTbdb} ${tk.tenHom || ''} ${tk.moTaViTri || ''}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [data, vtSearch, vtNhaKho, vtKhu, vtKhoi, vtGia, vtTang]);
+
+  const xuatExcelLo = async () => {
+    setDangXuatExcelLo(true);
+    try {
+      const extra = {};
+      if (loCcl !== 'ALL') extra.maCcl = loCcl;
+      if (loNamSx !== 'ALL') extra.namSx = loNamSx;
+      if (loNuocSx !== 'ALL') extra.maNuocSx = loNuocSx;
+      if (loBaoGoi !== 'ALL') extra.maTinhTrangBaoGoi = loBaoGoi;
+      if (loNiemCat !== 'ALL') extra.maHinhThucNiemCat = loNiemCat;
+      const res = await tbDongBoAPI.xuatExcelLo(maTbdb, maKhoLoc, extra, loSearch.trim() || undefined);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lo-hang-${maTbdb}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+    finally { setDangXuatExcelLo(false); }
+  };
+
+  const xemViTriLo = (maLoTbdb) => {
+    // Giữ nguyên maKhoLoc đang chọn (kho của lô này đã nằm trong phạm vi đó rồi) — trước đây
+    // reset về maKhoNguoiDung khiến ADMIN (không giới hạn kho) bị đổi thành "Tất cả kho", tải lại
+    // lô của TOÀN HỆ THỐNG thay vì chỉ đúng kho đang xem.
+    setVtNhaKho('ALL'); setVtKhu('ALL'); setVtKhoi('ALL'); setVtGia('ALL'); setVtTang('ALL');
+    setVtSearch(maLoTbdb);
+    setTab('vitri');
+  };
+
+  const xuatExcelViTri = async () => {
+    setDangXuatExcelVt(true);
+    try {
+      const extra = {};
+      if (vtNhaKho !== 'ALL') extra.tenNhaKho = vtNhaKho;
+      if (vtKhu !== 'ALL') extra.tenDinhKhu = vtKhu;
+      if (vtKhoi !== 'ALL') extra.tenKhoi = vtKhoi;
+      if (vtGia !== 'ALL') extra.tenGia = vtGia;
+      if (vtTang !== 'ALL') extra.tenTang = vtTang;
+      const res = await tbDongBoAPI.xuatExcelViTri(maTbdb, maKhoLoc, extra, vtSearch.trim() || undefined);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vi-tri-ton-kho-${maTbdb}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+    finally { setDangXuatExcelVt(false); }
+  };
+
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal modal--wide fade-in" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🧩</span>
-            <h3 className="modal-title">Thực lực trang bị đồng bộ — {maTbdb}</h3>
+
+            <h2 className="modal-title">Thông tin chi tiết TB - {maTbdb}</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose}><FiX /></button>
         </div>
 
         <div className="tbdb-tabs">
           <button className={`tbdb-tab-btn${tab === 'chung' ? ' tbdb-tab-btn--active' : ''}`} onClick={() => setTab('chung')}>Thông tin chung</button>
-          <button className={`tbdb-tab-btn${tab === 'lo' ? ' tbdb-tab-btn--active' : ''}`} onClick={() => setTab('lo')}>Lô hàng {data ? `(${data.los.length})` : ''}</button>
-          <button className={`tbdb-tab-btn${tab === 'vitri' ? ' tbdb-tab-btn--active' : ''}`} onClick={() => setTab('vitri')}>Vị trí &amp; tồn kho {data ? `(${data.viTris.length})` : ''}</button>
+          <button className={`tbdb-tab-btn${tab === 'lo' ? ' tbdb-tab-btn--active' : ''}`} onClick={() => setTab('lo')}>Lô hàng {data ? `(${losFiltered.length})` : ''}</button>
+          <button className={`tbdb-tab-btn${tab === 'vitri' ? ' tbdb-tab-btn--active' : ''}`} onClick={() => setTab('vitri')}>Vị trí &amp; tồn kho {data ? `(${viTrisFiltered.length})` : ''}</button>
         </div>
 
         <div className="modal-body">
@@ -364,67 +551,139 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
                   <DetailItem label="Đơn vị tính" value={data.tbdb.tenDvt || data.tbdb.maDvt} />
                   <DetailItem label="Tổng số lượng" value={`${data.tongSoLuong} (${maKhoLoc === 'ALL' ? 'toàn hệ thống' : khoMap[maKhoLoc] || maKhoLoc})`} />
                   <DetailItem label="Số lô hiện có" value={data.los.length} />
-                  <DetailItem label="Thời gian tạo" value={fmtDate(data.tbdb.thoiGianTao)} />
-                  <DetailItem label="Cập nhật mới nhất" value={fmtDate(data.tbdb.capNhatMoiNhat)} />
                   {data.tbdb.ghiChu && (
-                    <div className="tbdb-detail-item" style={{ gridColumn: '1 / -1' }}>
-                      <div className="tbdb-detail-label">Ghi chú</div>
-                      <div className="tbdb-detail-value" style={{ fontWeight: 400 }}>{data.tbdb.ghiChu}</div>
-                    </div>
+                    <DetailItem label="Ghi chú" value={data.tbdb.ghiChu} full />
                   )}
                 </div>
               )}
 
               {tab === 'lo' && (
-                data.los.length === 0 ? (
-                  <div className="empty-state" style={{ padding: '24px 0' }}>Chưa có lô hàng nào</div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Mã lô</th>
-                          <th>Nguồn (lệnh)</th>
-                          <th>Cấp chất lượng</th>
-                          <th>Năm SX</th>
-                          <th>Nước SX</th>
-                          <th>Tình trạng bao gói</th>
-                          <th style={{ textAlign: 'right' }}>Đơn giá</th>
-                          <th style={{ textAlign: 'center' }}>SL nhập</th>
-                          <th>Trạng thái lô</th>
-                          <th style={{ textAlign: 'center' }}>SL tồn {maKhoLoc !== 'ALL' ? '(kho lọc)' : ''}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.los.map(lo => (
-                          <tr key={lo.maLoTbdb}>
-                            <td><span className="sub-value">{lo.maLoTbdb}</span></td>
-                            <td>{lo.maLenh ? `${lo.maLenh}${lo.veViecLenh ? ` - ${lo.veViecLenh}` : ''}` : '—'}</td>
-                            <td>{lo.tenCcl || lo.maCcl || '—'}</td>
-                            <td>{lo.namSx || '—'}</td>
-                            <td>{lo.tenNuocSx || lo.maNuocSx || '—'}</td>
-                            <td>{lo.tenTinhTrangBaoGoi || lo.maTinhTrangBaoGoi || '—'}</td>
-                            <td style={{ textAlign: 'right' }}>{fmtMoney(lo.donGia)}</td>
-                            <td className="td-center">{lo.soLuongNhap}</td>
-                            <td>{lo.trangThaiLo || '—'}</td>
-                            <td className="td-center">{lo.soLuongTon}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div>
+                  <div className="tbdb-tab-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
+                    <div className="search-wrap" style={{ width: 200 }}>
+                      <FiSearch className="search-icon" />
+                      <input
+                        className="search-input"
+                        placeholder="Tìm theo mã lô, nguồn..."
+                        value={loSearch}
+                        onChange={e => setLoSearch(e.target.value)}
+                      />
+                    </div>
+                    <select className="tbdb-filter-select" value={loCcl} onChange={e => setLoCcl(e.target.value)}>
+                      <option value="ALL">Tất cả cấp CL</option>
+                      {loCclOptions.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={loNamSx} onChange={e => setLoNamSx(e.target.value)}>
+                      <option value="ALL">Tất cả năm SX</option>
+                      {loNamSxOptions.map(nam => <option key={nam} value={nam}>{nam}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={loNuocSx} onChange={e => setLoNuocSx(e.target.value)}>
+                      <option value="ALL">Tất cả nước SX</option>
+                      {loNuocSxOptions.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={loBaoGoi} onChange={e => setLoBaoGoi(e.target.value)}>
+                      <option value="ALL">Tất cả tình trạng bao gói</option>
+                      {loBaoGoiOptions.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={loNiemCat} onChange={e => setLoNiemCat(e.target.value)}>
+                      <option value="ALL">Tất cả hình thức niêm cất</option>
+                      {loNiemCatOptions.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                    </select>
+                    <button className="btn-excel" onClick={xuatExcelLo} disabled={dangXuatExcelLo} style={{ marginLeft: 'auto' }}>
+                      <FiDownload style={{ marginRight: 6 }} /> {dangXuatExcelLo ? 'Đang xuất...' : 'Xuất Excel'}
+                    </button>
                   </div>
-                )
+
+                  {losFiltered.length === 0 ? (
+                    <div className="empty-state" style={{ padding: '24px 0' }}>
+                      {data.los.length === 0 ? 'Chưa có lô hàng nào' : 'Không có lô hàng nào khớp bộ lọc'}
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="data-table tbdb-fixed-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: 90 }}>Mã lô</th>
+                            <th style={{ width: 90 }}>Nguồn</th>
+                            <th style={{ width: 60, whiteSpace: 'normal' }}>Cấp CL</th>
+                            <th style={{ width: 60 }}>Năm SX</th>
+                            <th style={{ width: 80, whiteSpace: 'normal' }}>Nước SX</th>
+                            <th style={{ width: 100, whiteSpace: 'normal' }}>Tình trạng bao gói</th>
+                            <th style={{ width: 100, whiteSpace: 'normal' }}>Hình thức niêm cất</th>
+                            <th style={{ textAlign: 'right', width: 100 }}>Đơn giá</th>
+                            <th style={{ textAlign: 'center', width: 80 }}>SL tồn</th>
+                            <th style={{ width: 70, textAlign: 'center' }}>Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {losFiltered.map(lo => (
+                            <tr key={lo.maLoTbdb}>
+                              <td className="col-lo-truncate" title={lo.maLoTbdb}><span className="sub-value">{lo.maLoTbdb}</span></td>
+                              <td className="col-lo-truncate" title={lo.maLenh || ''}>{lo.maLenh || ''}</td>
+                              <td>{lo.tenCcl || lo.maCcl || ''}</td>
+                              <td>{lo.namSx || ''}</td>
+                              <td>{lo.tenNuocSx || lo.maNuocSx || ''}</td>
+                              <td>{lo.tenTinhTrangBaoGoi || lo.maTinhTrangBaoGoi || ''}</td>
+                              <td>{lo.tenHinhThucNiemCat || lo.maHinhThucNiemCat || ''}</td>
+                              <td style={{ textAlign: 'right' }}>{fmtMoney(lo.donGia)}</td>
+                              <td className="td-center">{lo.soLuongTon}</td>
+                              <td className="td-center">
+                                <div className="td-actions">
+                                  <button className="btn-icon-edit" onClick={() => xemViTriLo(lo.maLoTbdb)} title="Xem vị trí của lô này">
+                                    <FiEye size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               )}
 
               {tab === 'vitri' && (
                 <div>
-                  <div className="tbdb-tab-toolbar">
-                    <select className="tbdb-filter-select" value={maKhoLoc} onChange={e => setMaKhoLoc(e.target.value)}>
-                      <option value="ALL">Tất cả kho</option>
+                  <div className="tbdb-tab-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
+                    <div className="search-wrap" style={{ width: 200 }}>
+                      <FiSearch className="search-icon" />
+                      <input
+                        className="search-input"
+                        placeholder="Tìm theo mã lô, hòm, mô tả..."
+                        value={vtSearch}
+                        onChange={e => setVtSearch(e.target.value)}
+                      />
+                    </div>
+                    <select className="tbdb-filter-select" value={maKhoLoc} onChange={e => setMaKhoLoc(e.target.value)} disabled={!!maKhoNguoiDung}>
+                      {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
                       {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
                     </select>
+                    <select className="tbdb-filter-select" value={vtNhaKho} onChange={e => setVtNhaKho(e.target.value)}>
+                      <option value="ALL">Tất cả nhà kho</option>
+                      {vtNhaKhoOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={vtKhu} onChange={e => setVtKhu(e.target.value)}>
+                      <option value="ALL">Tất cả khu</option>
+                      {vtKhuOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={vtKhoi} onChange={e => setVtKhoi(e.target.value)}>
+                      <option value="ALL">Tất cả khối</option>
+                      {vtKhoiOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={vtGia} onChange={e => setVtGia(e.target.value)}>
+                      <option value="ALL">Tất cả giá</option>
+                      {vtGiaOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <select className="tbdb-filter-select" value={vtTang} onChange={e => setVtTang(e.target.value)}>
+                      <option value="ALL">Tất cả tầng</option>
+                      {vtTangOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <button className="btn-excel" onClick={xuatExcelViTri} disabled={dangXuatExcelVt} style={{ marginLeft: 'auto' }}>
+                      <FiDownload style={{ marginRight: 6 }} /> {dangXuatExcelVt ? 'Đang xuất...' : 'Xuất Excel'}
+                    </button>
                   </div>
-                  {data.viTris.length === 0 ? (
+                  {viTrisFiltered.length === 0 ? (
                     <div className="empty-state" style={{ padding: '24px 0' }}>Chưa có tồn kho nào khớp bộ lọc</div>
                   ) : (
                     <div style={{ overflowX: 'auto' }}>
@@ -445,17 +704,17 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {data.viTris.map(tk => (
+                          {viTrisFiltered.map(tk => (
                             <tr key={tk.maTonKho}>
                               <td><span className="sub-value">{tk.maLoTbdb}</span></td>
-                              <td>{tk.tenKho || tk.maKho || '—'}</td>
-                              <td>{tk.tenNhaKho || '—'}</td>
-                              <td>{tk.tenDinhKhu || '—'}</td>
-                              <td>{tk.tenKhoi || '—'}</td>
-                              <td>{tk.tenGia || '—'}</td>
-                              <td>{tk.tenTang || '—'}</td>
-                              <td>{tk.tenHom || '—'}</td>
-                              <td>{tk.moTaViTri || '—'}</td>
+                              <td>{tk.tenKho || tk.maKho || ''}</td>
+                              <td>{tk.tenNhaKho || ''}</td>
+                              <td>{tk.tenDinhKhu || ''}</td>
+                              <td>{tk.tenKhoi || ''}</td>
+                              <td>{tk.tenGia || ''}</td>
+                              <td>{tk.tenTang || ''}</td>
+                              <td>{tk.tenHom || ''}</td>
+                              <td>{tk.moTaViTri || ''}</td>
                               <td><span className="badge tbdb-status-badge">{tk.tenTrangThaiTb || tk.maTrangThaiTb}</span></td>
                               <td className="td-center">{tk.soLuong}</td>
                             </tr>
@@ -478,10 +737,10 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
   );
 }
 
-function DetailItem({ label, value }) {
+function DetailItem({ label, value, full }) {
   const display = value === null || value === undefined || value === '' ? '—' : value;
   return (
-    <div className="tbdb-detail-item">
+    <div className={`tbdb-detail-item${full ? ' tbdb-detail-item--full' : ''}`}>
       <div className="tbdb-detail-label">{label}</div>
       <div className="tbdb-detail-value">{display}</div>
     </div>

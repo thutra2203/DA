@@ -39,5 +39,7 @@ public partial class Kho
 
     public virtual ICollection<PhieuKiemKe> PhieuKiemKes { get; set; } = new List<PhieuKiemKe>();
 
+    public virtual ICollection<TonDauKy> TonDauKies { get; set; } = new List<TonDauKy>();
+
     public virtual ICollection<TonKhoTbdb> TonKhoTbdbs { get; set; } = new List<TonKhoTbdb>();
 }

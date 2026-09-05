@@ -11,8 +11,26 @@ import NhatKyHoatDong from './pages/NhatKyHoatDong';
 import ComingSoon from './pages/ComingSoon';
 import HoSoTbDongBo from './pages/tbDongBo/HoSoTbDongBo';
 import LenhTbDongBo from './pages/tbDongBo/LenhTbDongBo';
+import ChiTietLenhPage from './pages/tbDongBo/ChiTietLenhPage';
 import CapNhatLenhTbDongBo from './pages/tbDongBo/CapNhatLenhTbDongBo';
+import XuLyLenhPage from './pages/tbDongBo/XuLyLenhPage';
+import TonDauTbDongBo from './pages/tbDongBo/TonDauTbDongBo';
+import XuLyTonDauPage from './pages/tbDongBo/XuLyTonDauPage';
+import KiemKeTbDongBo from './pages/tbDongBo/KiemKeTbDongBo';
+import XuLyKiemKePage from './pages/tbDongBo/XuLyKiemKePage';
+import XuLyKiemKeViTriPage from './pages/tbDongBo/XuLyKiemKeViTriPage';
+import ChuyenKyTbDongBo from './pages/tbDongBo/ChuyenKyTbDongBo';
+import TaoLenhChuyenCap from './pages/tbDongBo/TaoLenhChuyenCap';
+import ChuyenCapChatLuong from './pages/tbDongBo/ChuyenCapChatLuong';
+import XuLyChuyenCapPage from './pages/tbDongBo/XuLyChuyenCapPage';
+import TaoLenhHuyThanhLy from './pages/tbDongBo/TaoLenhHuyThanhLy';
+import CapNhatLenhHuyThanhLy from './pages/tbDongBo/CapNhatLenhHuyThanhLy';
+import XuLyLenhHuyThanhLyPage from './pages/tbDongBo/XuLyLenhHuyThanhLyPage';
+import TaoLenhThayDoiViTri from './pages/tbDongBo/TaoLenhThayDoiViTri';
+import ThayDoiViTri from './pages/tbDongBo/ThayDoiViTri';
+import XuLyThayDoiViTriPage from './pages/tbDongBo/XuLyThayDoiViTriPage';
 import { PermissionProvider } from './context/PermissionContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -61,18 +79,30 @@ function AppRoutes() {
               <Route path="/danh-muc/hinh-thuc-niem-cat" element={<DanhMucPage type="hinh-thuc-niem-cat" />} />
               <Route path="/danh-muc/tinh-trang-bao-goi" element={<DanhMucPage type="tinh-trang-bao-goi" />} />
               <Route path="/danh-muc/trang-thai-tb" element={<DanhMucPage type="trang-thai-tb" />} />
+              <Route path="/danh-muc/dot-kiem-ke" element={<DanhMucPage type="dot-kiem-ke" />} />
 
               <Route path="/spkt" element={<ComingSoon title="Quản lý SPKT" icon="🎯" desc="Chức năng quản lý súng pháo kỹ thuật đang được thiết kế cấu trúc dữ liệu." />} />
 
               <Route path="/tb-dong-bo/ho-so" element={<HoSoTbDongBo />} />
               <Route path="/tb-dong-bo/tao-lenh-nhap-xuat" element={<LenhTbDongBo />} />
+              <Route path="/tb-dong-bo/tao-lenh-nhap-xuat/:maLenh" element={<ChiTietLenhPage />} />
               <Route path="/tb-dong-bo/cap-nhat-lenh-nhap-xuat" element={<CapNhatLenhTbDongBo />} />
-              <Route path="/tb-dong-bo/ton-dau" element={<ComingSoon title="Tồn đầu" icon="📦" desc="Chức năng khai báo tồn đầu trang bị đồng bộ đang được xây dựng." />} />
-              <Route path="/tb-dong-bo/kiem-ke" element={<ComingSoon title="Kiểm kê" icon="✅" desc="Chức năng kiểm kê trang bị đồng bộ đang được xây dựng." />} />
-              <Route path="/tb-dong-bo/phan-cap-chat-luong" element={<ComingSoon title="Quản lý phân cấp chất lượng" icon="🏅" desc="Chức năng quản lý phân cấp chất lượng trang bị đồng bộ đang được xây dựng." />} />
-              <Route path="/tb-dong-bo/huy-thanh-ly" element={<ComingSoon title="Hủy/Thanh lý" icon="🗑️" desc="Chức năng hủy/thanh lý trang bị đồng bộ đang được xây dựng." />} />
-              <Route path="/tb-dong-bo/chuyen-nuoc-chuyen-loai" element={<ComingSoon title="Chuyển nước, chuyển loại" icon="🔄" desc="Chức năng chuyển nước, chuyển loại trang bị đồng bộ đang được xây dựng." />} />
-              <Route path="/tb-dong-bo/chuyen-thanh-vtpt" element={<ComingSoon title="Chuyển thành VTPT" icon="↪️" desc="Chức năng chuyển trang bị đồng bộ thành VTPT đang được xây dựng." />} />
+              <Route path="/tb-dong-bo/cap-nhat-lenh-nhap-xuat/:maLenh" element={<XuLyLenhPage />} />
+              <Route path="/tb-dong-bo/ton-dau" element={<TonDauTbDongBo />} />
+              <Route path="/tb-dong-bo/ton-dau/:maLenh" element={<XuLyTonDauPage />} />
+              <Route path="/tb-dong-bo/kiem-ke" element={<KiemKeTbDongBo />} />
+              <Route path="/tb-dong-bo/kiem-ke/:maPhieu" element={<XuLyKiemKePage />} />
+              <Route path="/tb-dong-bo/kiem-ke/:maPhieu/chi-tiet/:maCtKiemKe" element={<XuLyKiemKeViTriPage />} />
+              <Route path="/tb-dong-bo/chuyen-ky" element={<ChuyenKyTbDongBo />} />
+              <Route path="/tb-dong-bo/chuyen-cap/tao-lenh" element={<TaoLenhChuyenCap />} />
+              <Route path="/tb-dong-bo/chuyen-cap" element={<ChuyenCapChatLuong />} />
+              <Route path="/tb-dong-bo/chuyen-cap/:maLenh" element={<XuLyChuyenCapPage />} />
+              <Route path="/tb-dong-bo/huy-thanh-ly/tao-lenh" element={<TaoLenhHuyThanhLy />} />
+              <Route path="/tb-dong-bo/huy-thanh-ly/cap-nhat" element={<CapNhatLenhHuyThanhLy />} />
+              <Route path="/tb-dong-bo/huy-thanh-ly/cap-nhat/:maLenh" element={<XuLyLenhHuyThanhLyPage />} />
+              <Route path="/tb-dong-bo/thay-doi-vi-tri/tao-lenh" element={<TaoLenhThayDoiViTri />} />
+              <Route path="/tb-dong-bo/thay-doi-vi-tri" element={<ThayDoiViTri />} />
+              <Route path="/tb-dong-bo/thay-doi-vi-tri/:maLenh" element={<XuLyThayDoiViTriPage />} />
 
               <Route path="/bao-cao" element={<ComingSoon title="Tổng hợp, báo cáo" icon="📊" desc="Chức năng tổng hợp báo cáo đang được xây dựng." />} />
             </Routes>
@@ -88,7 +118,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PermissionProvider>
-          <AppRoutes />
+          <ConfirmProvider>
+            <AppRoutes />
+          </ConfirmProvider>
         </PermissionProvider>
       </AuthProvider>
     </BrowserRouter>

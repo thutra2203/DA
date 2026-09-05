@@ -31,5 +31,7 @@ public partial class LoaiSpkt
 
     public virtual ICollection<SpkttrongLenh> SpkttrongLenhs { get; set; } = new List<SpkttrongLenh>();
 
+    public virtual ICollection<TonDauKy> TonDauKies { get; set; } = new List<TonDauKy>();
+
     public virtual ICollection<KieuSpkt> MaKieus { get; set; } = new List<KieuSpkt>();
 }

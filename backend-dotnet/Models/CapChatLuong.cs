@@ -11,6 +11,8 @@ public partial class CapChatLuong
 
     public string? MoTa { get; set; }
 
+    public virtual ICollection<ChiTietKiemKe> ChiTietKiemKes { get; set; } = new List<ChiTietKiemKe>();
+
     public virtual ICollection<ChiTietLenh> ChiTietLenhs { get; set; } = new List<ChiTietLenh>();
 
     public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
@@ -20,4 +22,6 @@ public partial class CapChatLuong
     public virtual ICollection<LoTbdb> LoTbdbs { get; set; } = new List<LoTbdb>();
 
     public virtual ICollection<SpkttrongLenh> SpkttrongLenhs { get; set; } = new List<SpkttrongLenh>();
+
+    public virtual ICollection<TonDauKy> TonDauKies { get; set; } = new List<TonDauKy>();
 }

@@ -7,19 +7,20 @@ namespace backend_dotnet.Services;
 
 public class TokenService(IConfiguration config)
 {
-    public string GenerateToken(int id, string username, string role)
+    public string GenerateToken(int id, string username, string role, string? maDonVi = null)
     {
         var secret = config["Jwt:Secret"]!;
         var minutes = config.GetValue<int>("Jwt:ExpiresInMinutes", 60);
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, id.ToString()),
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.Role, role),
+            new(ClaimTypes.NameIdentifier, id.ToString()),
+            new(ClaimTypes.Name, username),
+            new(ClaimTypes.Role, role),
         };
+        if (!string.IsNullOrEmpty(maDonVi)) claims.Add(new Claim("maDonVi", maDonVi));
 
         var token = new JwtSecurityToken(
             claims: claims,
