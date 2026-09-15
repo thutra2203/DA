@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { lenhTbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
@@ -22,6 +23,7 @@ export default function TaoLenhHuyThanhLy() {
   usePageTitle('Tạo lệnh hủy/thanh lý');
   const confirm = useConfirm();
   const { user } = useAuth();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_HUY_LAP');
   const maKhoNguoiDung = user?.maDonVi || null;
 
   const [khoList, setKhoList] = useState([]);
@@ -37,6 +39,7 @@ export default function TaoLenhHuyThanhLy() {
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
   const [dangTao, setDangTao] = useState(false);
+  const [detailRow, setDetailRow] = useState(null);
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -61,7 +64,7 @@ export default function TaoLenhHuyThanhLy() {
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter(l => {
-      if (selectedTrangThai !== 'ALL' && (l.trangThai || 'DANG_XU_LY') !== selectedTrangThai) return false;
+      if (selectedTrangThai !== 'ALL' && (l.trangThai || 'DANG_SOAN_THAO') !== selectedTrangThai) return false;
       if (!q) return true;
       return [l.maLenh, l.veViec, l.canCu].some(v => String(v ?? '').toLowerCase().includes(q));
     });
@@ -152,9 +155,9 @@ export default function TaoLenhHuyThanhLy() {
       <div className="data-card">
         <div className="table-toolbar">
           <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lệnh hủy/thanh lý</span>
-          <button className="btn-add" onClick={openAdd}>
+          {canThem && <button className="btn-add" onClick={openAdd}>
             <FiPlus style={{ marginRight: 6 }} />Tạo lệnh
-          </button>
+          </button>}
         </div>
 
         <div className="table-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
@@ -169,7 +172,7 @@ export default function TaoLenhHuyThanhLy() {
             </select>
             <select className="tbdb-filter-select" value={selectedTrangThai} onChange={e => setSelectedTrangThai(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="DANG_XU_LY">Đang xử lý</option>
+              <option value="DANG_SOAN_THAO">Đang soạn</option>
               <option value="HOAN_THANH">Đã hoàn thành</option>
             </select>
           </div>
@@ -216,14 +219,17 @@ export default function TaoLenhHuyThanhLy() {
                     </td>
                     <td className="td-center">
                       <div className="td-actions">
-                        <button className="btn-icon-warn" disabled={r.trangThai === 'HOAN_THANH'} onClick={() => openEdit(r)}
+                        <button className="btn-icon-edit" onClick={() => setDetailRow(r)} title="Xem chi tiết">
+                          <FiEye size={13} />
+                        </button>
+                        {canSua && <button className="btn-icon-warn" disabled={r.trangThai === 'HOAN_THANH'} onClick={() => openEdit(r)}
                           title={r.trangThai === 'HOAN_THANH' ? 'Lệnh đã hoàn thành, không thể sửa' : 'Sửa'}>
                           <FiEdit2 size={13} />
-                        </button>
-                        <button className="btn-icon-delete" disabled={r.trangThai === 'HOAN_THANH'} onClick={() => handleDelete(r)}
+                        </button>}
+                        {canXoa && <button className="btn-icon-delete" disabled={r.trangThai === 'HOAN_THANH'} onClick={() => handleDelete(r)}
                           title={r.trangThai === 'HOAN_THANH' ? 'Lệnh đã hoàn thành, không thể xóa' : 'Xóa'}>
                           <FiTrash2 size={13} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
@@ -308,6 +314,49 @@ export default function TaoLenhHuyThanhLy() {
           </div>
         </div>
       )}
+
+      {detailRow && <ChiTietLenhModal row={detailRow} khoMap={khoMap} onClose={() => setDetailRow(null)} />}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng Lenh) — không phải dòng chi tiết (đã có ở trang
+// "Cập nhật lệnh xuất hủy/thanh lý") và không phải bản in trang trọng.
+function ChiTietLenhModal({ row, khoMap, onClose }) {
+  const rows = [
+    ['Số lệnh', row.maLenh],
+    ['Ngày', fmtDate(row.ngay)],
+    ['Ngày hiệu lực', fmtDate(row.ngayHieuLuc)],
+    ['Ngày hết hạn', fmtDate(row.giaTriDenNgay)],
+    ['Kho xuất', row.tenKhoXuat || khoMap[row.maKhoXuat] || ''],
+    ['Kho nhập', row.tenKhoNhap || khoMap[row.maKhoNhap] || ''],
+    ['Trạng thái', row.trangThai === 'HOAN_THANH' ? 'Đã hoàn thành' : 'Đang xử lý'],
+    ['Số dòng', row.soDongChiTiet ?? ''],
+    ['Căn cứ', row.canCu || ''],
+    ['Về việc', row.veViec || ''],
+    ['Ghi chú', row.ghiChu || ''],
+  ];
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh {row.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

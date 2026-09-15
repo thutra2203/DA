@@ -1,5 +1,6 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public record ThucHienChuyenKyDto(string MaPhieuKiemKe, int NamMoi, DateOnly Nga
 [ApiController]
 [Authorize]
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/chuyen-ky")]
+[YeuCauQuyen(Cn.TbdbKiemKeXl)]
 public class ChuyenKyController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
     private const string NguonTaoChuyenKy = "CHUYEN_KY";

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { lenhTbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiEdit2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
+import { FiSearch, FiEye, FiEdit2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useAuth } from '../../context/AuthContext';
 import LenhPrintView from './LenhPrintView';
@@ -32,6 +32,8 @@ export default function CapNhatLenhTbDongBo() {
   const [activeLoaiLenh, setActiveLoaiLenh] = useState('');
   const [khoList, setKhoList] = useState([]);
   const [lyDoList, setLyDoList] = useState([]);
+  const [htttList, setHtttList] = useState([]);
+  const [detailRow, setDetailRow] = useState(null); // lệnh đang xem chi tiết — dữ liệu lấy sẵn từ danh sách
 
   const [selectedKho] = useState(maKhoNguoiDung || 'ALL'); // không có bộ lọc trên giao diện — chỉ khoanh theo kho của người dùng nếu bị giới hạn
   const [selectedLyDo, setSelectedLyDo] = useState('ALL');
@@ -76,14 +78,18 @@ export default function CapNhatLenhTbDongBo() {
       danhMucAPI.getAll('tinh-chat-nhap-xuat').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('kho').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('chi-tiet-tcnx').then(res => res.data).catch(() => []),
-    ]).then(([nx, kho, ctnx]) => {
-      // Loại "Xuất hủy/thanh lý" (NX05) đã có màn hình riêng ("Hủy/Thanh lý" ở menu), không hiện
-      // lại ở đây để tránh trùng chức năng.
-      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && n.maNX !== 'NX05');
+      danhMucAPI.getAll('httt').then(res => res.data).catch(() => []),
+    ]).then(([nx, kho, ctnx, httt]) => {
+      // Trang này chỉ làm Nhập/Xuất — các loại lệnh khác (Chuyển cấp chất lượng, Xuất hủy/thanh lý,
+      // Thay đổi hình thức niêm cất, Tồn đầu kỳ) đã có màn hình riêng ở menu, không hiện lại ở đây
+      // để tránh trùng chức năng.
+      const CHI_NHAP_XUAT = ['NX03', 'NX04'];
+      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && CHI_NHAP_XUAT.includes(n.maNX));
       setLoaiLenhList(nxTbdb);
       setActiveLoaiLenh(nxTbdb[0]?.maNX || '');
       setKhoList(kho);
       setLyDoList(ctnx);
+      setHtttList(httt);
     });
   }, []);
 
@@ -110,6 +116,9 @@ export default function CapNhatLenhTbDongBo() {
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter(l => {
+      // Lệnh còn đang soạn thảo (chưa "Ghi lệnh") chưa sẵn sàng xử lý thực nhập/xuất — chỉ hiện ở
+      // đây từ khi đã ban hành.
+      if (l.trangThai === 'DANG_SOAN_THAO') return false;
       if (selectedLyDo !== 'ALL' && l.maLenhChiTiet !== selectedLyDo) return false;
       if (selectedTrangThai !== 'ALL') {
         const daHoanThanh = l.trangThai === 'HOAN_THANH';
@@ -235,8 +244,11 @@ export default function CapNhatLenhTbDongBo() {
                             : <span className="badge badge--pending">Đang xử lý</span>}
                       </td>
                       <td className="td-center">
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/cap-nhat-lenh-nhap-xuat/${row.maLenh}`)} title="Xử lý thực nhập/xuất">
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                          <button className="btn-icon-edit" onClick={() => setDetailRow(row)} title="Xem chi tiết">
+                            <FiEye size={13} />
+                          </button>
+                          <button className="btn-icon-warn" onClick={() => navigate(`/tb-dong-bo/cap-nhat-lenh-nhap-xuat/${row.maLenh}`)} title="Xử lý thực nhập/xuất">
                             <FiEdit2 size={13} />
                           </button>
                         </div>
@@ -253,6 +265,64 @@ export default function CapNhatLenhTbDongBo() {
       </div>
 
       <LenhPrintView lenh={printData?.lenh} rows={printData?.rows} />
+
+      {detailRow && (
+        <ChiTietLenhModal row={detailRow} xuat={xuat} khoMap={khoMap} htttList={htttList} onClose={() => setDetailRow(null)} />
+      )}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng Lenh) — không phải dòng chi tiết (đã có ở trang
+// Xử lý) và không phải bản in trang trọng (đã có ở nút "In lệnh"). Dữ liệu lấy thẳng từ dòng đang
+// có trong danh sách, không cần gọi thêm API.
+function ChiTietLenhModal({ row, xuat, khoMap, htttList, onClose }) {
+  const daHoanThanh = row.trangThai === 'HOAN_THANH';
+  const tenHttt = htttList.find(h => h.maHTTT === row.maHttt)?.tenHTTT || '';
+  const doiTac = row.maNcc
+    ? (row.tenNcc || row.maNcc)
+    : (xuat ? (row.tenKhoNhap || khoMap[row.maKhoNhap] || '') : (row.tenKhoXuat || khoMap[row.maKhoXuat] || ''));
+
+  const rows = [
+    ['Số lệnh', row.maLenh],
+    ['Loại lệnh', xuat ? 'Xuất' : 'Nhập'],
+    ['Lý do', row.tenLyDo || ''],
+    ['Ngày', fmtDate(row.ngay)],
+    ['Ngày hiệu lực', fmtDate(row.ngayHieuLuc)],
+    ['Ngày hết hạn', fmtDate(row.giaTriDenNgay)],
+    [xuat ? 'Kho xuất' : 'Kho nhập', xuat ? (row.tenKhoXuat || khoMap[row.maKhoXuat] || '') : (row.tenKhoNhap || khoMap[row.maKhoNhap] || '')],
+    ['Đối tác', doiTac],
+    ['Hình thức thanh toán', tenHttt],
+    ['Phương thức vận chuyển', row.ptVanChuyen || ''],
+    ['Đơn vị chuyển', row.donViChuyen || ''],
+    ['Trạng thái', daHoanThanh ? 'Đã hoàn thành' : isQuaHan(row) ? 'Quá hạn' : 'Đang xử lý'],
+    ['Số dòng', row.soDongChiTiet],
+    ['Căn cứ', row.canCu || ''],
+    ['Về việc', row.veViec || ''],
+    ['Ghi chú', row.ghiChu || ''],
+  ];
+
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh {row.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

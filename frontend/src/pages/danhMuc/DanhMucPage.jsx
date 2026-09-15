@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { danhMucAPI } from '../../services/api';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiPrinter } from 'react-icons/fi';
 import { usePermission } from '../../context/PermissionContext';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
+import './DanhMucPage.css';
 
 const PAGE_SIZE = 10;
 
@@ -34,7 +35,7 @@ const trangThaiDotKiemKeHienThi = (row) => {
 const CONFIG = {
   // ==== Nhóm không có khóa ngoại bắt buộc ====
   'nhom-spkt': {
-    title: 'Nhóm SPKT', icon: '🔫',
+    title: 'Nhóm SPKT',
     fields: [
       { col: 'maNhom', label: 'Mã nhóm', pk: true, required: true },
       { col: 'tenNhom', label: 'Tên nhóm', required: true, display: true },
@@ -42,7 +43,7 @@ const CONFIG = {
     ],
   },
   dvt: {
-    title: 'Đơn vị tính', icon: '📏',
+    title: 'Đơn vị tính',
     fields: [
       { col: 'maDVT', label: 'Mã ĐVT', pk: true, required: true },
       { col: 'tenDVT', label: 'Tên ĐVT', required: true, display: true },
@@ -52,7 +53,7 @@ const CONFIG = {
     ],
   },
   nsx: {
-    title: 'Nước sản xuất', icon: '🌍',
+    title: 'Nước sản xuất',
     fields: [
       { col: 'maNSX', label: 'Mã nước SX', pk: true, required: true },
       { col: 'tenNSX', label: 'Tên nước SX', required: true, display: true },
@@ -60,7 +61,7 @@ const CONFIG = {
     ],
   },
   httt: {
-    title: 'Hình thức thanh toán', icon: '💳',
+    title: 'Hình thức thanh toán',
     fields: [
       { col: 'maHTTT', label: 'Mã HTTT', pk: true, required: true },
       { col: 'tenHTTT', label: 'Tên HTTT', required: true, display: true },
@@ -69,7 +70,7 @@ const CONFIG = {
     ],
   },
   'ht-van-chuyen': {
-    title: 'Hình thức vận chuyển', icon: '🚚',
+    title: 'Hình thức vận chuyển',
     fields: [
       { col: 'maHTVC', label: 'Mã HTVC', pk: true, required: true },
       { col: 'tenHTVC', label: 'Tên HTVC', required: true, display: true },
@@ -78,7 +79,7 @@ const CONFIG = {
     ],
   },
   'loai-tbdb': {
-    title: 'Loại trang bị đồng bộ', icon: '🧩',
+    title: 'Loại trang bị đồng bộ',
     fields: [
       { col: 'maLoai', label: 'Mã loại', pk: true, required: true },
       { col: 'tenLoai', label: 'Tên loại', required: true, display: true },
@@ -86,7 +87,7 @@ const CONFIG = {
     ],
   },
   'cap-chat-luong': {
-    title: 'Cấp chất lượng', icon: '⭐',
+    title: 'Cấp chất lượng',
     fields: [
       { col: 'maCap', label: 'Mã cấp (1-5)', pk: true, required: true, type: 'number' },
       { col: 'tenCap', label: 'Tên cấp', required: true, display: true },
@@ -94,14 +95,14 @@ const CONFIG = {
     ],
   },
   'hinh-thuc-niem-cat': {
-    title: 'Hình thức niêm cất', icon: '🔒',
+    title: 'Hình thức niêm cất',
     fields: [
       { col: 'maHTNC', label: 'Mã HTNC', pk: true, required: true },
       { col: 'tenHTNC', label: 'Tên HTNC', required: true, display: true },
     ],
   },
   'tinh-trang-bao-goi': {
-    title: 'Tình trạng bao gói', icon: '📦',
+    title: 'Tình trạng bao gói',
     fields: [
       { col: 'maTTBG', label: 'Mã tình trạng', pk: true, required: true },
       { col: 'tenTTBG', label: 'Tên tình trạng', required: true, display: true },
@@ -109,7 +110,7 @@ const CONFIG = {
     ],
   },
   'trang-thai-tb': {
-    title: 'Trạng thái trang bị', icon: '🩺',
+    title: 'Trạng thái trang bị',
     fields: [
       { col: 'maTTTB', label: 'Mã trạng thái', pk: true, required: true },
       { col: 'tenTTTB', label: 'Tên trạng thái', required: true, display: true },
@@ -117,7 +118,7 @@ const CONFIG = {
     ],
   },
   'cap-bac': {
-    title: 'Cấp bậc', icon: '🎖️',
+    title: 'Cấp bậc',
     fields: [
       { col: 'maCapBac', label: 'Mã cấp bậc', pk: true, required: true },
       { col: 'tenCapBac', label: 'Tên cấp bậc', required: true, display: true },
@@ -125,7 +126,7 @@ const CONFIG = {
     ],
   },
   'chuc-vu': {
-    title: 'Chức vụ', icon: '💼',
+    title: 'Chức vụ',
     fields: [
       { col: 'maChucVu', label: 'Mã chức vụ', pk: true, required: true },
       { col: 'tenChucVu', label: 'Tên chức vụ', required: true, display: true },
@@ -133,45 +134,61 @@ const CONFIG = {
     ],
   },
   tinh: {
-    title: 'Tỉnh / Thành phố', icon: '🗺️',
+    title: 'Tỉnh / Thành phố',
     fields: [
       { col: 'maTinh', label: 'Mã tỉnh', pk: true, required: true },
       { col: 'tenTinh', label: 'Tên tỉnh', required: true, display: true },
       { col: 'vungMien', label: 'Vùng miền', type: 'select', options: VUNG_MIEN_OPTIONS },
       { col: 'ghiChu', label: 'Ghi chú' },
     ],
+    filters: [
+      { col: 'vungMien', label: 'Vùng miền', options: VUNG_MIEN_OPTIONS },
+    ],
   },
   'loai-kho': {
-    title: 'Loại kho', icon: '🏗️',
+    title: 'Loại kho',
     fields: [
       { col: 'maLoaiKho', label: 'Mã loại kho', pk: true, required: true },
       { col: 'tenLoaiKho', label: 'Tên loại kho', required: true, display: true },
       { col: 'ghiChu', label: 'Ghi chú' },
     ],
   },
+  'cap-quan-ly': {
+    title: 'Cấp quản lý',
+    fields: [
+      { col: 'maCapQuanLy', label: 'Mã', pk: true, required: true },
+      { col: 'tenCapQuanLy', label: 'Tên', required: true, display: true },
+      { col: 'ghiChu', label: 'Ghi chú' },
+      { col: 'thuTuHienThi', label: 'Thứ tự HT', type: 'number' },
+    ],
+  },
   'tinh-chat-nhap-xuat': {
-    title: 'Tính chất nhập xuất', icon: '🔁',
+    title: 'Tính chất nhập xuất', wide: true,
     fields: [
       { col: 'maNX', label: 'Mã tính chất', pk: true, required: true },
       { col: 'tenNX', label: 'Tên tính chất', required: true, display: true },
       { col: 'nhomTB', label: 'Nhóm trang bị' },
-      { col: 'ghiChu', label: 'Ghi chú' },
+      { col: 'ghiChu', label: 'Ghi chú', type: 'textarea', full: true },
     ],
   },
 
   // ==== Nhóm có khóa ngoại tùy chọn ====
   'kieu-spkt': {
-    title: 'Kiểu SPKT', icon: '🔧',
+    title: 'Kiểu SPKT', wide: true,
     fields: [
       { col: 'maKieu', label: 'Mã kiểu', pk: true, required: true },
       { col: 'tenKieu', label: 'Tên kiểu', required: true, display: true },
+      { col: 'maNhom', label: 'Nhóm SPKT', type: 'select', optionsFrom: 'nhom-spkt', optionValueKey: 'maNhom', optionLabelKey: 'tenNhom' },
       { col: 'nuocSX', label: 'Nước SX' },
       { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
-      { col: 'ghiChu', label: 'Ghi chú' },
+      { col: 'ghiChu', label: 'Ghi chú', full: true },
+    ],
+    filters: [
+      { col: 'maNhom', label: 'Nhóm SPKT' },
     ],
   },
   'hang-sx': {
-    title: 'Hãng sản xuất', icon: '🏭',
+    title: 'Hãng sản xuất',
     fields: [
       { col: 'maHSX', label: 'Mã hãng SX', pk: true, required: true },
       { col: 'tenHSX', label: 'Tên hãng SX', required: true, display: true },
@@ -183,7 +200,7 @@ const CONFIG = {
     ],
   },
   ncc: {
-    title: 'Nhà cung cấp', icon: '🤝',
+    title: 'Nhà cung cấp',
     fields: [
       { col: 'maNCC', label: 'Mã NCC', pk: true, required: true },
       { col: 'tenNCC', label: 'Tên NCC', required: true, display: true },
@@ -197,42 +214,59 @@ const CONFIG = {
 
   // ==== Nhóm có khóa ngoại bắt buộc ====
   xa: {
-    title: 'Xã / Phường', icon: '📍',
+    title: 'Xã / Phường',
     fields: [
       { col: 'maXa', label: 'Mã xã', pk: true, required: true },
       { col: 'maTinh', label: 'Tỉnh', required: true, type: 'select', optionsFrom: 'tinh', optionValueKey: 'maTinh', optionLabelKey: 'tenTinh' },
       { col: 'tenXa', label: 'Tên xã', required: true, display: true },
       { col: 'ghiChu', label: 'Ghi chú' },
     ],
+    filters: [
+      { col: 'maTinh', label: 'Tỉnh' },
+    ],
   },
   kho: {
-    title: 'Kho', icon: '🏢',
+    title: 'Kho', wide: true,
     fields: [
       { col: 'maKho', label: 'Mã kho', pk: true, required: true },
-      { col: 'maLoaiKho', label: 'Loại kho', required: true, type: 'select', optionsFrom: 'loai-kho', optionValueKey: 'maLoaiKho', optionLabelKey: 'tenLoaiKho' },
       { col: 'tenKho', label: 'Tên kho', required: true, display: true },
+      { col: 'maLoaiKho', label: 'Loại kho', required: true, type: 'select', optionsFrom: 'loai-kho', optionValueKey: 'maLoaiKho', optionLabelKey: 'tenLoaiKho' },
+      { col: 'maCapQuanLy', label: 'Cấp quản lý', type: 'select', optionsFrom: 'cap-quan-ly', optionValueKey: 'maCapQuanLy', optionLabelKey: 'tenCapQuanLy' },
       { col: 'dienTich', label: 'Diện tích', type: 'number' },
       { col: 'diaChi', label: 'Địa chỉ' },
       { col: 'maXa', label: 'Xã', type: 'select', optionsFrom: 'xa', optionValueKey: 'maXa', optionLabelKey: 'tenXa' },
       { col: 'maTinh', label: 'Tỉnh', type: 'select', optionsFrom: 'tinh', optionValueKey: 'maTinh', optionLabelKey: 'tenTinh' },
-      { col: 'ghiChu', label: 'Ghi chú' },
+      { col: 'ghiChu', label: 'Ghi chú', full: true },
+    ],
+    filters: [
+      { col: 'maLoaiKho', label: 'Loại kho' },
+      { col: 'maCapQuanLy', label: 'Cấp quản lý' },
     ],
   },
   'loai-spkt': {
-    title: 'Loại SPKT', icon: '🎯',
+    title: 'Loại SPKT', wide: true,
     fields: [
+      // Định danh
       { col: 'maLoai', label: 'Mã loại', pk: true, required: true },
-      { col: 'maNhom', label: 'Nhóm SPKT', required: true, type: 'select', optionsFrom: 'nhom-spkt', optionValueKey: 'maNhom', optionLabelKey: 'tenNhom' },
       { col: 'tenLoai', label: 'Tên loại', required: true, display: true },
+      // Phân loại
+      { col: 'maNhom', label: 'Nhóm SPKT', required: true, type: 'select', optionsFrom: 'nhom-spkt', optionValueKey: 'maNhom', optionLabelKey: 'tenNhom' },
+      { col: 'maKieu', label: 'Kiểu SPKT', type: 'select', optionsFrom: 'kieu-spkt', optionValueKey: 'maKieu', optionLabelKey: 'tenKieu' },
+      // Thông số kỹ thuật
       { col: 'co', label: 'Cỡ' },
       { col: 'kiHieu', label: 'Ký hiệu' },
+      // Xuất xứ / đơn vị
       { col: 'nuocSX', label: 'Nước SX' },
       { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
-      { col: 'ghiChu', label: 'Ghi chú' },
+      { col: 'ghiChu', label: 'Ghi chú', full: true },
+    ],
+    filters: [
+      { col: 'maNhom', label: 'Nhóm SPKT' },
+      { col: 'maKieu', label: 'Kiểu SPKT' },
     ],
   },
   'chi-tiet-tcnx': {
-    title: 'Chi tiết tính chất nhập xuất', icon: '📋',
+    title: 'Chi tiết tính chất nhập xuất',
     fields: [
       { col: 'maCTNX', label: 'Mã chi tiết', pk: true, required: true },
       { col: 'tenCTNX', label: 'Tên chi tiết', required: true, display: true },
@@ -335,6 +369,15 @@ export default function DanhMucPage({ type }) {
         .sort((a, b) => (typeof a === 'number' && typeof b === 'number' ? b - a : String(a).localeCompare(String(b))))
         .map(v => ({ value: String(v), label: String(v) }));
     }
+    // Lọc theo 1 cột khóa ngoại: tái dùng optionsFrom của field cùng tên (nếu có) để hiện tên thân
+    // thiện (VD "Súng bộ binh") thay vì mã thô ("NHOM01"), không cần khai báo lặp lại.
+    const relatedField = config.fields.find(ff => ff.col === f.col && ff.optionsFrom);
+    if (relatedField) {
+      return (refData[relatedField.optionsFrom] || []).map(r => ({
+        value: String(r[relatedField.optionValueKey]),
+        label: r[relatedField.optionLabelKey],
+      }));
+    }
     return [];
   };
 
@@ -434,7 +477,7 @@ export default function DanhMucPage({ type }) {
 
   const renderInput = (f) => {
     if (f.type === 'select') {
-      const opts = f.options || (refData[f.optionsFrom] || []).map(r => ({ value: r[f.optionValueKey], label: `${r[f.optionValueKey]} — ${r[f.optionLabelKey]}` }));
+      const opts = f.options || (refData[f.optionsFrom] || []).map(r => ({ value: r[f.optionValueKey], label: r[f.optionLabelKey] }));
       return (
         <select
           className={`form-input${errors[f.col] ? ' form-input--invalid' : ''}`}
@@ -445,6 +488,17 @@ export default function DanhMucPage({ type }) {
           <option value="">-- Chọn --</option>
           {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+      );
+    }
+    if (f.type === 'textarea') {
+      return (
+        <textarea
+          className={`form-input${errors[f.col] ? ' form-input--invalid' : ''}`}
+          style={{ height: 80, resize: 'vertical' }}
+          value={form[f.col] ?? ''}
+          onChange={(e) => { setForm({ ...form, [f.col]: e.target.value }); clearError(f.col); }}
+          placeholder={`Nhập ${f.label.toLowerCase()}...`}
+        />
       );
     }
     return (
@@ -476,11 +530,16 @@ export default function DanhMucPage({ type }) {
           <span className="table-total">
             Tổng: <strong>{filtered.length}</strong> bản ghi
           </span>
-          {canThem && (
-            <button className="btn-add" onClick={openAdd}>
-              <FiPlus style={{ marginRight: 6 }} /> Thêm mới
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-print" onClick={() => window.print()} disabled={filtered.length === 0}>
+              <FiPrinter style={{ marginRight: 6 }} /> In danh sách
             </button>
-          )}
+            {canThem && (
+              <button className="btn-add" onClick={openAdd}>
+                <FiPlus style={{ marginRight: 6 }} /> Thêm mới
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="table-toolbar">
@@ -578,7 +637,7 @@ export default function DanhMucPage({ type }) {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 22 }}>{config.icon}</span>
-                <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} — {config.title}</h3>
+                <h3 className="modal-title">{editing ? 'Cập nhật' : 'Thêm mới'} {config.title}</h3>
               </div>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
@@ -602,6 +661,27 @@ export default function DanhMucPage({ type }) {
           </div>
         </div>
       )}
+
+      <div className="print-only">
+        <div className="dm-print-title">Danh mục: {config.title}</div>
+        <div className="dm-print-date">Ngày in: {new Date().toLocaleDateString('vi-VN')}</div>
+        <table className="dm-print-table">
+          <thead>
+            <tr>
+              <th style={{ width: 40 }}>STT</th>
+              {config.fields.map(f => <th key={f.col}>{f.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((row, i) => (
+              <tr key={row[pkField.col]}>
+                <td style={{ textAlign: 'center' }}>{i + 1}</td>
+                {config.fields.map(f => <td key={f.col}>{displayValue(f, row) ?? ''}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

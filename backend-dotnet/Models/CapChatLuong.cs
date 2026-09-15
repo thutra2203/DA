@@ -13,6 +13,10 @@ public partial class CapChatLuong
 
     public virtual ICollection<ChiTietKiemKe> ChiTietKiemKes { get; set; } = new List<ChiTietKiemKe>();
 
+    public virtual ICollection<ChiTietLenhChuyenCap> ChiTietLenhChuyenCapMaCclCuNavigations { get; set; } = new List<ChiTietLenhChuyenCap>();
+
+    public virtual ICollection<ChiTietLenhChuyenCap> ChiTietLenhChuyenCapMaCclMoiNavigations { get; set; } = new List<ChiTietLenhChuyenCap>();
+
     public virtual ICollection<ChiTietLenh> ChiTietLenhs { get; set; } = new List<ChiTietLenh>();
 
     public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();

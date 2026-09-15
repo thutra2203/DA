@@ -21,10 +21,9 @@ public partial class CtdongBoTrongLenh
 
     public int? SoLuongThuc { get; set; }
 
-    // Chỉ dùng cho lệnh Xuất hủy/thanh lý — dòng tồn kho (lô + vị trí) CỤ THỂ đã chọn để hủy, ghi
-    // nhận ngay khi thêm dòng nhưng CHƯA trừ Tồn kho — chỉ thực trừ khi lệnh Kết thúc (giống cơ chế
-    // "giữ chỗ" của Chuyển cấp chất lượng), để tránh trừ tồn kho non-committal khi lệnh còn dở dang.
     public long? MaTonKho { get; set; }
+
+    public virtual ICollection<CtXuatKho> CtXuatKhos { get; set; } = new List<CtXuatKho>();
 
     public virtual LoTbdb? LoTbdb { get; set; }
 

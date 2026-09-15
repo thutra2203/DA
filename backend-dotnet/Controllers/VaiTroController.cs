@@ -36,22 +36,11 @@ public class VaiTroController(QuanLyKhoQuanKhiContext db, IActivityLogger log) :
 
         var maVaiTro = RoleSlugifier.Slugify(body.TenVaiTro);
         if (await db.VaiTros.AnyAsync(v => v.MaVaiTro == maVaiTro))
-            maVaiTro = $"{maVaiTro}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10000}";
+            maVaiTro = $"{maVaiTro}{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10000}";
 
+        // Vai trò mới KHÔNG có quyền nào — phải vào "Phân quyền" cấp quyền thì mới xem/thao tác được.
         db.VaiTros.Add(new VaiTro { MaVaiTro = maVaiTro, TenVaiTro = body.TenVaiTro, MoTa = body.MoTa ?? "" });
         await db.SaveChangesAsync();
-
-        // Quyền mặc định: chỉ xem (XEM) trên toàn bộ chức năng hệ thống.
-        var maQuyenXem = await db.Quyens.Where(q => q.TenQuyen == "XEM").Select(q => q.MaQuyen).FirstOrDefaultAsync();
-        if (maQuyenXem != 0)
-        {
-            var chucNangs = await db.ChucNangs.Select(c => c.MaCn).ToListAsync();
-            foreach (var maCn in chucNangs)
-            {
-                db.VaiTroChucNangQuyens.Add(new VaiTroChucNangQuyen { MaVaiTro = maVaiTro, MaQuyen = maQuyenXem, MaCn = maCn });
-            }
-            await db.SaveChangesAsync();
-        }
 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "THEM", "VaiTro", maVaiTro,
             $"Tạo vai trò mới \"{body.TenVaiTro}\" (mã {maVaiTro})");
@@ -67,11 +56,18 @@ public class VaiTroController(QuanLyKhoQuanKhiContext db, IActivityLogger log) :
         if (vt == null) return NotFound(new { message = "Không tìm thấy vai trò" });
         if (id == ProtectedRole) return BadRequest(new { message = "Không thể sửa vai trò mặc định" });
 
-        vt.MoTa = body.MoTa;
+        var tenMoi = body.TenVaiTro?.Trim();
+        if (string.IsNullOrWhiteSpace(tenMoi))
+            return BadRequest(new { message = "Tên vai trò không được để trống" });
+        if (await db.VaiTros.AnyAsync(v => v.TenVaiTro == tenMoi && v.MaVaiTro != id))
+            return BadRequest(new { message = "Tên vai trò đã tồn tại" });
+
+        vt.TenVaiTro = tenMoi;
+        vt.MoTa = body.MoTa ?? "";
         await db.SaveChangesAsync();
 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "VaiTro", id,
-            $"Cập nhật mô tả vai trò \"{vt.TenVaiTro}\"");
+            $"Cập nhật vai trò \"{vt.TenVaiTro}\" (mã {id})");
 
         return Ok(new { message = "Cập nhật thành công" });
     }

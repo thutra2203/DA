@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chuyenCapAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiEye, FiCheckCircle, FiPrinter } from 'react-icons/fi';
+import { FiSearch, FiEye, FiEdit2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import ChuyenCapPrintView from './ChuyenCapPrintView';
@@ -21,8 +21,19 @@ export default function ChuyenCapChatLuong() {
   const [printData, setPrintData] = useState(null); // lệnh (kèm chiTiet) đang chuẩn bị in
   const [dangInLenh, setDangInLenh] = useState(false);
   const [maLenhChonIn, setMaLenhChonIn] = useState(null); // chỉ chọn được đúng 1 lệnh để in tại 1 thời điểm
+  const [detailLenh, setDetailLenh] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const toggleChonIn = (maLenh) => setMaLenhChonIn(prev => (prev === maLenh ? null : maLenh));
+
+  const openDetail = async (maLenh) => {
+    setLoadingDetail(true);
+    try {
+      const res = await chuyenCapAPI.getOne(maLenh);
+      setDetailLenh(res.data);
+    } catch { /* bỏ qua — người dùng có thể thử lại */ }
+    finally { setLoadingDetail(false); }
+  };
 
   // In nhanh ngay từ danh sách, không cần điều hướng sang trang xử lý — tự tải thông tin lệnh (kèm
   // chi tiết, chuyenCapAPI.getOne trả về sẵn cả 2 trong 1 lần gọi) rồi mở hộp thoại in ngay khi có
@@ -121,8 +132,11 @@ export default function ChuyenCapChatLuong() {
                     </td>
                     <td className="td-center">
                       <div className="td-actions">
-                        <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/chuyen-cap/${r.maLenh}`)} title="Xử lý">
+                        <button className="btn-icon-edit" onClick={() => openDetail(r.maLenh)} disabled={loadingDetail} title="Xem chi tiết">
                           <FiEye size={13} />
+                        </button>
+                        <button className="btn-icon-warn" onClick={() => navigate(`/tb-dong-bo/chuyen-cap/${r.maLenh}`)} title="Xử lý">
+                          <FiEdit2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -135,6 +149,49 @@ export default function ChuyenCapChatLuong() {
       </div>
 
       <ChuyenCapPrintView lenh={printData} />
+
+      {detailLenh && <ChiTietLenhModal lenh={detailLenh} onClose={() => setDetailLenh(null)} />}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng LenhChuyenCap) — không phải dòng chi tiết
+// (đã có ở trang Xử lý) và không phải bản in trang trọng (đã có ở nút "In lệnh").
+function ChiTietLenhModal({ lenh, onClose }) {
+  const rows = [
+    ['Mã lệnh', lenh.maLenh],
+    ['Kho', lenh.tenKho || lenh.maKho || ''],
+    ['Ngày lập', fmtDate(lenh.ngayLap)],
+    ['Ngày kết thúc', fmtDate(lenh.ngayKetThuc)],
+    ['Người lập', lenh.nguoiTao || ''],
+    ['Người kết thúc', lenh.nguoiKetThuc || ''],
+    ['Trạng thái', lenh.daKetThuc ? 'Đã kết thúc' : 'Chờ thực hiện'],
+    ['Số dòng', lenh.soDong ?? (lenh.chiTiet || []).length],
+    ['Căn cứ', lenh.canCu || ''],
+    ['Về việc', lenh.veViec || ''],
+    ['Ghi chú', lenh.ghiChu || ''],
+  ];
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh chuyển cấp {lenh.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

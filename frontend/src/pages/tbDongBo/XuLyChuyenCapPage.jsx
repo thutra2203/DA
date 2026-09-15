@@ -4,6 +4,7 @@ import { chuyenCapAPI, danhMucAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiSave, FiTrash2, FiCheckCircle, FiSearch, FiDownload, FiUpload, FiX, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import ChuyenCapPrintView from './ChuyenCapPrintView';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
@@ -15,6 +16,7 @@ export default function XuLyChuyenCapPage() {
   const { maLenh } = useParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_CCL_XL');
 
   const [lenh, setLenh] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -269,7 +271,7 @@ export default function XuLyChuyenCapPage() {
           <button className="btn-print" onClick={() => window.print()}>
             <FiPrinter style={{ marginRight: 6 }} />In lệnh
           </button>
-          {!daKetThuc && (
+          {!daKetThuc && canSua && (
             <button className="btn-primary" disabled={dangKetThuc || lenh.chiTiet.length === 0} onClick={ketThucChuyenCap}>
               <FiCheckCircle style={{ marginRight: 6 }} />{dangKetThuc ? 'Đang xử lý...' : 'Kết thúc chuyển cấp'}
             </button>
@@ -282,7 +284,7 @@ export default function XuLyChuyenCapPage() {
           <span style={{ fontWeight: 600, fontSize: 19 }}>
             Danh sách lô cần chuyển cấp {lenh.tenKho || lenh.maKho}
           </span>
-          {!daKetThuc && (
+          {!daKetThuc && canThem && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-excel" disabled={dangTaiMau} onClick={taiMau}>
                 <FiDownload style={{ marginRight: 6 }} />{dangTaiMau ? 'Đang tải...' : 'Tải mẫu'}
@@ -314,7 +316,7 @@ export default function XuLyChuyenCapPage() {
                   <th>Cấp hiện tại</th>
                   <th>Cấp mới yêu cầu</th>
                   <th>Ghi chú</th>
-                  {!daKetThuc && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
+                  {!daKetThuc && (canSua || canXoa) && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -349,15 +351,19 @@ export default function XuLyChuyenCapPage() {
                             onChange={e => suaForm(r.maCtLenhChuyenCap, 'ghiChu', e.target.value)} />
                         )}
                       </td>
-                      {!daKetThuc && (
+                      {!daKetThuc && (canSua || canXoa) && (
                         <td className="td-center">
                           <div className="td-actions">
-                            <button className="btn-icon-edit" disabled={dangLuuDong === r.maCtLenhChuyenCap} onClick={() => luuDong(r)} title="Lưu">
-                              <FiSave size={13} />
-                            </button>
-                            <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
-                              <FiTrash2 size={13} />
-                            </button>
+                            {canSua && (
+                              <button className="btn-icon-edit" disabled={dangLuuDong === r.maCtLenhChuyenCap} onClick={() => luuDong(r)} title="Lưu">
+                                <FiSave size={13} />
+                              </button>
+                            )}
+                            {canXoa && (
+                              <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
+                                <FiTrash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { vaiTroAPI } from '../services/api';
-import { FiPlus, FiTrash2, FiLock } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import { usePageTitle } from '../context/PageHeaderContext';
 import { useConfirm } from '../context/ConfirmContext';
 import '../styles/shared.css';
@@ -13,10 +13,12 @@ export default function QuanLyVaiTro() {
   const confirm = useConfirm();
   const [roles, setRoles] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);       // null = tạo mới; object = đang sửa
   const [form, setForm] = useState({ tenVaiTro: '', moTa: '' });
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -40,21 +42,41 @@ export default function QuanLyVaiTro() {
     return next;
   });
 
-  const handleCreate = async (e) => {
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ tenVaiTro: '', moTa: '' });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEdit = (role) => {
+    setEditing(role);
+    setForm({ tenVaiTro: role.TenVaiTro, moTa: role.MoTa || '' });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.tenVaiTro || !form.tenVaiTro.trim()) {
       setErrors({ tenVaiTro: 'Tên vai trò không được để trống' });
       return;
     }
+    setSaving(true);
     try {
-      await vaiTroAPI.create(form);
-      showToast(`Đã tạo vai trò "${form.tenVaiTro}" thành công!`);
+      if (editing) {
+        await vaiTroAPI.update(editing.ID, form);
+        showToast(`Đã cập nhật vai trò "${form.tenVaiTro}"`);
+      } else {
+        await vaiTroAPI.create(form);
+        showToast(`Đã tạo vai trò "${form.tenVaiTro}" thành công!`);
+      }
       setShowModal(false);
-      setForm({ tenVaiTro: '', moTa: '' });
-      setErrors({});
       load();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Lỗi tạo vai trò', 'error');
+      showToast(err.response?.data?.message || 'Lỗi lưu vai trò', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,20 +93,6 @@ export default function QuanLyVaiTro() {
 
   const isDefault = (tenVaiTro) => DEFAULT_ROLES.includes(tenVaiTro);
 
-  const roleColors = {
-    ADMIN:      { bg: '#fce4ec', color: '#c62828', border: '#ef9a9a' },
-    QUAN_LY:    { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9' },
-    THU_KHO:    { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7' },
-    KIEM_KE:    { bg: '#fff3e0', color: '#e65100', border: '#ffcc80' },
-    NHAP_XUAT:  { bg: '#e0f2f1', color: '#00695c', border: '#80cbc4' },
-    KY_THUAT:   { bg: '#ede7f6', color: '#4527a0', border: '#b39ddb' },
-    PHE_DUYET:  { bg: '#fff8e1', color: '#f57f17', border: '#ffe082' },
-    BAO_CAO:    { bg: '#e1f5fe', color: '#0277bd', border: '#81d4fa' },
-    CHI_XEM:    { bg: '#f1f8e9', color: '#558b2f', border: '#c5e1a5' },
-    KHACH:      { bg: '#eceff1', color: '#455a64', border: '#b0bec5' },
-  };
-  const defaultColor = { bg: '#f3e5f5', color: '#6a1b9a', border: '#ce93d8' };
-
   return (
     <div>
       {toast && (
@@ -94,79 +102,97 @@ export default function QuanLyVaiTro() {
       )}
 
       <div className="page-header">
-        <p className="page-sub">Tạo và quản lý các vai trò trong hệ thống</p>
+        <p className="page-sub vt-page-title">Danh sách vai trò</p>
       </div>
 
-      <div className="vt-info-banner">
-        <FiLock size={14} style={{ marginRight: 8, flexShrink: 0 }} />
-        Vai trò mặc định <strong>Admin, QuanLy, NhanVien</strong> không thể xóa.
-        Sau khi tạo vai trò mới, vào <strong>Phân quyền</strong> để cấu hình quyền chi tiết.
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '14px 0' }}>
-        <button className="vt-btn-add" onClick={() => { setErrors({}); setShowModal(true); }}>
-          <FiPlus style={{ marginRight: 6 }} /> Thêm vai trò
-        </button>
-      </div>
-
-      {loading ? <p style={{ color: '#999', padding: 20 }}>Đang tải...</p> : (
-        <div className="vt-grid">
-          {roles.map(role => {
-            const c = roleColors[role.TenVaiTro] || defaultColor;
-            const locked = isDefault(role.TenVaiTro);
-            return (
-              <div key={role.ID} className="vt-role-card" style={{ borderTop: `4px solid ${c.border}` }}>
-                <div className="vt-role-card-top">
-                  <div className="vt-role-avatar" style={{ background: c.bg, color: c.color }}>
-                    {role.TenVaiTro[0]}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="vt-role-name">{role.TenVaiTro}</span>
-                      {locked && (
-                        <span className="vt-role-badge" style={{ background: c.bg, color: c.color }}>Mặc định</span>
-                      )}
-                    </div>
-                    <p className="vt-role-desc">{role.MoTa || 'Chưa có mô tả'}</p>
-                  </div>
-                </div>
-                <div className="vt-role-card-bottom">
-                  <span className="vt-role-date">Mã vai trò: {role.ID}</span>
-                  {!locked && (
-                    <button className="vt-btn-delete" onClick={() => handleDelete(role)} title="Xóa vai trò">
-                      <FiTrash2 size={13} /> Xóa
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="vt-add-card" onClick={() => { setErrors({}); setShowModal(true); }}>
-            <div className="vt-add-icon"><FiPlus size={28} color="#bbb" /></div>
-            <p className="vt-add-text">Thêm vai trò mới</p>
-          </div>
+      <div className="data-card">
+        <div className="table-toolbar">
+          <span className="table-total">Tổng: <strong>{roles.length}</strong> vai trò</span>
+          <button className="vt-btn-add" onClick={openCreate}>
+            <FiPlus style={{ marginRight: 6 }} /> Thêm vai trò
+          </button>
         </div>
-      )}
+
+        {loading ? (
+          <p style={{ color: '#999', padding: 20 }}>Đang tải...</p>
+        ) : roles.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">🛡️</div>
+            <div className="empty-state-title">Chưa có vai trò nào</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 50 }}>STT</th>
+                  <th style={{ width: 170 }}>Mã vai trò</th>
+                  <th>Tên vai trò</th>
+                  <th>Mô tả</th>
+                  <th style={{ width: 120, textAlign: 'center' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {roles.map((role, i) => {
+                  const locked = isDefault(role.TenVaiTro);
+                  return (
+                    <tr key={role.ID}>
+                      <td className="td-muted td-center">{i + 1}</td>
+                      <td><span className="sub-value">{role.ID}</span></td>
+                      <td>
+                        <div className="vt-name-cell">
+                          <span className="vt-role-name">{role.TenVaiTro}</span>
+                          {locked && <span className="badge badge--locked">Mặc định</span>}
+                        </div>
+                      </td>
+                      <td className="td-muted">{role.MoTa || '—'}</td>
+                      <td className="td-center">
+                        <div className="td-actions">
+                          <button
+                            className="btn-icon-edit"
+                            onClick={() => openEdit(role)}
+                            disabled={locked}
+                            title={locked ? 'Vai trò mặc định không thể sửa' : 'Sửa vai trò'}
+                          >
+                            <FiEdit2 size={13} />
+                          </button>
+                          <button
+                            className="btn-icon-delete"
+                            onClick={() => handleDelete(role)}
+                            disabled={locked}
+                            title={locked ? 'Vai trò mặc định không thể xóa' : 'Xóa vai trò'}
+                          >
+                            <FiTrash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {showModal && (
         <div className="overlay">
           <div className="modal fade-in">
             <div className="modal-header">
-              <h3 className="modal-title">Thêm vai trò mới</h3>
+              <h3 className="modal-title">{editing ? `Sửa vai trò "${editing.TenVaiTro}"` : 'Thêm vai trò mới'}</h3>
               <button className="modal-close-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleCreate} className="modal-body" noValidate>
+            <form onSubmit={handleSubmit} className="modal-body" noValidate>
               <div className="form-field">
                 <label className="form-label">Tên vai trò <span style={{ color: 'red' }}>*</span></label>
                 <input
                   className={`form-input${errors.tenVaiTro ? ' form-input--invalid' : ''}`}
                   value={form.tenVaiTro}
                   onChange={e => { setForm({ ...form, tenVaiTro: e.target.value }); clearError('tenVaiTro'); }}
-                  placeholder="VD: KiemSoatVien, TruongKho..."
+                  placeholder="Nhập tên vai trò "
                 />
                 {errors.tenVaiTro && <p className="form-error-text">{errors.tenVaiTro}</p>}
-                <p className="form-hint">Không dùng khoảng trắng, không dấu tiếng Việt</p>
+
               </div>
               <div className="form-field">
                 <label className="form-label">Mô tả</label>
@@ -178,14 +204,16 @@ export default function QuanLyVaiTro() {
                   placeholder="Mô tả chức năng của vai trò này..."
                 />
               </div>
-              <div className="vt-info-box">
-                💡 Sau khi tạo, vai trò mới sẽ có quyền <strong>chỉ xem</strong> tất cả module.
-                Vào <strong>Phân quyền</strong> để cấu hình chi tiết hơn.
-              </div>
+              {editing && (
+                <div className="vt-info-box">
+                  💡 <strong>Mã vai trò ({editing.ID})</strong> giữ nguyên khi đổi tên, nên các tài khoản đang dùng vai trò này không bị ảnh hưởng.
+                </div>
+              )}
               <div className="modal-footer">
                 <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Hủy</button>
-                <button type="submit" className="vt-btn-primary">
-                  <FiPlus style={{ marginRight: 6 }} /> Tạo vai trò
+                <button type="submit" className="vt-btn-primary" disabled={saving}>
+                  {editing ? <FiEdit2 style={{ marginRight: 6 }} /> : <FiPlus style={{ marginRight: 6 }} />}
+                  {saving ? 'Đang lưu…' : editing ? 'Lưu thay đổi' : 'Tạo vai trò'}
                 </button>
               </div>
             </form>

@@ -33,11 +33,21 @@ public partial class TonKhoTbdb
 
     public DateTime CapNhatMoiNhat { get; set; }
 
+    public virtual ICollection<ChiTietKiemKeViTri> ChiTietKiemKeViTris { get; set; } = new List<ChiTietKiemKeViTri>();
+
+    public virtual ICollection<ChiTietLenhChuyenCap> ChiTietLenhChuyenCaps { get; set; } = new List<ChiTietLenhChuyenCap>();
+
+    public virtual ICollection<ChiTietLenhThayDoiHtnc> ChiTietLenhThayDoiHtncs { get; set; } = new List<ChiTietLenhThayDoiHtnc>();
+
+    public virtual ICollection<ChiTietLenhThayDoiViTri> ChiTietLenhThayDoiViTris { get; set; } = new List<ChiTietLenhThayDoiViTri>();
+
+    public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
+
+    public virtual ICollection<CtXuatKho> CtXuatKhos { get; set; } = new List<CtXuatKho>();
+
     public virtual Kho MaKhoNavigation { get; set; } = null!;
 
     public virtual LoTbdb MaLoTbdbNavigation { get; set; } = null!;
 
     public virtual TrangThaiTb MaTrangThaiTbNavigation { get; set; } = null!;
-
-    public virtual ICollection<ChiTietKiemKeViTri> ChiTietKiemKeViTris { get; set; } = new List<ChiTietKiemKeViTri>();
 }

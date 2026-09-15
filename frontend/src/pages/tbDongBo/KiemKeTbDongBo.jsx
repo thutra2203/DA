@@ -4,6 +4,7 @@ import { kiemKeTbDongBoAPI, danhMucAPI } from '../../services/api';
 import { FiPlus, FiSearch, FiArrowRight, FiCheckCircle, FiEdit2, FiTrash2, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import KiemKePrintView from './KiemKePrintView';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import '../../styles/shared.css';
@@ -15,6 +16,7 @@ export default function KiemKeTbDongBo() {
   usePageTitle('Kiểm kê TBĐB');
   const confirm = useConfirm();
   const navigate = useNavigate();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_KIEM_KE_LAP');
   const [dotList, setDotList] = useState([]);
   const [khoList, setKhoList] = useState([]);
   const [items, setItems] = useState([]);
@@ -171,9 +173,9 @@ export default function KiemKeTbDongBo() {
             <button className="btn-print" onClick={handlePrint} disabled={!maPhieuChonIn || dangInPhieu}>
               <FiPrinter style={{ marginRight: 6 }} /> {dangInPhieu ? 'Đang tải...' : 'In biên bản'}
             </button>
-            <button className="btn-add" onClick={openAdd}>
+            {canThem && <button className="btn-add" onClick={openAdd}>
               <FiPlus style={{ marginRight: 6 }} />Tạo phiếu kiểm kê
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -249,8 +251,8 @@ export default function KiemKeTbDongBo() {
                           </button>
                           {!daKetThuc && (
                             <>
-                              <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa"><FiEdit2 size={13} /></button>
-                              <button className="btn-icon-delete" onClick={() => handleDelete(r)} title="Xóa"><FiTrash2 size={13} /></button>
+                              {canSua && <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa"><FiEdit2 size={13} /></button>}
+                              {canXoa && <button className="btn-icon-delete" onClick={() => handleDelete(r)} title="Xóa"><FiTrash2 size={13} /></button>}
                             </>
                           )}
                         </div>

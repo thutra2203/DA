@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { thayDoiViTriAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiCheckCircle, FiSearch, FiPrinter, FiDownload, FiUpload, FiX } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import { useConfirm } from '../../context/ConfirmContext';
 import ThayDoiViTriPrintView from './ThayDoiViTriPrintView';
 import '../../styles/shared.css';
@@ -20,6 +21,7 @@ export default function XuLyThayDoiViTriPage() {
   const { maLenh } = useParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_VT_XL');
 
   const [lenh, setLenh] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -282,7 +284,7 @@ export default function XuLyThayDoiViTriPage() {
           <button className="btn-print" onClick={() => window.print()}>
             <FiPrinter style={{ marginRight: 6 }} />In lệnh
           </button>
-          {!daKetThuc && (
+          {!daKetThuc && canSua && (
             <button className="btn-primary" disabled={dangKetThuc || lenh.chiTiet.length === 0} onClick={ketThuc}>
               <FiCheckCircle style={{ marginRight: 6 }} />{dangKetThuc ? 'Đang xử lý...' : 'Kết thúc lệnh'}
             </button>
@@ -295,7 +297,7 @@ export default function XuLyThayDoiViTriPage() {
           <span style={{ fontWeight: 600, fontSize: 19 }}>
             Danh sách TB cần thay đổi vị trí {lenh.tenKho || lenh.maKho}
           </span>
-          {!daKetThuc && (
+          {!daKetThuc && canThem && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-excel" disabled={dangTaiMau} onClick={taiMau}>
                 <FiDownload style={{ marginRight: 6 }} />{dangTaiMau ? 'Đang tải...' : 'Tải mẫu'}
@@ -327,7 +329,7 @@ export default function XuLyThayDoiViTriPage() {
                   <th style={{ textAlign: 'center' }}>Số lượng</th>
                   <th>Vị trí mới</th>
                   <th>Ghi chú</th>
-                  {!daKetThuc && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
+                  {!daKetThuc && (canSua || canXoa) && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -342,15 +344,19 @@ export default function XuLyThayDoiViTriPage() {
                     <td className="td-center">{r.soLuong}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{moTaViTriDong(r.viTriMoi)}</td>
                     <td>{r.ghiChu || ''}</td>
-                    {!daKetThuc && (
+                    {!daKetThuc && (canSua || canXoa) && (
                       <td className="td-center">
                         <div className="td-actions">
-                          <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa">
-                            <FiEdit2 size={13} />
-                          </button>
-                          <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
-                            <FiTrash2 size={13} />
-                          </button>
+                          {canSua && (
+                            <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa">
+                              <FiEdit2 size={13} />
+                            </button>
+                          )}
+                          {canXoa && (
+                            <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
+                              <FiTrash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}

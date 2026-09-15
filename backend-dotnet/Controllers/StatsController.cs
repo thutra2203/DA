@@ -1,4 +1,5 @@
 using backend_dotnet.Models;
+using backend_dotnet.Services.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ namespace backend_dotnet.Controllers;
 [ApiController]
 [Route("api/stats")]
 [Authorize]
+[YeuCauQuyen(Cn.TongQuan)]
 public class StatsController(QuanLyKhoQuanKhiContext db) : ControllerBase
 {
     [HttpGet]

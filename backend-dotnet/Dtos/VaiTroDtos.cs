@@ -10,4 +10,4 @@ public class VaiTroItem
 }
 
 public record CreateVaiTroRequest(string? TenVaiTro, string? MoTa);
-public record UpdateVaiTroRequest(string? MoTa);
+public record UpdateVaiTroRequest(string? TenVaiTro, string? MoTa);

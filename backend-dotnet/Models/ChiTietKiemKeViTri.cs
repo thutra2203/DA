@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace backend_dotnet.Models;
@@ -10,8 +10,6 @@ public partial class ChiTietKiemKeViTri
     public int MaCtkiemKe { get; set; }
 
     public string? MaLoTbdb { get; set; }
-
-    public long? MaTonKho { get; set; }
 
     public string? TenNhaKho { get; set; }
 
@@ -36,6 +34,8 @@ public partial class ChiTietKiemKeViTri
     public int? Thieu { get; set; }
 
     public string? GhiChu { get; set; }
+
+    public long? MaTonKho { get; set; }
 
     public virtual ChiTietKiemKe MaCtkiemKeNavigation { get; set; } = null!;
 

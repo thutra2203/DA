@@ -12,4 +12,6 @@ public partial class NhomSpkt
     public string? MoTa { get; set; }
 
     public virtual ICollection<LoaiSpkt> LoaiSpkts { get; set; } = new List<LoaiSpkt>();
+
+    public virtual ICollection<KieuSpkt> KieuSpkts { get; set; } = new List<KieuSpkt>();
 }

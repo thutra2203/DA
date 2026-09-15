@@ -1,5 +1,6 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,7 @@ public record ThemChiTietThayDoiViTriDto(
 [ApiController]
 [Authorize]
 [Route("api/tb-dong-bo/thay-doi-vi-tri")]
+[YeuCauQuyen(Cn.TbdbVtXl)]
 public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
     // Trạng thái TB (TrangThaiTB) tạm gán cho dòng tồn kho trong lúc đang chờ xử lý lệnh thay đổi vị
@@ -37,6 +39,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     // GET api/tb-dong-bo/thay-doi-vi-tri?maKho=
     [HttpGet]
+    [YeuCauQuyen(Cn.TbdbVtLap, Cn.TbdbVtXl)]
     public async Task<IActionResult> GetAll([FromQuery] string? maKho)
     {
         if (this.IsGioiHanKho()) maKho = this.CurrentMaKho();
@@ -75,6 +78,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     // GET api/tb-dong-bo/thay-doi-vi-tri/{maLenh}
     [HttpGet("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbVtLap, Cn.TbdbVtXl)]
     public async Task<IActionResult> GetOne(string maLenh)
     {
         var lenh = await db.LenhThayDoiViTris.Include(l => l.MaKhoNavigation).FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -143,6 +147,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
     // phần đang bị giữ chỗ NGOÀI lệnh bởi CẢ 4 nguồn (chuyển cấp, hủy/thanh lý, xuất kho, 1 lệnh thay
     // đổi vị trí KHÁC) — cùng nguyên tắc với các màn hình chọn tồn kho khác trong hệ thống.
     [HttpGet("{maLenh}/vi-tri-kha-dung")]
+    [YeuCauQuyen(Cn.TbdbVtLap, Cn.TbdbVtXl)]
     public async Task<IActionResult> GetViTriKhaDung(string maLenh)
     {
         var lenh = await db.LenhThayDoiViTris.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -183,11 +188,13 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoChuyenCap = await ChuyenCapReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
 
         var list = listRaw
             .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maCcl, t.capChatLuong, t.namSx,
                 soLuong = t.soLuong - daDungTheoTonKho.GetValueOrDefault(t.maTonKho) - giuChoLenhKhac.GetValueOrDefault(t.maTonKho)
-                    - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho),
+                    - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho)
+                    - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho),
                 t.tenNhaKho, t.tenDinhKhu, t.tenKhoi, t.tenGia, t.tenTang, t.tenHom, t.moTaViTri })
             .Where(t => t.soLuong > 0)
             .ToList();
@@ -197,6 +204,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     // POST api/tb-dong-bo/thay-doi-vi-tri/tao-lenh
     [HttpPost("tao-lenh")]
+    [YeuCauQuyen(Cn.TbdbVtLap, QuyenHanhDong.Them)]
     public async Task<IActionResult> TaoLenh([FromBody] TaoLenhThayDoiViTriDto dto)
     {
         if (this.IsGioiHanKho()) dto = dto with { MaKho = this.CurrentMaKho()! };
@@ -228,6 +236,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     // PUT api/tb-dong-bo/thay-doi-vi-tri/{maLenh}
     [HttpPut("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbVtLap, QuyenHanhDong.Sua)]
     public async Task<IActionResult> SuaLenh(string maLenh, [FromBody] TaoLenhThayDoiViTriDto dto)
     {
         var lenh = await db.LenhThayDoiViTris.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -286,7 +295,8 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoChuyenCap = (await ChuyenCapReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
         var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
         var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
-        var khaDung = tonKho.SoLuong - daDung - giuChoLenhKhac - giuChoChuyenCap - giuChoHuy - giuChoXuatKho;
+        var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
+        var khaDung = tonKho.SoLuong - daDung - giuChoLenhKhac - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiHtnc;
         if (dto.SoLuong > khaDung) return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chọn {dto.SoLuong}" });
 
         // Chỉ đổi trạng thái TB khi dòng này giữ chỗ TOÀN BỘ số lượng hiện có của dòng tồn kho (nghĩa
@@ -347,7 +357,8 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoChuyenCap = (await ChuyenCapReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
         var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
         var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
-        var khaDung = tonKho.SoLuong - daDungODongKhac - giuChoLenhKhac - giuChoChuyenCap - giuChoHuy - giuChoXuatKho;
+        var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
+        var khaDung = tonKho.SoLuong - daDungODongKhac - giuChoLenhKhac - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiHtnc;
         if (dto.SoLuong > khaDung) return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chọn {dto.SoLuong}" });
 
         // Chuyển giữa "giữ 1 phần" <-> "giữ toàn bộ" dòng tồn kho — cập nhật trạng thái TB tương ứng
@@ -406,6 +417,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     // DELETE api/tb-dong-bo/thay-doi-vi-tri/{maLenh}
     [HttpDelete("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbVtLap, QuyenHanhDong.Xoa)]
     public async Task<IActionResult> XoaLenh(string maLenh)
     {
         var lenh = await db.LenhThayDoiViTris.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -438,6 +450,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
     // POST api/tb-dong-bo/thay-doi-vi-tri/{maLenh}/ket-thuc
     // Áp dụng thật — xem chi tiết thuật toán ở đầu file. Khóa lệnh sau khi xong.
     [HttpPost("{maLenh}/ket-thuc")]
+    [YeuCauQuyen(Cn.TbdbVtXl, QuyenHanhDong.Sua)]
     public async Task<IActionResult> KetThuc(string maLenh)
     {
         var lenh = await db.LenhThayDoiViTris.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -626,9 +639,10 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoChuyenCap = await ChuyenCapReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, ids);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoNgoaiLenh = ids.ToDictionary(id => id, id =>
             giuChoLenhKhac.GetValueOrDefault(id) + giuChoChuyenCap.GetValueOrDefault(id) + giuChoHuy.GetValueOrDefault(id)
-                + giuChoXuatKho.GetValueOrDefault(id));
+                + giuChoXuatKho.GetValueOrDefault(id) + giuChoThayDoiHtnc.GetValueOrDefault(id));
 
         return (byMaTonKho, giuChoNgoaiLenh);
     }

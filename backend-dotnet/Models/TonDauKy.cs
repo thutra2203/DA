@@ -17,8 +17,6 @@ public partial class TonDauKy
 
     public string? MaTbdb { get; set; }
 
-    public int? MaCcl { get; set; }
-
     public int SoLuong { get; set; }
 
     public string NguonTao { get; set; } = null!;
@@ -30,6 +28,8 @@ public partial class TonDauKy
     public string? NguoiTao { get; set; }
 
     public string? GhiChu { get; set; }
+
+    public int? MaCcl { get; set; }
 
     public virtual CapChatLuong? MaCclNavigation { get; set; }
 

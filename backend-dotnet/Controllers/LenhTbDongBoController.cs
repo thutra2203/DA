@@ -1,9 +1,12 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend_dotnet.Controllers;
@@ -31,7 +34,7 @@ public record TaoLoDto(string MaLoTbdb, int? NamSx, string? MaNuocSx, string? Ma
 [ApiController]
 [Authorize]
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/lenh")]
-public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
+public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase, IAsyncActionFilter
 {
     private const string TableLabel = "Lệnh nhập/xuất trang bị đồng bộ";
 
@@ -39,6 +42,104 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
     // đúng bằng kho của mình (một lệnh chuyển kho có thể liên quan tới 2 kho khác nhau).
     private bool ThuocKhoNguoiDung(string? maKhoNhap, string? maKhoXuat)
         => !this.IsGioiHanKho() || maKhoNhap == this.CurrentMaKho() || maKhoXuat == this.CurrentMaKho();
+
+    // ===== Phân quyền =====
+    // Controller này phục vụ 2 nghiệp vụ (nhập/xuất và hủy/thanh lý) chỉ phân biệt bằng LOẠI lệnh,
+    // nên không dùng được [YeuCauQuyen] tĩnh — kiểm tra thủ công ở đây. 4 nhóm quyền:
+    //   TBDB_LENH_LAP / TBDB_LENH_XL  (nhập/xuất)   ·   TBDB_HUY_LAP / TBDB_HUY_XL  (hủy/thanh lý)
+    // Header lệnh: tạo/sửa/xóa lệnh — luôn thuộc "lập".
+    private static readonly HashSet<string> ActHeaderThem = ["Create"];
+    private static readonly HashSet<string> ActHeaderSua = ["Update", "GhiLenh"];
+    private static readonly HashSet<string> ActHeaderXoa = ["Remove"];
+    // Thao tác trên DÒNG chi tiết: với nhập/xuất là "lập" (kế hoạch), với hủy/thanh lý là "xử lý".
+    private static readonly HashSet<string> ActChiTietThem = ["AddChiTiet", "XacNhanNhapChiTietTuFile"];
+    private static readonly HashSet<string> ActChiTietSua = ["UpdateChiTiet"];
+    private static readonly HashSet<string> ActChiTietXoa = ["RemoveChiTiet"];
+    private static readonly HashSet<string> ActChiTietDoc = ["TaiMauNhapChiTiet", "XemTruocNhapChiTietTuFile"];
+    // Luôn thuộc "xử lý".
+    private static readonly HashSet<string> ActXlSua =
+        ["HoanThanh", "KetThucHuyThanhLy", "XuatKho", "TaoLo", "SuaLo",
+         "XemTruocNhapLoTuFile", "XacNhanNhapLoTuFile", "NhapViTriTuFile",
+         "XemTruocNhapHuyThanhLyTuFile", "XacNhanNhapHuyThanhLyTuFile"];
+    private static readonly HashSet<string> ActXlDoc = ["TaiMauNhapLo", "TaiMauNhapViTri", "TaiMauNhapHuyThanhLy", "DoiChieu"];
+    private static readonly HashSet<string> ActDocChung =
+        ["GetAll", "GetOne", "GetChiTiet", "GetTonKhoKhaDung", "GetTonKhoLoKhaDung"];
+
+    private static bool LaHuyThanhLy(string? tenNx) =>
+        (tenNx ?? "").Contains("hủy", StringComparison.OrdinalIgnoreCase)
+        || (tenNx ?? "").Contains("thanh lý", StringComparison.OrdinalIgnoreCase);
+
+    [NonAction]
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        if (this.CurrentRole() != "ADMIN")
+        {
+            var (maCns, hanhDong) = await XacDinhQuyenAsync(context);
+            if (maCns.Length > 0)
+            {
+                var tenQuyen = hanhDong switch
+                {
+                    QuyenHanhDong.Them => QuyenCodes.Them,
+                    QuyenHanhDong.Sua => QuyenCodes.Sua,
+                    QuyenHanhDong.Xoa => QuyenCodes.Xoa,
+                    _ => QuyenCodes.Xem,
+                };
+                var ok = await db.VaiTroChucNangQuyens.AnyAsync(v =>
+                    v.MaVaiTro == this.CurrentRole() && maCns.Contains(v.MaCn) && v.MaQuyenNavigation.TenQuyen == tenQuyen);
+                if (!ok)
+                {
+                    context.Result = new ObjectResult(new { message = $"Bạn không có quyền \"{tenQuyen}\" với chức năng này" })
+                    {
+                        StatusCode = StatusCodes.Status403Forbidden,
+                    };
+                    return;
+                }
+            }
+        }
+        await next();
+    }
+
+    private async Task<(string[] MaCns, QuyenHanhDong HanhDong)> XacDinhQuyenAsync(ActionExecutingContext context)
+    {
+        var a = (context.ActionDescriptor as ControllerActionDescriptor)?.ActionName ?? "";
+        var path = context.HttpContext.Request.Path.Value ?? "";
+
+        // Nghiệp vụ hủy/thanh lý? Ưu tiên theo path; nếu không thì tra LOẠI của lệnh liên quan.
+        bool laHuy = path.Contains("/huy-thanh-ly/", StringComparison.OrdinalIgnoreCase);
+        if (!laHuy)
+        {
+            string? tenNx = null;
+            if (context.ActionArguments.TryGetValue("maLenh", out var ml) && ml is string maLenh && !string.IsNullOrEmpty(maLenh))
+                tenNx = await db.Lenhs.Where(l => l.MaLenh == maLenh)
+                    .Select(l => l.MaLoaiLenhNavigation.TenNx).FirstOrDefaultAsync();
+            else if (context.ActionArguments.TryGetValue("dto", out var d) && d is LenhTbDongBoDto dto)
+                tenNx = await db.TinhChatNhapXuats.Where(t => t.MaNx == dto.MaLoaiLenh).Select(t => t.TenNx).FirstOrDefaultAsync();
+            else if (context.ActionArguments.TryGetValue("maLoaiLenh", out var mll) && mll is string s && !string.IsNullOrEmpty(s))
+                tenNx = await db.TinhChatNhapXuats.Where(t => t.MaNx == s).Select(t => t.TenNx).FirstOrDefaultAsync();
+            laHuy = LaHuyThanhLy(tenNx);
+        }
+
+        var lap = laHuy ? Cn.TbdbHuyLap : Cn.TbdbLenhLap;
+        var xl = laHuy ? Cn.TbdbHuyXl : Cn.TbdbLenhXl;
+        // Với hủy/thanh lý: các dòng chi tiết được nhập ở bước XỬ LÝ (trang "Cập nhật lệnh xuất
+        // hủy/thanh lý"), không phải bước lập. Với nhập/xuất: dòng chi tiết = kế hoạch, thuộc bước lập.
+        var chiTietMod = laHuy ? xl : lap;
+
+        if (ActDocChung.Contains(a)) return ([lap, xl], QuyenHanhDong.Xem);
+
+        if (ActHeaderThem.Contains(a)) return ([lap], QuyenHanhDong.Them);
+        if (ActHeaderSua.Contains(a)) return ([lap], QuyenHanhDong.Sua);
+        if (ActHeaderXoa.Contains(a)) return ([lap], QuyenHanhDong.Xoa);
+
+        if (ActChiTietThem.Contains(a)) return ([chiTietMod], QuyenHanhDong.Them);
+        if (ActChiTietSua.Contains(a)) return ([chiTietMod], QuyenHanhDong.Sua);
+        if (ActChiTietXoa.Contains(a)) return ([chiTietMod], QuyenHanhDong.Xoa);
+        if (ActChiTietDoc.Contains(a)) return ([chiTietMod], QuyenHanhDong.Xem);
+
+        if (ActXlDoc.Contains(a)) return ([xl], QuyenHanhDong.Xem);
+        if (ActXlSua.Contains(a)) return ([xl], QuyenHanhDong.Sua);
+        return ([xl], QuyenHanhDong.Xem); // action lạ — mặc định cần quyền xử lý
+    }
 
     // GET api/tb-dong-bo/lenh?maLoaiLenh=NX03&maKho=K01
     [HttpGet]
@@ -126,9 +227,11 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             Ngay = dto.Ngay,
             NgayHieuLuc = dto.NgayHieuLuc,
             GiaTriDenNgay = dto.GiaTriDenNgay,
-            // Lệnh mới tạo luôn ở trạng thái đang thực hiện — chỉ chuyển sang HOAN_THANH qua
-            // hành động "Kết thúc lệnh" (xem HoanThanh), không cho đặt trạng thái tùy ý lúc tạo.
-            TrangThai = "DANG_XU_LY",
+            // Lệnh mới tạo luôn ở trạng thái đang soạn thảo — cho phép sửa lệnh và thêm/sửa/xóa dòng
+            // chi tiết tự do. Bấm "Ghi lệnh" (xem GhiLenh) mới chuyển sang DA_BAN_HANH (khóa sửa lệnh
+            // và khóa dòng chi tiết); chỉ chuyển tiếp sang HOAN_THANH qua "Kết thúc lệnh" (xem
+            // HoanThanh) ở bước xử lý thực nhập/xuất — không cho đặt trạng thái tùy ý lúc tạo.
+            TrangThai = "DANG_SOAN_THAO",
             CanCu = dto.CanCu,
             VeViec = dto.VeViec,
             MaHttt = dto.MaHttt,
@@ -155,6 +258,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var entity = await db.Lenhs.Include(x => x.MaLoaiLenhNavigation).FirstOrDefaultAsync(x => x.MaLenh == maLenh);
         if (entity == null) return NotFound(new { message = "Không tìm thấy lệnh" });
         if (!ThuocKhoNguoiDung(entity.MaKhoNhap, entity.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (entity.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh đã ghi lệnh hoặc đã hoàn thành, không thể sửa" });
 
         var loiKhoDoiTac = await ValidateKhoDoiTac(entity.MaLoaiLenhNavigation.TenNx, dto.MaKhoNhap, dto.MaKhoXuat, dto.MaNcc);
         if (loiKhoDoiTac != null) return BadRequest(new { message = loiKhoDoiTac });
@@ -190,6 +295,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var entity = await db.Lenhs.FindAsync(maLenh);
         if (entity == null) return NotFound(new { message = "Không tìm thấy lệnh" });
         if (!ThuocKhoNguoiDung(entity.MaKhoNhap, entity.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (entity.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh đã ghi lệnh hoặc đã hoàn thành, không thể xóa" });
 
         db.Lenhs.Remove(entity);
         try { await db.SaveChangesAsync(); }
@@ -197,6 +304,30 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "XOA", "Lenh", maLenh, $"Xóa bản ghi \"{maLenh}\" trong {TableLabel}");
         return Ok(new { message = "Xóa thành công" });
+    }
+
+    // POST api/tb-dong-bo/lenh/{maLenh}/ghi-lenh
+    // Kết thúc bước soạn thảo — khóa sửa lệnh và khóa thêm/sửa/xóa dòng chi tiết, chuyển trạng thái
+    // sang DA_BAN_HANH. Đây KHÔNG phải "Kết thúc lệnh" (HoanThanh, áp dụng thật vào tồn kho ở bước
+    // xử lý thực nhập/xuất) — chỉ đơn thuần khóa nội dung lệnh sau khi đã soạn xong.
+    [HttpPost("{maLenh}/ghi-lenh")]
+    public async Task<IActionResult> GhiLenh(string maLenh)
+    {
+        var entity = await db.Lenhs.FindAsync(maLenh);
+        if (entity == null) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!ThuocKhoNguoiDung(entity.MaKhoNhap, entity.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (entity.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Chỉ có thể ghi lệnh khi đang ở trạng thái soạn thảo" });
+
+        var soDong = await db.CtdongBoTrongLenhs.CountAsync(c => c.MaLenh == maLenh);
+        if (soDong == 0) return BadRequest(new { message = "Lệnh chưa có dòng chi tiết nào, không thể ghi lệnh" });
+
+        entity.TrangThai = "DA_BAN_HANH";
+        try { await db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) { return BadRequest(new { message = DbErrorTranslator.Translate(ex) }); }
+
+        await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "Lenh", maLenh, $"Ghi lệnh \"{maLenh}\" — chuyển sang đã ban hành");
+        return Ok(new { message = "Ghi lệnh thành công" });
     }
 
     // POST api/tb-dong-bo/lenh/{maLenh}/hoan-thanh
@@ -217,6 +348,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         if (!ThuocKhoNguoiDung(lenh.MaKhoNhap, lenh.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
         if (lenh.TrangThai == "HOAN_THANH")
             return BadRequest(new { message = "Lệnh đã được kết thúc trước đó" });
+        if (lenh.TrangThai != "DA_BAN_HANH")
+            return BadRequest(new { message = "Lệnh chưa được ghi lệnh (ban hành), chưa thể kết thúc" });
 
         var laXuat = (lenh.MaLoaiLenhNavigation.TenNx ?? "").Contains("Xuất", StringComparison.OrdinalIgnoreCase);
 
@@ -451,6 +584,91 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         return Ok(result);
     }
 
+    // GET api/tb-dong-bo/lenh/doi-chieu?maLenhXuat=...&maLenhNhap=...
+    // Đối chiếu 1 lệnh Xuất (kho giao) với 1 lệnh Nhập (kho nhận) của cùng 1 đợt chuyển kho nội
+    // bộ — 2 chứng từ ĐỘC LẬP (mỗi lệnh chỉ tự trừ/cộng tồn kho của kho mình, xem HoanThanh), nên
+    // cần so sánh thủ công xem trang bị + số lượng đã khai trên 2 lệnh có khớp nhau không, việc mà
+    // hệ thống không tự kiểm tra khi thao tác trên từng lệnh riêng lẻ.
+    [HttpGet("doi-chieu")]
+    public async Task<IActionResult> DoiChieu([FromQuery] string maLenhXuat, [FromQuery] string maLenhNhap)
+    {
+        var lenhXuat = await db.Lenhs.Include(l => l.MaLoaiLenhNavigation)
+            .Include(l => l.MaKhoXuatNavigation).Include(l => l.MaKhoNhapNavigation)
+            .FirstOrDefaultAsync(l => l.MaLenh == maLenhXuat);
+        var lenhNhap = await db.Lenhs.Include(l => l.MaLoaiLenhNavigation)
+            .Include(l => l.MaKhoXuatNavigation).Include(l => l.MaKhoNhapNavigation)
+            .FirstOrDefaultAsync(l => l.MaLenh == maLenhNhap);
+        if (lenhXuat == null || lenhNhap == null) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!ThuocKhoNguoiDung(lenhXuat.MaKhoNhap, lenhXuat.MaKhoXuat) || !ThuocKhoNguoiDung(lenhNhap.MaKhoNhap, lenhNhap.MaKhoXuat))
+            return NotFound(new { message = "Không tìm thấy lệnh" });
+
+        var tenNxXuat = lenhXuat.MaLoaiLenhNavigation.TenNx ?? "";
+        var tenNxNhap = lenhNhap.MaLoaiLenhNavigation.TenNx ?? "";
+        if (!tenNxXuat.Contains("Xuất", StringComparison.OrdinalIgnoreCase) || LaHuyThanhLy(tenNxXuat))
+            return BadRequest(new { message = "Lệnh thứ nhất phải là lệnh Xuất (không áp dụng cho hủy/thanh lý)" });
+        if (!tenNxNhap.Contains("Nhập", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Lệnh thứ hai phải là lệnh Nhập" });
+
+        var ctXuat = await db.CtdongBoTrongLenhs.Include(c => c.MaTbdbNavigation).Include(c => c.MaCclNavigation)
+            .Where(c => c.MaLenh == maLenhXuat).ToListAsync();
+        var ctNhap = await db.CtdongBoTrongLenhs.Include(c => c.MaTbdbNavigation).Include(c => c.MaCclNavigation)
+            .Include(c => c.LoTbdb).Where(c => c.MaLenh == maLenhNhap).ToListAsync();
+
+        var xuatMap = ctXuat.ToDictionary(c => (c.MaTbdb, c.MaCcl));
+        var nhapMap = ctNhap.ToDictionary(c => (c.MaTbdb, c.MaCcl));
+        var tatCaKhoa = xuatMap.Keys.Union(nhapMap.Keys).ToList();
+
+        var danhSach = tatCaKhoa.Select(k =>
+        {
+            xuatMap.TryGetValue(k, out var x);
+            nhapMap.TryGetValue(k, out var n);
+            var slTheoLenhXuat = x?.SoLuongTheoLenh;
+            var slTheoLenhNhap = n?.SoLuongTheoLenh;
+            var trangThai = x == null ? "CHI_CO_O_NHAP"
+                : n == null ? "CHI_CO_O_XUAT"
+                : slTheoLenhXuat == slTheoLenhNhap ? "KHOP" : "LECH";
+            return new
+            {
+                maTbdb = k.Item1,
+                tenTbdb = x?.MaTbdbNavigation.TenTbdb ?? n?.MaTbdbNavigation.TenTbdb,
+                maCcl = k.Item2,
+                tenCcl = x?.MaCclNavigation?.TenCap ?? n?.MaCclNavigation?.TenCap,
+                slTheoLenhXuat,
+                slThucXuat = x?.SoLuongThuc,
+                slTheoLenhNhap,
+                slThucNhap = n?.LoTbdb?.SoLuongNhap,
+                trangThai,
+            };
+        }).OrderBy(d => d.maTbdb).ThenBy(d => d.maCcl).ToList();
+
+        return Ok(new
+        {
+            lenhXuat = new
+            {
+                maLenh = lenhXuat.MaLenh,
+                trangThai = lenhXuat.TrangThai,
+                maKhoXuat = lenhXuat.MaKhoXuat,
+                tenKhoXuat = lenhXuat.MaKhoXuatNavigation?.TenKho,
+                maKhoNhap = lenhXuat.MaKhoNhap,
+                tenKhoNhap = lenhXuat.MaKhoNhapNavigation?.TenKho,
+            },
+            lenhNhap = new
+            {
+                maLenh = lenhNhap.MaLenh,
+                trangThai = lenhNhap.TrangThai,
+                maKhoXuat = lenhNhap.MaKhoXuat,
+                tenKhoXuat = lenhNhap.MaKhoXuatNavigation?.TenKho,
+                maKhoNhap = lenhNhap.MaKhoNhap,
+                tenKhoNhap = lenhNhap.MaKhoNhapNavigation?.TenKho,
+            },
+            // Cảnh báo nếu 2 lệnh được chọn có vẻ không cùng 1 đợt chuyển kho (kho xuất/kho nhập
+            // ghi trên lệnh Xuất không khớp với kho ghi trên lệnh Nhập) — vẫn cho đối chiếu bình
+            // thường, chỉ cảnh báo để tránh chọn nhầm cặp lệnh không liên quan tới nhau.
+            khoKhopNhau = lenhXuat.MaKhoXuat == lenhNhap.MaKhoXuat && lenhXuat.MaKhoNhap == lenhNhap.MaKhoNhap,
+            danhSach,
+        });
+    }
+
     // GET api/tb-dong-bo/lenh/{maLenh}/chi-tiet/{maCtdongBoLenh}/ton-kho-kha-dung
     // Danh sách các dòng Tồn kho (đúng TBDB + Cấp chất lượng của dòng chi tiết này) đang có
     // tại kho xuất của lệnh — chỉ tính lô đã HOAN_THANH (thực lực) — để kho chọn xuất từ đâu.
@@ -500,11 +718,13 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var list = listRaw
             .Select(t => new { t.maTonKho, t.maLoTbdb, t.tenNhaKho, t.tenDinhKhu, t.tenKhoi, t.tenGia, t.tenTang, t.tenHom,
                 t.moTaViTri, t.maTrangThaiTb, t.tenTrangThaiTb,
                 soLuong = t.soLuong - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho)
-                    - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho) })
+                    - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho)
+                    - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho) })
             .Where(t => t.soLuong > 0)
             .ToList();
 
@@ -562,10 +782,12 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var list = listRaw
             .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maCcl, t.capChatLuong, t.namSx, t.tenNuocSx,
                 soLuong = t.soLuong - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho)
-                    - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho),
+                    - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho)
+                    - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho),
                 t.tenNhaKho, t.tenDinhKhu, t.tenKhoi, t.tenGia, t.tenTang, t.tenHom, t.moTaViTri })
             .Where(t => t.soLuong > 0)
             .ToList();
@@ -609,6 +831,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         foreach (var d in dto.Dong)
         {
             var tonKho = await db.TonKhoTbdbs.FirstOrDefaultAsync(t => t.MaTonKho == d.MaTonKho && t.MaKho == lenh.MaKhoXuat);
@@ -616,7 +839,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             if (d.SoLuong <= 0) return BadRequest(new { message = "Số lượng xuất từng dòng phải lớn hơn 0" });
 
             var khaDung = tonKho.SoLuong - giuChoChuyenCap.GetValueOrDefault(d.MaTonKho)
-                - giuChoHuy.GetValueOrDefault(d.MaTonKho) - giuChoXuatKho.GetValueOrDefault(d.MaTonKho) - giuChoThayDoiViTri.GetValueOrDefault(d.MaTonKho);
+                - giuChoHuy.GetValueOrDefault(d.MaTonKho) - giuChoXuatKho.GetValueOrDefault(d.MaTonKho) - giuChoThayDoiViTri.GetValueOrDefault(d.MaTonKho)
+                - giuChoThayDoiHtnc.GetValueOrDefault(d.MaTonKho);
             if (d.SoLuong > khaDung)
                 return BadRequest(new { message = $"Dòng tồn kho #{d.MaTonKho} chỉ còn {khaDung} khả dụng (có phần đang giữ chỗ cho lệnh khác), không thể xuất {d.SoLuong}" });
 
@@ -762,6 +986,13 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         ws.Row(1).Style.Font.Bold = true;
         ws.Cell(1, MauNhapLoHeaders.Length + 2).Value = "* = cột bắt buộc phải điền";
         ws.Cell(1, MauNhapLoHeaders.Length + 2).Style.Font.Italic = true;
+
+        // Cột "Cấp CL (1-5)" chỉ nhận 1 trong 5 giá trị — dùng dropdown Excel thay vì gõ tay để tránh sai sót.
+        var capClValidationLo = ws.Range(2, 2, 1000, 2).CreateDataValidation();
+        capClValidationLo.List("\"1,2,3,4,5\"", true);
+        capClValidationLo.ShowErrorMessage = true;
+        capClValidationLo.ErrorTitle = "Giá trị không hợp lệ";
+        capClValidationLo.ErrorMessage = "Cấp chất lượng phải là 1 trong các giá trị: 1, 2, 3, 4, 5";
 
         var r = 2;
         foreach (var c in chuaXuLy)
@@ -1266,8 +1497,9 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat)).GetValueOrDefault((maTbdb, maCcl));
         var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat, boQuaMaLenh: maLenh)).GetValueOrDefault((maTbdb, maCcl));
         var giuChoThayDoiViTri = (await ThayDoiViTriReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat)).GetValueOrDefault((maTbdb, maCcl));
+        var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat)).GetValueOrDefault((maTbdb, maCcl));
 
-        var conLai = tonKho - daCoTrongLenh - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri;
+        var conLai = tonKho - daCoTrongLenh - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri - giuChoThayDoiHtnc;
         if (tonKho == 0 || soLuongMoi > conLai)
             return SoanLoiTonKhoXuat(maKhoXuat, tonKho, conLai, maCcl);
         return null;
@@ -1279,6 +1511,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var lenhChu = await db.Lenhs.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
         if (lenhChu == null) return NotFound(new { message = "Không tìm thấy lệnh" });
         if (!ThuocKhoNguoiDung(lenhChu.MaKhoNhap, lenhChu.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (lenhChu.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh không ở trạng thái đang soạn thảo, không thể thêm dòng chi tiết" });
 
         if (dto.MaTonKho.HasValue)
         {
@@ -1296,7 +1530,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho.Value])).GetValueOrDefault(dto.MaTonKho.Value);
             var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho.Value])).GetValueOrDefault(dto.MaTonKho.Value);
             var giuChoThayDoiViTri = (await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho.Value])).GetValueOrDefault(dto.MaTonKho.Value);
-            var khaDung = tonKhoChon.SoLuong - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri;
+            var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho.Value])).GetValueOrDefault(dto.MaTonKho.Value);
+            var khaDung = tonKhoChon.SoLuong - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri - giuChoThayDoiHtnc;
             if (dto.SoLuongTheoLenh > khaDung)
                 return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chọn {dto.SoLuongTheoLenh}" });
 
@@ -1394,6 +1629,14 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         ws.Row(1).Style.Font.Bold = true;
         ws.Cell(1, MauNhapChiTietHeaders.Length + 2).Value = "* = cột bắt buộc phải điền";
         ws.Cell(1, MauNhapChiTietHeaders.Length + 2).Style.Font.Italic = true;
+
+        // Cột "Cấp CL (1-5)" chỉ nhận 1 trong 5 giá trị — dùng dropdown Excel thay vì gõ tay để tránh sai sót.
+        var capClValidation = ws.Range(2, 2, 1000, 2).CreateDataValidation();
+        capClValidation.List("\"1,2,3,4,5\"", true);
+        capClValidation.ShowErrorMessage = true;
+        capClValidation.ErrorTitle = "Giá trị không hợp lệ";
+        capClValidation.ErrorMessage = "Cấp chất lượng phải là 1 trong các giá trị: 1, 2, 3, 4, 5";
+
         ws.Columns().AdjustToContents();
 
         var wsDm = wb.Worksheets.Add("Danh muc");
@@ -1453,6 +1696,9 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             conLai[key] = conLai.GetValueOrDefault(key, 0) - soLuong;
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat);
         foreach (var (key, soLuong) in giuChoThayDoiViTri)
+            conLai[key] = conLai.GetValueOrDefault(key, 0) - soLuong;
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoTheoTbCapAsync(db, maKhoXuat);
+        foreach (var (key, soLuong) in giuChoThayDoiHtnc)
             conLai[key] = conLai.GetValueOrDefault(key, 0) - soLuong;
 
         if (!string.IsNullOrEmpty(maLenhTruTon))
@@ -1581,6 +1827,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var lenh = await db.Lenhs.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
         if (lenh == null) return NotFound(new { message = "Không tìm thấy lệnh" });
         if (!ThuocKhoNguoiDung(lenh.MaKhoNhap, lenh.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (lenh.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh không ở trạng thái đang soạn thảo, không thể thêm dòng chi tiết" });
         if (dto.DanhSach == null || dto.DanhSach.Count == 0)
             return BadRequest(new { message = "Chưa có dòng nào để lưu" });
 
@@ -1745,9 +1993,10 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuCho = maTonKhoIds.ToDictionary(id => id, id =>
             giuChoChuyenCap.GetValueOrDefault(id) + giuChoHuy.GetValueOrDefault(id) + giuChoXuatKho.GetValueOrDefault(id)
-                + giuChoThayDoiViTri.GetValueOrDefault(id));
+                + giuChoThayDoiViTri.GetValueOrDefault(id) + giuChoThayDoiHtnc.GetValueOrDefault(id));
 
         return (byMaTonKho, giuCho);
     }
@@ -1923,6 +2172,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         if (entity == null) return NotFound(new { message = "Không tìm thấy dòng chi tiết" });
         if (!ThuocKhoNguoiDung(entity.MaLenhNavigation.MaKhoNhap, entity.MaLenhNavigation.MaKhoXuat))
             return NotFound(new { message = "Không tìm thấy dòng chi tiết" });
+        if (entity.MaLenhNavigation.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh không ở trạng thái đang soạn thảo, không thể sửa dòng chi tiết" });
 
         if (entity.MaTonKho.HasValue)
         {
@@ -1940,7 +2191,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [entity.MaTonKho.Value])).GetValueOrDefault(entity.MaTonKho.Value) - entity.SoLuongTheoLenh;
             var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [entity.MaTonKho.Value])).GetValueOrDefault(entity.MaTonKho.Value);
             var giuChoThayDoiViTri = (await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, [entity.MaTonKho.Value])).GetValueOrDefault(entity.MaTonKho.Value);
-            var khaDung = tonKho.SoLuong - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri;
+            var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [entity.MaTonKho.Value])).GetValueOrDefault(entity.MaTonKho.Value);
+            var khaDung = tonKho.SoLuong - giuChoChuyenCap - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri - giuChoThayDoiHtnc;
             if (dto.SoLuongTheoLenh > khaDung)
                 return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chọn {dto.SoLuongTheoLenh}" });
         }
@@ -1972,6 +2224,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         if (entity == null) return NotFound(new { message = "Không tìm thấy dòng chi tiết" });
         if (!ThuocKhoNguoiDung(entity.MaLenhNavigation.MaKhoNhap, entity.MaLenhNavigation.MaKhoXuat))
             return NotFound(new { message = "Không tìm thấy dòng chi tiết" });
+        if (entity.MaLenhNavigation.TrangThai != "DANG_SOAN_THAO")
+            return BadRequest(new { message = "Lệnh không ở trạng thái đang soạn thảo, không thể xóa dòng chi tiết" });
 
         db.CtdongBoTrongLenhs.Remove(entity);
         try { await db.SaveChangesAsync(); }

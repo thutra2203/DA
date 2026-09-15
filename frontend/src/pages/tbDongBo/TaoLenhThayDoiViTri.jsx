@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { thayDoiViTriAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,7 @@ export default function TaoLenhThayDoiViTri() {
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
   const [dangTao, setDangTao] = useState(false);
+  const [detailRow, setDetailRow] = useState(null);
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -171,6 +172,9 @@ export default function TaoLenhThayDoiViTri() {
                     </td>
                     <td className="td-center">
                       <div className="td-actions">
+                        <button className="btn-icon-edit" onClick={() => setDetailRow(r)} title="Xem chi tiết">
+                          <FiEye size={13} />
+                        </button>
                         <button className="btn-icon-warn" disabled={r.daKetThuc} onClick={() => openEdit(r)} title={r.daKetThuc ? 'Lệnh đã kết thúc, không thể sửa' : 'Sửa'}>
                           <FiEdit2 size={13} />
                         </button>
@@ -239,6 +243,48 @@ export default function TaoLenhThayDoiViTri() {
           </div>
         </div>
       )}
+
+      {detailRow && <ChiTietLenhModal row={detailRow} khoMap={khoMap} onClose={() => setDetailRow(null)} />}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng LenhThayDoiViTri) — không phải dòng chi tiết
+// (đã có ở trang "Thay đổi vị trí") và không phải bản in trang trọng.
+function ChiTietLenhModal({ row, khoMap, onClose }) {
+  const rows = [
+    ['Số lệnh', row.maLenh],
+    ['Kho', row.tenKho || khoMap[row.maKho] || ''],
+    ['Ngày lập', fmtDate(row.ngayLap)],
+    ['Ngày kết thúc', fmtDate(row.ngayKetThuc)],
+    ['Người lập', row.nguoiTao || ''],
+    ['Trạng thái', row.daKetThuc ? 'Đã kết thúc' : 'Đang soạn'],
+    ['Số dòng', row.soDong ?? ''],
+    ['Căn cứ', row.canCu || ''],
+    ['Về việc', row.veViec || ''],
+    ['Ghi chú', row.ghiChu || ''],
+  ];
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh {row.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

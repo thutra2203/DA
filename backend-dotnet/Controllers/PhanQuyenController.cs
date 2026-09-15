@@ -1,6 +1,7 @@
 using backend_dotnet.Dtos;
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,21 @@ public class PhanQuyenController(QuanLyKhoQuanKhiContext db, IActivityLogger log
         CoTheSua = granted?.Contains("SUA") == true ? 1 : 0,
         CoTheXoa = granted?.Contains("XOA") == true ? 1 : 0,
     };
+
+    // Danh sách nhóm chức năng để frontend dựng bảng (theo đúng thứ tự hiển thị trong Cn.DanhSach;
+    // mã lạ ngoài danh sách — nếu có — được đưa xuống cuối).
+    [HttpGet("chuc-nang")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> GetChucNangs()
+    {
+        var ten = await db.ChucNangs.ToDictionaryAsync(c => c.MaCn, c => c.TenCn);
+        var thuTu = Cn.DanhSach.Select((x, i) => (x.Ma, i)).ToDictionary(x => x.Ma, x => x.i);
+        var result = ten
+            .Select(kv => new { maCn = kv.Key, tenCn = kv.Value, sort = thuTu.GetValueOrDefault(kv.Key, 999) })
+            .OrderBy(x => x.sort).ThenBy(x => x.maCn)
+            .Select(x => new { x.maCn, x.tenCn });
+        return Ok(result);
+    }
 
     [HttpGet]
     [Authorize(Policy = "Admin")]

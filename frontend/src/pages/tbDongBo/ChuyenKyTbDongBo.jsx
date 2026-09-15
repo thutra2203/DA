@@ -3,6 +3,7 @@ import { chuyenKyAPI } from '../../services/api';
 import { FiPlus, FiSearch } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
@@ -12,6 +13,7 @@ const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : '');
 export default function ChuyenKyTbDongBo() {
   usePageTitle('Chuyển kỳ');
   const confirm = useConfirm();
+  const { canThem } = useModulePerm('TBDB_KIEM_KE_XL');
   const [items, setItems] = useState([]);
   const [phieuKhaDung, setPhieuKhaDung] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +95,9 @@ export default function ChuyenKyTbDongBo() {
       <div className="data-card">
         <div className="table-toolbar">
           <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lần chuyển kỳ</span>
-          <button className="btn-add" onClick={openAdd}>
+          {canThem && <button className="btn-add" onClick={openAdd}>
             <FiPlus style={{ marginRight: 6 }} />Thực hiện chuyển kỳ
-          </button>
+          </button>}
         </div>
 
         <div className="table-toolbar">

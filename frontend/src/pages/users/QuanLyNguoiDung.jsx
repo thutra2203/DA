@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { userAPI, vaiTroAPI, danhMucAPI } from '../../services/api';
 import { usePageTitle } from '../../context/PageHeaderContext';
-import { FiPlus, FiShield, FiKey, FiLock, FiUnlock, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiShield, FiKey, FiLock, FiUnlock, FiSearch, FiEye, FiEyeOff } from 'react-icons/fi';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
@@ -9,19 +9,20 @@ import './QuanLyNguoiDung.css';
 
 const PAGE_SIZE = 10;
 
-const roleConfig = {
-  ADMIN:      { bg: '#fce4ec', color: '#c62828', label: 'Admin' },
-  QUAN_LY:    { bg: '#e3f2fd', color: '#1565c0', label: 'Quản lý' },
-  THU_KHO:    { bg: '#e8f5e9', color: '#2e7d32', label: 'Thủ kho' },
-  KIEM_KE:    { bg: '#fff3e0', color: '#e65100', label: 'Kiểm kê viên' },
-  NHAP_XUAT:  { bg: '#e0f2f1', color: '#00695c', label: 'Nhân viên nhập xuất' },
-  KY_THUAT:   { bg: '#ede7f6', color: '#4527a0', label: 'Nhân viên kỹ thuật' },
-  PHE_DUYET:  { bg: '#fff8e1', color: '#f57f17', label: 'Người phê duyệt' },
-  BAO_CAO:    { bg: '#e1f5fe', color: '#0277bd', label: 'Nhân viên báo cáo' },
-  CHI_XEM:    { bg: '#f1f8e9', color: '#558b2f', label: 'Chỉ xem' },
-  KHACH:      { bg: '#eceff1', color: '#455a64', label: 'Khách' },
-};
-const DEFAULT_ROLE_CONFIG = { bg: '#f3e5f5', color: '#6a1b9a', label: 'Khác' };
+// Tên vai trò hiển thị lấy từ bảng VaiTro (động), KHÔNG hardcode — mã vai trò do người dùng tự đặt.
+// Màu badge: ADMIN đỏ, còn lại chọn ổn định theo mã vai trò.
+const PALETTE = [
+  { bg: '#e3f2fd', color: '#1565c0' }, { bg: '#e8f5e9', color: '#2e7d32' },
+  { bg: '#fff3e0', color: '#e65100' }, { bg: '#ede7f6', color: '#4527a0' },
+  { bg: '#e0f2f1', color: '#00695c' }, { bg: '#fff8e1', color: '#f57f17' },
+  { bg: '#e1f5fe', color: '#0277bd' }, { bg: '#f1f8e9', color: '#558b2f' },
+];
+function styleVaiTro(maVaiTro) {
+  if (maVaiTro === 'ADMIN') return { bg: '#fce4ec', color: '#c62828' };
+  let h = 0;
+  for (const ch of maVaiTro || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
 
 export default function QuanLyNguoiDung() {
   usePageTitle('Quản lý người dùng');
@@ -29,23 +30,34 @@ export default function QuanLyNguoiDung() {
   const [filtered, setFiltered] = useState([]);
   const [vaiTros, setVaiTros] = useState([]);
   const [khoList, setKhoList] = useState([]);
+  const [capBacList, setCapBacList] = useState([]);
+  const [chucVuList, setChucVuList] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(null);
+  const [roleForm, setRoleForm] = useState({ vaiTro: '', maDonVi: '' });
+  const [savingRole, setSavingRole] = useState(false);
   const [showResetModal, setShowResetModal] = useState(null);
-  const [form, setForm] = useState({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: '', maDonVi: '' });
+  const [showDetailModal, setShowDetailModal] = useState(null);
+  const emptyForm = { tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: '', maDonVi: '', maCapBac: '', maChucVu: '', email: '', soDienThoai: '' };
+  const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
   const [page, setPage] = useState(1);
 
   const load = async () => {
     try {
-      const [userRes, vtRes, khoRes] = await Promise.all([userAPI.getAll(), vaiTroAPI.getAll(), danhMucAPI.getAll('kho')]);
+      const [userRes, vtRes, khoRes, capBacRes, chucVuRes] = await Promise.all([
+        userAPI.getAll(), vaiTroAPI.getAll(), danhMucAPI.getAll('kho'),
+        danhMucAPI.getAll('cap-bac'), danhMucAPI.getAll('chuc-vu'),
+      ]);
       setUsers(userRes.data);
       setFiltered(userRes.data);
       setVaiTros(vtRes.data);
       setKhoList(khoRes.data);
+      setCapBacList(capBacRes.data);
+      setChucVuList(chucVuRes.data);
     } catch { } finally { setLoading(false); }
   };
 
@@ -89,28 +101,37 @@ export default function QuanLyNguoiDung() {
       await userAPI.create(form);
       showToast('Tạo tài khoản thành công!');
       setShowModal(false);
-      setForm({ tenDangNhap: '', hoTen: '', matKhau: '', vaiTro: '', maDonVi: '' });
+      setForm(emptyForm);
       setErrors({});
       load();
     } catch (err) { showToast(err.response?.data?.message || 'Lỗi tạo tài khoản', 'error'); }
   };
 
-  const handleUpdateRole = async (id, vaiTro) => {
-    try {
-      await userAPI.updateRole(id, vaiTro);
-      showToast('Cập nhật quyền thành công!');
-      setShowRoleModal(null);
-      load();
-    } catch { showToast('Lỗi cập nhật quyền', 'error'); }
+  // Mở modal phân quyền: nạp giá trị hiện tại của tài khoản vào form.
+  const openRoleModal = (u) => {
+    setShowRoleModal(u);
+    setRoleForm({ vaiTro: u.VaiTro || '', maDonVi: u.MaDonVi || '' });
   };
 
-  const handleUpdateKho = async (id, maDonVi) => {
+  // Lưu 1 lần: chỉ gọi API cho phần thực sự thay đổi.
+  const handleSaveRole = async () => {
+    if (!showRoleModal) return;
+    const u = showRoleModal;
+    const doiVaiTro = roleForm.vaiTro && roleForm.vaiTro !== (u.VaiTro || '');
+    const doiKho = roleForm.maDonVi !== (u.MaDonVi || '');
+    if (!doiVaiTro && !doiKho) { setShowRoleModal(null); return; }
+    setSavingRole(true);
     try {
-      await userAPI.updateKho(id, maDonVi);
-      showToast('Cập nhật kho thành công!');
+      if (doiVaiTro) await userAPI.updateRole(u.ID, roleForm.vaiTro);
+      if (doiKho) await userAPI.updateKho(u.ID, roleForm.maDonVi);
+      showToast('Cập nhật phân quyền thành công!');
       setShowRoleModal(null);
       load();
-    } catch { showToast('Lỗi cập nhật kho', 'error'); }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi cập nhật phân quyền', 'error');
+    } finally {
+      setSavingRole(false);
+    }
   };
 
   const handleReset = async (id, matKhauMoi) => {
@@ -129,6 +150,7 @@ export default function QuanLyNguoiDung() {
     } catch { showToast('Lỗi cập nhật trạng thái', 'error'); }
   };
 
+  const vaiTroTen = useMemo(() => Object.fromEntries(vaiTros.map(v => [v.ID, v.TenVaiTro])), [vaiTros]);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
 
@@ -140,9 +162,7 @@ export default function QuanLyNguoiDung() {
         </div>
       )}
 
-      <div className="page-header">
-        <p className="page-sub">Quản lý tài khoản, phân quyền và bảo mật</p>
-      </div>
+
 
       <div className="data-card">
         <div className="table-toolbar">
@@ -160,6 +180,8 @@ export default function QuanLyNguoiDung() {
               placeholder="Tìm kiếm tên đăng nhập, họ tên..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              autoComplete="off"
+              name="tim-kiem-tai-khoan"
             />
           </div>
         </div>
@@ -192,7 +214,8 @@ export default function QuanLyNguoiDung() {
                 </thead>
                 <tbody>
                   {paged.map((u, i) => {
-                    const rc = roleConfig[u.VaiTro] || DEFAULT_ROLE_CONFIG;
+                    const rc = styleVaiTro(u.VaiTro);
+                    const tenVaiTro = vaiTroTen[u.VaiTro] || u.VaiTro || '—';
                     return (
                       <tr key={u.ID}>
                         <td className="td-muted td-center" style={{ width: 50 }}>{startIdx + i + 1}</td>
@@ -202,9 +225,16 @@ export default function QuanLyNguoiDung() {
                             <span className="main-value">{u.TenDangNhap}</span>
                           </div>
                         </td>
-                        <td>{u.HoTen}</td>
                         <td>
-                          <span className="badge" style={{ background: rc.bg, color: rc.color }}>{rc.label}</span>
+                          {u.HoTen}
+                          {(u.TenChucVu || u.TenCapBac) && (
+                            <div className="sub-value" style={{ fontSize: 12 }}>
+                              {[u.TenChucVu, u.TenCapBac].filter(Boolean).join(' • ')}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span className="badge" style={{ background: rc.bg, color: rc.color }}>{tenVaiTro}</span>
                         </td>
                         <td>{u.TenDonVi || u.MaDonVi || ''}</td>
                         <td>
@@ -217,7 +247,10 @@ export default function QuanLyNguoiDung() {
                         </td>
                         <td>
                           <div className="actions-wrap">
-                            <button className="btn-action" title="Phân quyền" onClick={() => setShowRoleModal(u)}>
+                            <button className="btn-action" title="Xem chi tiết" onClick={() => setShowDetailModal(u)}>
+                              <FiEye size={14} /> Chi tiết
+                            </button>
+                            <button className="btn-action" title="Phân quyền" onClick={() => openRoleModal(u)}>
                               <FiShield size={14} /> Phân quyền
                             </button>
                             <button className="btn-action" title="Đặt lại MK" onClick={() => setShowResetModal(u)}>
@@ -244,36 +277,59 @@ export default function QuanLyNguoiDung() {
 
       {/* Modal thêm */}
       {showModal && (
-        <Modal title="Thêm tài khoản mới" onClose={() => setShowModal(false)}>
-          <form onSubmit={handleCreate} noValidate>
-            <div className="form-field">
-              <label className="form-label">Tên đăng nhập *</label>
-              <input className={`form-input${errors.tenDangNhap ? ' form-input--invalid' : ''}`} value={form.tenDangNhap} onChange={e => { setForm({ ...form, tenDangNhap: e.target.value }); clearError('tenDangNhap'); }} placeholder="Nhập tên đăng nhập" />
-              {errors.tenDangNhap && <p className="form-error-text">{errors.tenDangNhap}</p>}
-            </div>
-            <div className="form-field">
-              <label className="form-label">Họ và tên *</label>
-              <input className={`form-input${errors.hoTen ? ' form-input--invalid' : ''}`} value={form.hoTen} onChange={e => { setForm({ ...form, hoTen: e.target.value }); clearError('hoTen'); }} placeholder="Nhập họ tên" />
-              {errors.hoTen && <p className="form-error-text">{errors.hoTen}</p>}
-            </div>
-            <div className="form-field">
-              <label className="form-label">Mật khẩu *</label>
-              <input className={`form-input${errors.matKhau ? ' form-input--invalid' : ''}`} type="password" value={form.matKhau} onChange={e => { setForm({ ...form, matKhau: e.target.value }); clearError('matKhau'); }} placeholder="Nhập mật khẩu" />
-              {errors.matKhau && <p className="form-error-text">{errors.matKhau}</p>}
-            </div>
-            <div className="form-field">
-              <label className="form-label">Vai trò</label>
-              <select className="form-input" value={form.vaiTro} onChange={e => setForm({ ...form, vaiTro: e.target.value })}>
-                {vaiTros.map(vt => <option key={vt.ID} value={vt.ID}>{vt.TenVaiTro}</option>)}
-              </select>
-            </div>
-            <div className="form-field">
-              <label className="form-label">Kho (để trống nếu không giới hạn — ví dụ Admin)</label>
-              <select className="form-input" value={form.maDonVi} onChange={e => setForm({ ...form, maDonVi: e.target.value })}>
-                <option value="">Không giới hạn</option>
-                {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
-              </select>
-              <p className="form-hint">Nếu chọn 1 kho, tài khoản này chỉ xem/thao tác được dữ liệu của kho đó.</p>
+        <Modal title="Thêm tài khoản mới" onClose={() => setShowModal(false)} wide>
+          <form onSubmit={handleCreate} noValidate autoComplete="off">
+            <div className="form-grid-2col">
+              <div className="form-field">
+                <label className="form-label">Tên đăng nhập *</label>
+                <input className={`form-input${errors.tenDangNhap ? ' form-input--invalid' : ''}`} autoComplete="off" value={form.tenDangNhap} onChange={e => { setForm({ ...form, tenDangNhap: e.target.value }); clearError('tenDangNhap'); }} placeholder="Nhập tên đăng nhập" />
+                {errors.tenDangNhap && <p className="form-error-text">{errors.tenDangNhap}</p>}
+              </div>
+              <div className="form-field">
+                <label className="form-label">Họ và tên *</label>
+                <input className={`form-input${errors.hoTen ? ' form-input--invalid' : ''}`} value={form.hoTen} onChange={e => { setForm({ ...form, hoTen: e.target.value }); clearError('hoTen'); }} placeholder="Nhập họ tên" />
+                {errors.hoTen && <p className="form-error-text">{errors.hoTen}</p>}
+              </div>
+              <div className="form-field">
+                <label className="form-label">Mật khẩu *</label>
+                <input className={`form-input${errors.matKhau ? ' form-input--invalid' : ''}`} type="password" autoComplete="new-password" value={form.matKhau} onChange={e => { setForm({ ...form, matKhau: e.target.value }); clearError('matKhau'); }} placeholder="Nhập mật khẩu" />
+                {errors.matKhau && <p className="form-error-text">{errors.matKhau}</p>}
+              </div>
+              <div className="form-field">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Nhập email" />
+              </div>
+              <div className="form-field">
+                <label className="form-label">Số điện thoại</label>
+                <input className="form-input" value={form.soDienThoai} onChange={e => setForm({ ...form, soDienThoai: e.target.value })} placeholder="Nhập số điện thoại" />
+              </div>
+              <div className="form-field">
+                <label className="form-label">Cấp bậc</label>
+                <select className="form-input" value={form.maCapBac} onChange={e => setForm({ ...form, maCapBac: e.target.value })}>
+                  <option value="">-- Chọn cấp bậc --</option>
+                  {capBacList.map(cb => <option key={cb.maCapBac} value={cb.maCapBac}>{cb.tenCapBac}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label className="form-label">Chức vụ</label>
+                <select className="form-input" value={form.maChucVu} onChange={e => setForm({ ...form, maChucVu: e.target.value })}>
+                  <option value="">-- Chọn chức vụ --</option>
+                  {chucVuList.map(cv => <option key={cv.maChucVu} value={cv.maChucVu}>{cv.tenChucVu}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label className="form-label">Vai trò</label>
+                <select className="form-input" value={form.vaiTro} onChange={e => setForm({ ...form, vaiTro: e.target.value })}>
+                  {vaiTros.map(vt => <option key={vt.ID} value={vt.ID}>{vt.TenVaiTro}</option>)}
+                </select>
+              </div>
+              <div className="form-field">
+                <label className="form-label">Kho</label>
+                <select className="form-input" value={form.maDonVi} onChange={e => setForm({ ...form, maDonVi: e.target.value })}>
+                  <option value="">Không giới hạn</option>
+                  {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+                </select>
+              </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn-cancel" onClick={() => setShowModal(false)}>Hủy</button>
@@ -285,25 +341,28 @@ export default function QuanLyNguoiDung() {
 
       {/* Modal phân quyền */}
       {showRoleModal && (
-        <Modal title={`Phân quyền — ${showRoleModal.HoTen}`} onClose={() => setShowRoleModal(null)}>
+        <Modal title={`Phân quyền cho ${showRoleModal.HoTen}`} onClose={() => setShowRoleModal(null)}>
           <div className="form-field">
-            <label className="form-label">Vai trò mới</label>
-            <select className="form-input" defaultValue={showRoleModal.VaiTro}
-              onChange={e => handleUpdateRole(showRoleModal.ID, e.target.value)}>
+            <label className="form-label">Vai trò</label>
+            <select className="form-input" value={roleForm.vaiTro}
+              onChange={e => setRoleForm(f => ({ ...f, vaiTro: e.target.value }))}>
               {vaiTros.map(vt => <option key={vt.ID} value={vt.ID}>{vt.TenVaiTro}</option>)}
             </select>
           </div>
           <div className="form-field">
-            <label className="form-label">Kho (để trống nếu không giới hạn — ví dụ Admin)</label>
-            <select className="form-input" defaultValue={showRoleModal.MaDonVi || ''}
-              onChange={e => handleUpdateKho(showRoleModal.ID, e.target.value)}>
+            <label className="form-label">Kho</label>
+            <select className="form-input" value={roleForm.maDonVi}
+              onChange={e => setRoleForm(f => ({ ...f, maDonVi: e.target.value }))}>
               <option value="">Không giới hạn</option>
               {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
             </select>
-            <p className="form-hint">Nếu chọn 1 kho, tài khoản này chỉ xem/thao tác được dữ liệu của kho đó.</p>
           </div>
           <div className="modal-footer">
-            <button className="btn-cancel" onClick={() => setShowRoleModal(null)}>Đóng</button>
+            <button className="btn-cancel" onClick={() => setShowRoleModal(null)}>Hủy</button>
+            <button className="btn-primary" onClick={handleSaveRole} disabled={savingRole}>
+
+              {savingRole ? 'Đang lưu…' : 'Lưu'}
+            </button>
           </div>
         </Modal>
       )}
@@ -312,14 +371,19 @@ export default function QuanLyNguoiDung() {
       {showResetModal && (
         <ResetModal user={showResetModal} onClose={() => setShowResetModal(null)} onSubmit={handleReset} />
       )}
+
+      {/* Modal xem chi tiết */}
+      {showDetailModal && (
+        <DetailModal user={showDetailModal} tenVaiTro={vaiTroTen[showDetailModal.VaiTro] || showDetailModal.VaiTro} onClose={() => setShowDetailModal(null)} />
+      )}
     </div>
   );
 }
 
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, wide }) {
   return (
     <div className="overlay">
-      <div className="modal fade-in">
+      <div className={`modal fade-in${wide ? ' modal--form' : ''}`}>
         <div className="modal-header">
           <h3 className="modal-title">{title}</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
@@ -330,17 +394,92 @@ function Modal({ title, children, onClose }) {
   );
 }
 
+function DetailModal({ user, tenVaiTro, onClose }) {
+  const rows = [
+    ['Tên đăng nhập', user.TenDangNhap],
+    ['Họ và tên', user.HoTen],
+    ['Email', user.Email && !user.Email.endsWith('@local') ? user.Email : '—'],
+    ['Số điện thoại', user.SoDienThoai || '—'],
+    ['Cấp bậc', user.TenCapBac || '—'],
+    ['Chức vụ', user.TenChucVu || '—'],
+    ['Vai trò', tenVaiTro || '—'],
+    ['Kho quản lý', user.TenDonVi || user.MaDonVi || 'Không giới hạn'],
+    ['Trạng thái', user.TrangThai ? 'Đang hoạt động' : `Bị khóa${user.LyDoKhoa ? ` — ${user.LyDoKhoa}` : ''}`],
+    ['Ngày tạo', new Date(user.NgayTao).toLocaleDateString('vi-VN')],
+    ['Lần đăng nhập cuối', user.LanDangNhapCuoi ? new Date(user.LanDangNhapCuoi).toLocaleString('vi-VN') : 'Chưa đăng nhập'],
+  ];
+  return (
+    <Modal title={`Chi tiết tài khoản — ${user.TenDangNhap}`} onClose={onClose} wide>
+      <div className="form-grid-2col">
+        {rows.map(([label, value]) => (
+          <div className="form-field" key={label}>
+            <label className="form-label">{label}</label>
+            <div className="form-input" style={{ background: '#f5f6f8', color: '#000' }}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="modal-footer">
+        <button className="btn-cancel" onClick={onClose}>Đóng</button>
+      </div>
+    </Modal>
+  );
+}
+
 function ResetModal({ user, onClose, onSubmit }) {
   const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [show, setShow] = useState(false);
+  const [touched, setTouched] = useState(false);
+
+  const loi = !pw ? 'Mật khẩu không được để trống'
+    : pw.length < 6 ? 'Mật khẩu phải từ 6 ký tự trở lên'
+      : pw2 !== pw ? 'Mật khẩu nhập lại không khớp'
+        : '';
+
+  const submit = () => {
+    setTouched(true);
+    if (loi) return;
+    onSubmit(user.ID, pw);
+  };
+
   return (
-    <Modal title={`Đặt lại mật khẩu — ${user.HoTen}`} onClose={onClose}>
+    <Modal title="Đặt lại mật khẩu " onClose={onClose}>
       <div className="form-field">
-        <label className="form-label">Mật khẩu mới (để trống = 123456)</label>
-        <input className="form-input" type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Nhập mật khẩu mới..." />
+        <label className="form-label">Mật khẩu mới</label>
+        <div className="pw-input">
+          <input
+            className="form-input"
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={pw}
+            onChange={e => setPw(e.target.value)}
+            placeholder="Nhập mật khẩu mới..."
+          />
+          <button type="button" className="pw-toggle" tabIndex={-1}
+            onClick={() => setShow(s => !s)} title={show ? 'Ẩn mật khẩu' : 'Xem mật khẩu'}>
+            {show ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+          </button>
+        </div>
+      </div>
+      <div className="form-field">
+        <label className="form-label">Nhập lại mật khẩu</label>
+        <div className="pw-input">
+          <input
+            className={`form-input${touched && loi ? ' form-input--invalid' : ''}`}
+            type={show ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={pw2}
+            onChange={e => setPw2(e.target.value)}
+            placeholder="Nhập lại mật khẩu mới..."
+          />
+        </div>
+        {touched && loi && <p className="form-error-text">{loi}</p>}
       </div>
       <div className="modal-footer">
         <button className="btn-cancel" onClick={onClose}>Hủy</button>
-        <button className="btn-primary" onClick={() => onSubmit(user.ID, pw)}><FiKey style={{ marginRight: 6 }} />Xác nhận</button>
+        <button className="btn-primary" onClick={submit} disabled={touched && !!loi}>
+          Xác nhận
+        </button>
       </div>
     </Modal>
   );

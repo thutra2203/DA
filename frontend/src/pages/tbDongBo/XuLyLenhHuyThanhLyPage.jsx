@@ -4,6 +4,7 @@ import { lenhTbDongBoAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiSave, FiTrash2, FiCheckCircle, FiSearch, FiDownload, FiUpload, FiX, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import HuyThanhLyPrintView from './HuyThanhLyPrintView';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
@@ -20,6 +21,7 @@ export default function XuLyLenhHuyThanhLyPage() {
   const { maLenh } = useParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_HUY_XL');
 
   const [lenh, setLenh] = useState(null);
   const [rows, setRows] = useState([]);
@@ -270,7 +272,7 @@ export default function XuLyLenhHuyThanhLyPage() {
           <button className="btn-print" onClick={() => window.print()}>
             <FiPrinter style={{ marginRight: 6 }} />In lệnh
           </button>
-          {!daKetThuc && (
+          {!daKetThuc && canSua && (
             <button className="btn-primary" disabled={dangKetThuc || rows.length === 0} onClick={ketThuc}>
               <FiCheckCircle style={{ marginRight: 6 }} />{dangKetThuc ? 'Đang xử lý...' : 'Kết thúc lệnh'}
             </button>
@@ -283,7 +285,7 @@ export default function XuLyLenhHuyThanhLyPage() {
           <span style={{ fontWeight: 600, fontSize: 19 }}>
             Danh sách trang bị hủy/thanh lý {lenh.tenKhoXuat || lenh.maKhoXuat}
           </span>
-          {!daKetThuc && (
+          {!daKetThuc && canThem && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-excel" disabled={dangTaiMau} onClick={taiMau}>
                 <FiDownload style={{ marginRight: 6 }} />{dangTaiMau ? 'Đang tải...' : 'Tải mẫu'}
@@ -315,7 +317,7 @@ export default function XuLyLenhHuyThanhLyPage() {
                   <th>Vị trí</th>
                   <th style={{ textAlign: 'center' }}>{daKetThuc ? 'SL đã hủy' : 'SL dự kiến hủy'}</th>
                   <th>Ghi chú</th>
-                  {!daKetThuc && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
+                  {!daKetThuc && (canSua || canXoa) && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -343,15 +345,19 @@ export default function XuLyLenhHuyThanhLyPage() {
                             onChange={e => suaForm(r.maCtdongBoLenh, 'ghiChu', e.target.value)} />
                         )}
                       </td>
-                      {!daKetThuc && (
+                      {!daKetThuc && (canSua || canXoa) && (
                         <td className="td-center">
                           <div className="td-actions">
-                            <button className="btn-icon-edit" disabled={dangLuuDong === r.maCtdongBoLenh} onClick={() => luuDong(r)} title="Lưu">
-                              <FiSave size={13} />
-                            </button>
-                            <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
-                              <FiTrash2 size={13} />
-                            </button>
+                            {canSua && (
+                              <button className="btn-icon-edit" disabled={dangLuuDong === r.maCtdongBoLenh} onClick={() => luuDong(r)} title="Lưu">
+                                <FiSave size={13} />
+                              </button>
+                            )}
+                            {canXoa && (
+                              <button className="btn-icon-delete" onClick={() => xoaDong(r)} title="Bỏ khỏi lệnh">
+                                <FiTrash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}

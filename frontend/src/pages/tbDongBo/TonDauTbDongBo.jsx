@@ -4,6 +4,7 @@ import { tonDauTbDongBoAPI, danhMucAPI } from '../../services/api';
 import { FiPlus, FiSearch, FiArrowRight, FiCheckCircle, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
@@ -23,6 +24,7 @@ export default function TonDauTbDongBo() {
   usePageTitle('Tồn đầu');
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_TON_DAU_LAP');
   const [khoList, setKhoList] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -150,9 +152,9 @@ export default function TonDauTbDongBo() {
       <div className="data-card">
         <div className="table-toolbar">
           <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lệnh</span>
-          <button className="btn-add" onClick={openAdd}>
+          {canThem && <button className="btn-add" onClick={openAdd}>
             <FiPlus style={{ marginRight: 6 }} />Tạo lệnh tồn đầu
-          </button>
+          </button>}
         </div>
 
         <div className="table-toolbar" style={{ flexWrap: 'wrap', rowGap: 10 }}>
@@ -218,10 +220,12 @@ export default function TonDauTbDongBo() {
                         <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/ton-dau/${r.maLenh}`)} title="Xử lý">
                           <FiArrowRight size={13} />
                         </button>
-                        <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa ngày chốt/ghi chú">
-                          <FiEdit2 size={13} />
-                        </button>
-                        {r.trangThai !== 'HOAN_THANH' && (
+                        {canSua && (
+                          <button className="btn-icon-warn" onClick={() => openEdit(r)} title="Sửa ngày chốt/ghi chú">
+                            <FiEdit2 size={13} />
+                          </button>
+                        )}
+                        {canXoa && r.trangThai !== 'HOAN_THANH' && (
                           <button className="btn-icon-delete" onClick={() => xoaLenh(r)} title="Xóa lệnh">
                             <FiTrash2 size={13} />
                           </button>
@@ -299,7 +303,7 @@ export default function TonDauTbDongBo() {
         <div className="overlay">
           <div className="modal modal--form fade-in">
             <div className="modal-header">
-              <h3 className="modal-title">Sửa lệnh tồn đầu — {editModal.maLenh}</h3>
+              <h3 className="modal-title">Sửa lệnh tồn đầu {editModal.maLenh}</h3>
               <button className="modal-close-btn" onClick={() => setEditModal(null)}>✕</button>
             </div>
             <form onSubmit={submitEdit} className="modal-body" noValidate>

@@ -1,8 +1,10 @@
 using System.Text.Json;
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -14,7 +16,7 @@ namespace backend_dotnet.Controllers;
 // với response hiện tại của backend Node, không cần DTO riêng cho từng bảng.
 [ApiController]
 [Authorize]
-public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEntity : class, new()
+public abstract class DanhMucControllerBase<TEntity> : ControllerBase, IAsyncActionFilter where TEntity : class, new()
 {
     private readonly QuanLyKhoQuanKhiContext _db;
     private readonly IActivityLogger _log;
@@ -23,6 +25,14 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
 
     protected abstract string TableLabel { get; }
 
+    // Nhóm chức năng để kiểm tra phân quyền — mặc định "Quản lý danh mục"; controller nào thuộc
+    // nhóm khác (vd hồ sơ TB đồng bộ) thì override.
+    protected virtual string MaChucNang => Cn.DanhMuc;
+
+    // true: GET không cần quyền (dữ liệu tra cứu, đổ dropdown khắp nơi). Chỉ đúng cho danh mục thuần;
+    // các controller nghiệp vụ (hồ sơ TBĐB…) override MaChucNang nên tự động về false.
+    private bool GetTuDo => MaChucNang == Cn.DanhMuc;
+
     protected DanhMucControllerBase(QuanLyKhoQuanKhiContext db, IActivityLogger log)
     {
         _db = db;
@@ -30,6 +40,39 @@ public abstract class DanhMucControllerBase<TEntity> : ControllerBase where TEnt
         _entityType = db.Model.FindEntityType(typeof(TEntity))
             ?? throw new InvalidOperationException($"Khong tim thay entity type {typeof(TEntity).Name}");
         _pk = _entityType.FindPrimaryKey()!.Properties[0];
+    }
+
+    // Chặn theo phân quyền trước mọi action: GET=XEM, POST=THEM, PUT=SUA, DELETE=XOA. ADMIN bỏ qua.
+    // [NonAction] để [ApiController] không nhầm phương thức filter này là 1 endpoint.
+    [NonAction]
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        var role = this.CurrentRole();
+        var method = Request.Method.ToUpperInvariant();
+        var laDoc = method is "GET" or "HEAD";
+        // GET danh mục thuần là dữ liệu tra cứu (đổ vào dropdown ở khắp nơi) — mọi tài khoản đã đăng
+        // nhập đều đọc được; quyền theo nhóm chức năng chỉ chặn thao tác ghi (Thêm/Sửa/Xóa).
+        if (role != "ADMIN" && !(laDoc && GetTuDo))
+        {
+            var tenQuyen = method switch
+            {
+                "POST" => QuyenCodes.Them,
+                "PUT" or "PATCH" => QuyenCodes.Sua,
+                "DELETE" => QuyenCodes.Xoa,
+                _ => QuyenCodes.Xem,
+            };
+            var ok = await _db.VaiTroChucNangQuyens.AnyAsync(v =>
+                v.MaVaiTro == role && v.MaCn == MaChucNang && v.MaQuyenNavigation.TenQuyen == tenQuyen);
+            if (!ok)
+            {
+                context.Result = new ObjectResult(new { message = $"Bạn không có quyền \"{tenQuyen}\" với chức năng này" })
+                {
+                    StatusCode = StatusCodes.Status403Forbidden,
+                };
+                return;
+            }
+        }
+        await next();
     }
 
     private Dictionary<string, object?> ToDict(TEntity entity)

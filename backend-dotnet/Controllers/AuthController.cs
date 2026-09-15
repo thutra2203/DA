@@ -28,7 +28,9 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
         if (!user.IsActive || user.BiKhoa)
         {
             await log.LogAsync(user.MaNd, user.TenDangNhap, "DANG_NHAP", ketQua: "THAT_BAI", lyDoThatBai: "Tài khoản đã bị khóa");
-            return Unauthorized(new { message = "Tài khoản không tồn tại hoặc đã bị khóa" });
+            var lyDo = string.IsNullOrWhiteSpace(user.LyDoKhoa) ? null : $" Lý do: {user.LyDoKhoa}.";
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { message = $"Tài khoản của bạn đã bị khóa.{lyDo} Vui lòng liên hệ quản trị viên." });
         }
 
         if (!BCrypt.Net.BCrypt.Verify(body.Password, user.MatKhauHash))
@@ -64,5 +66,40 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
     {
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "DANG_XUAT", ketQua: "THANH_CONG");
         return Ok(new { message = "Đăng xuất thành công" });
+    }
+
+    // GET api/auth/me — thông tin tài khoản của chính người đang đăng nhập, cho mục "Thông tin tài
+    // khoản" ở menu người dùng. Không dùng YeuCauQuyen(HtNguoiDung) như UsersController vì đây là
+    // xem thông tin CỦA CHÍNH MÌNH, không phải quản trị người dùng khác — ai đăng nhập cũng xem được.
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
+    {
+        var maNd = this.CurrentUserId();
+        var info = await (
+            from nd in db.NguoiDungs
+            join ndvt in db.NguoiDungVaiTros on nd.MaNd equals ndvt.MaNguoiDung into vtJoin
+            from ndvt in vtJoin.DefaultIfEmpty()
+            join vt in db.VaiTros on ndvt.MaVaiTro equals vt.MaVaiTro into vtJoin2
+            from vt in vtJoin2.DefaultIfEmpty()
+            join kho in db.Khos on nd.MaDonVi equals kho.MaKho into khoJoin
+            from kho in khoJoin.DefaultIfEmpty()
+            join cb in db.CapBacs on nd.MaCapBac equals cb.MaCapBac into cbJoin
+            from cb in cbJoin.DefaultIfEmpty()
+            join cv in db.ChucVus on nd.MaChucVu equals cv.MaChucVu into cvJoin
+            from cv in cvJoin.DefaultIfEmpty()
+            where nd.MaNd == maNd
+            select new MeResponse(
+                nd.MaNd, nd.TenDangNhap, nd.HoTen,
+                nd.MaCapBac, cb.TenCapBac,
+                nd.MaChucVu, cv.TenChucVu,
+                nd.MaDonVi, kho.TenKho,
+                vt.MaVaiTro, vt.TenVaiTro,
+                nd.Email, nd.SoDienThoai,
+                nd.LanDangNhapCuoi, nd.CreatedAt)
+        ).FirstOrDefaultAsync();
+
+        if (info == null) return NotFound(new { message = "Không tìm thấy thông tin tài khoản" });
+        return Ok(info);
     }
 }

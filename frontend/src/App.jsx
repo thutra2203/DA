@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import QuanLyNguoiDung from './pages/users/QuanLyNguoiDung';
 import DanhMucPage from './pages/danhMuc/DanhMucPage';
+import NhomDongBoPage from './pages/danhMuc/NhomDongBoPage';
 import PhanQuyen from './pages/PhanQuyen';
 import QuanLyVaiTro from './pages/QuanLyVaiTro';
 import NhatKyHoatDong from './pages/NhatKyHoatDong';
@@ -14,6 +15,7 @@ import LenhTbDongBo from './pages/tbDongBo/LenhTbDongBo';
 import ChiTietLenhPage from './pages/tbDongBo/ChiTietLenhPage';
 import CapNhatLenhTbDongBo from './pages/tbDongBo/CapNhatLenhTbDongBo';
 import XuLyLenhPage from './pages/tbDongBo/XuLyLenhPage';
+import DoiChieuLenh from './pages/tbDongBo/DoiChieuLenh';
 import TonDauTbDongBo from './pages/tbDongBo/TonDauTbDongBo';
 import XuLyTonDauPage from './pages/tbDongBo/XuLyTonDauPage';
 import KiemKeTbDongBo from './pages/tbDongBo/KiemKeTbDongBo';
@@ -29,8 +31,14 @@ import XuLyLenhHuyThanhLyPage from './pages/tbDongBo/XuLyLenhHuyThanhLyPage';
 import TaoLenhThayDoiViTri from './pages/tbDongBo/TaoLenhThayDoiViTri';
 import ThayDoiViTri from './pages/tbDongBo/ThayDoiViTri';
 import XuLyThayDoiViTriPage from './pages/tbDongBo/XuLyThayDoiViTriPage';
+import TaoLenhThayDoiHtnc from './pages/tbDongBo/TaoLenhThayDoiHtnc';
+import ThayDoiHinhThucNiemCat from './pages/tbDongBo/ThayDoiHinhThucNiemCat';
+import XuLyThayDoiHtncPage from './pages/tbDongBo/XuLyThayDoiHtncPage';
+import DongDoiLo from './pages/tbDongBo/DongDoiLo';
+import BaoCaoTongHop from './pages/baoCao/BaoCaoTongHop';
 import { PermissionProvider } from './context/PermissionContext';
 import { ConfirmProvider } from './context/ConfirmContext';
+import { PermGate, HomeRedirect } from './components/PermGate';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -45,8 +53,9 @@ function AppRoutes() {
       <Route path="/*" element={
         <PrivateRoute>
           <MainLayout>
+            <PermGate>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<HomeRedirect />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/users" element={<QuanLyNguoiDung />} />
               <Route path="/phan-quyen" element={<PhanQuyen />} />
@@ -56,6 +65,7 @@ function AppRoutes() {
               <Route path="/danh-muc/loai-spkt" element={<DanhMucPage type="loai-spkt" />} />
               <Route path="/danh-muc/kieu-spkt" element={<DanhMucPage type="kieu-spkt" />} />
               <Route path="/danh-muc/loai-tbdb" element={<DanhMucPage type="loai-tbdb" />} />
+              <Route path="/danh-muc/nhom-dong-bo" element={<NhomDongBoPage />} />
 
               <Route path="/danh-muc/cap-bac" element={<DanhMucPage type="cap-bac" />} />
               <Route path="/danh-muc/chuc-vu" element={<DanhMucPage type="chuc-vu" />} />
@@ -64,6 +74,7 @@ function AppRoutes() {
               <Route path="/danh-muc/xa" element={<DanhMucPage type="xa" />} />
 
               <Route path="/danh-muc/loai-kho" element={<DanhMucPage type="loai-kho" />} />
+              <Route path="/danh-muc/cap-quan-ly" element={<DanhMucPage type="cap-quan-ly" />} />
               <Route path="/danh-muc/kho" element={<DanhMucPage type="kho" />} />
 
               <Route path="/danh-muc/dvt" element={<DanhMucPage type="dvt" />} />
@@ -88,6 +99,7 @@ function AppRoutes() {
               <Route path="/tb-dong-bo/tao-lenh-nhap-xuat/:maLenh" element={<ChiTietLenhPage />} />
               <Route path="/tb-dong-bo/cap-nhat-lenh-nhap-xuat" element={<CapNhatLenhTbDongBo />} />
               <Route path="/tb-dong-bo/cap-nhat-lenh-nhap-xuat/:maLenh" element={<XuLyLenhPage />} />
+              <Route path="/tb-dong-bo/doi-chieu-lenh" element={<DoiChieuLenh />} />
               <Route path="/tb-dong-bo/ton-dau" element={<TonDauTbDongBo />} />
               <Route path="/tb-dong-bo/ton-dau/:maLenh" element={<XuLyTonDauPage />} />
               <Route path="/tb-dong-bo/kiem-ke" element={<KiemKeTbDongBo />} />
@@ -103,9 +115,14 @@ function AppRoutes() {
               <Route path="/tb-dong-bo/thay-doi-vi-tri/tao-lenh" element={<TaoLenhThayDoiViTri />} />
               <Route path="/tb-dong-bo/thay-doi-vi-tri" element={<ThayDoiViTri />} />
               <Route path="/tb-dong-bo/thay-doi-vi-tri/:maLenh" element={<XuLyThayDoiViTriPage />} />
+              <Route path="/tb-dong-bo/thay-doi-htnc/tao-lenh" element={<TaoLenhThayDoiHtnc />} />
+              <Route path="/tb-dong-bo/thay-doi-htnc" element={<ThayDoiHinhThucNiemCat />} />
+              <Route path="/tb-dong-bo/thay-doi-htnc/:maLenh" element={<XuLyThayDoiHtncPage />} />
+              <Route path="/tb-dong-bo/dong-doi-lo" element={<DongDoiLo />} />
 
-              <Route path="/bao-cao" element={<ComingSoon title="Tổng hợp, báo cáo" icon="📊" desc="Chức năng tổng hợp báo cáo đang được xây dựng." />} />
+              <Route path="/bao-cao" element={<BaoCaoTongHop />} />
             </Routes>
+            </PermGate>
           </MainLayout>
         </PrivateRoute>
       } />

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { kiemKeTbDongBoAPI } from '../../services/api';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
@@ -12,6 +13,7 @@ const moTaViTriDong = (v) => [v.tenNhaKho, v.tenDinhKhu, v.tenKhoi, v.tenGia, v.
 export default function XuLyKiemKeViTriPage() {
   const { maPhieu, maCtKiemKe } = useParams();
   const navigate = useNavigate();
+  const { canSua } = useModulePerm('TBDB_KIEM_KE_XL');
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ export default function XuLyKiemKeViTriPage() {
   if (!data) return <div className="empty-state" style={{ padding: '40px 0' }}>Không tìm thấy dòng chi tiết kiểm kê</div>;
 
   const daKetThuc = data.daKetThuc;
+  const chiXem = daKetThuc || !canSua;   // đã kết thúc HOẶC vai trò không có quyền Sửa -> chỉ xem
 
   return (
     <div>
@@ -103,7 +106,7 @@ export default function XuLyKiemKeViTriPage() {
                   <th style={{ textAlign: 'center' }}>Thừa</th>
                   <th style={{ textAlign: 'center' }}>Thiếu</th>
                   <th>Ghi chú</th>
-                  {!daKetThuc && <th style={{ width: 70, textAlign: 'center' }}>Thao tác</th>}
+                  {!chiXem && <th style={{ width: 70, textAlign: 'center' }}>Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -118,7 +121,7 @@ export default function XuLyKiemKeViTriPage() {
                       <td>{moTaViTriDong(r)}</td>
                       <td className="td-center">{r.soLuongSoSach}</td>
                       <td className="td-center">
-                        {daKetThuc ? r.soLuongThucTe : (
+                        {chiXem ? r.soLuongThucTe : (
                           <input className="form-input form-input--cell" style={{ padding: '6px 8px', textAlign: 'center', width: 90 }}
                             type="number" min="0" value={f.soLuongThucTe ?? ''}
                             onChange={e => suaForm(r.maCtKiemKeViTri, 'soLuongThucTe', e.target.value)} />
@@ -127,12 +130,12 @@ export default function XuLyKiemKeViTriPage() {
                       <td className="td-center">{r.thua > 0 ? <span style={{ color: '#2e7d32', fontWeight: 600 }}>+{r.thua}</span> : ''}</td>
                       <td className="td-center">{r.thieu > 0 ? <span style={{ color: '#c62828', fontWeight: 600 }}>-{r.thieu}</span> : ''}</td>
                       <td>
-                        {daKetThuc ? (r.ghiChu || '') : (
+                        {chiXem ? (r.ghiChu || '') : (
                           <input className="form-input" style={{ padding: '6px 8px' }} value={f.ghiChu ?? ''}
                             onChange={e => suaForm(r.maCtKiemKeViTri, 'ghiChu', e.target.value)} />
                         )}
                       </td>
-                      {!daKetThuc && (
+                      {!chiXem && (
                         <td className="td-center">
                           <div className="td-actions">
                             <button className="btn-icon-edit" disabled={dangLuu === r.maCtKiemKeViTri} onClick={() => luuDong(r)} title="Lưu">

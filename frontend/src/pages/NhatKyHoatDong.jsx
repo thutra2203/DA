@@ -22,18 +22,18 @@ const ACTION_OPTIONS = [
 ];
 
 const actionConfig = {
-  DANG_NHAP:  { bg: '#e8f5e9', color: '#2e7d32', label: 'Đăng nhập' },
-  DANG_XUAT:  { bg: '#e3f2fd', color: '#1565c0', label: 'Đăng xuất' },
-  XEM:        { bg: '#f0f4ff', color: '#3949ab', label: 'Xem' },
-  THEM:       { bg: '#e3f2fd', color: '#1565c0', label: 'Thêm' },
-  SUA:        { bg: '#fff3e0', color: '#e65100', label: 'Sửa' },
-  XOA:        { bg: '#fce4ec', color: '#c62828', label: 'Xóa' },
-  PHE_DUYET:  { bg: '#f3e5f5', color: '#6a1b9a', label: 'Phê duyệt' },
+  DANG_NHAP: { bg: '#e8f5e9', color: '#2e7d32', label: 'Đăng nhập' },
+  DANG_XUAT: { bg: '#e3f2fd', color: '#1565c0', label: 'Đăng xuất' },
+  XEM: { bg: '#f0f4ff', color: '#3949ab', label: 'Xem' },
+  THEM: { bg: '#e3f2fd', color: '#1565c0', label: 'Thêm' },
+  SUA: { bg: '#fff3e0', color: '#e65100', label: 'Sửa' },
+  XOA: { bg: '#fce4ec', color: '#c62828', label: 'Xóa' },
+  PHE_DUYET: { bg: '#f3e5f5', color: '#6a1b9a', label: 'Phê duyệt' },
 };
 
 const ketQuaConfig = {
   THANH_CONG: { bg: '#e8f5e9', color: '#2e7d32', label: 'Thành công' },
-  THAT_BAI:   { bg: '#fce4ec', color: '#c62828', label: 'Thất bại' },
+  THAT_BAI: { bg: '#fce4ec', color: '#c62828', label: 'Thất bại' },
 };
 
 export default function NhatKyHoatDong() {
@@ -72,9 +72,6 @@ export default function NhatKyHoatDong() {
 
   return (
     <div>
-      <div className="page-header">
-        <p className="page-sub">Theo dõi đăng nhập, đăng xuất và các thao tác trong hệ thống (chỉ Admin)</p>
-      </div>
 
       <div className="data-card">
         <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: 10 }}>

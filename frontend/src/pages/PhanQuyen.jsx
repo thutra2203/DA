@@ -3,21 +3,9 @@ import api from '../services/api';
 import { vaiTroAPI } from '../services/api';
 import { FiSave } from 'react-icons/fi';
 import { usePageTitle } from '../context/PageHeaderContext';
+import Pagination from '../components/ui/Pagination';
 import '../styles/shared.css';
 import './PhanQuyen.css';
-
-const MODULES = [
-  { key: 'DANH_MUC',   label: 'Quản lý danh mục' },
-  { key: 'NHOM_I',     label: 'Nghiệp vụ nhóm I' },
-  { key: 'NHOM_II',    label: 'Nghiệp vụ nhóm II' },
-  { key: 'LENH',       label: 'Quản lý lệnh' },
-  { key: 'BDKT',       label: 'Bảo đảm kỹ thuật' },
-  { key: 'KTKT',       label: 'Kỹ thuật kiểm tra' },
-  { key: 'KIEM_KE',    label: 'Quản lý kiểm kê' },
-  { key: 'BAO_CAO',    label: 'Báo cáo thống kê' },
-  { key: 'HE_THONG',   label: 'Quản trị hệ thống' },
-  { key: 'CHUYEN_KY',  label: 'Chuyển kỳ dữ liệu' },
-];
 
 const ACTIONS = [
   { key: 'CoTheXem',     label: 'Xem',  color: '#1565c0' },
@@ -26,18 +14,23 @@ const ACTIONS = [
   { key: 'CoTheXoa',     label: 'Xóa',  color: '#c62828' },
 ];
 
+const PAGE_SIZE = 10;
+
 export default function PhanQuyen() {
   usePageTitle('Phân quyền động');
   const [data, setData] = useState({});
   const [vaiTros, setVaiTros] = useState([]);
+  const [modules, setModules] = useState([]);   // [{ key, label }] lấy từ bảng ChucNang
   const [saving, setSaving] = useState(null);
   const [toast, setToast] = useState(null);
-  const [activeRole, setActiveRole] = useState('QUAN_LY');
+  const [activeRole, setActiveRole] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = async () => {
-    const [pqRes, vtRes] = await Promise.all([
+    const [pqRes, vtRes, cnRes] = await Promise.all([
       api.get('/phan-quyen'),
       vaiTroAPI.getAll(),
+      api.get('/phan-quyen/chuc-nang'),
     ]);
     const map = {};
     pqRes.data.forEach(r => {
@@ -46,6 +39,8 @@ export default function PhanQuyen() {
     });
     setData(map);
     setVaiTros(vtRes.data);
+    setModules(cnRes.data.map(c => ({ key: c.maCn, label: c.tenCn })));
+    setActiveRole(prev => prev ?? (vtRes.data.find(v => v.ID !== 'ADMIN')?.ID ?? vtRes.data[0]?.ID ?? null));
   };
 
   useEffect(() => { load(); }, []);
@@ -92,7 +87,7 @@ export default function PhanQuyen() {
   const saveAll = async (vaiTro) => {
     setSaving('all');
     try {
-      for (const mod of MODULES) {
+      for (const mod of modules) {
         const p = data[vaiTro]?.[mod.key] || {};
         await api.put('/phan-quyen', {
           vaiTro, module: mod.key,
@@ -118,29 +113,23 @@ export default function PhanQuyen() {
         </div>
       )}
 
-      <div className="page-header">
-        <p className="page-sub">Cấu hình quyền Xem / Thêm / Sửa / Xóa cho từng vai trò</p>
-      </div>
-
-      {/* Tab chọn vai trò */}
-      <div className="pq-tabs">
-        {vaiTros.map(vt => (
-          <button
-            key={vt.ID}
-            className={`pq-tab${activeRole === vt.ID ? ' pq-tab--active' : ''}`}
-            onClick={() => setActiveRole(vt.ID)}
-          >
-            {vt.TenVaiTro}
-            {vt.ID === 'ADMIN' && <span className="pq-admin-badge">Toàn quyền</span>}
-          </button>
-        ))}
-      </div>
-
       <div className="data-card">
         <div className="pq-table-header">
-          <span className="pq-table-header-label">
-            Quyền của vai trò: <span className="pq-role-highlight">{activeRole}</span>
-          </span>
+          <div className="pq-role-picker">
+            <label htmlFor="pq-role-select">Vai trò</label>
+            <select
+              id="pq-role-select"
+              value={activeRole ?? ''}
+              onChange={(e) => { setActiveRole(e.target.value); setPage(1); }}
+            >
+              {vaiTros.map(vt => (
+                <option key={vt.ID} value={vt.ID}>
+                  {vt.TenVaiTro} ({vt.ID}){vt.ID === 'ADMIN' ? ' — toàn quyền' : ''}
+                </option>
+              ))}
+            </select>
+            <span className="pq-role-count">{vaiTros.length} vai trò</span>
+          </div>
           {activeRole !== 'ADMIN' && (
             <button className="pq-btn-save-all" onClick={() => saveAll(activeRole)} disabled={saving === 'all'}>
               <FiSave size={14} style={{ marginRight: 6 }} />
@@ -163,38 +152,35 @@ export default function PhanQuyen() {
             </tr>
           </thead>
           <tbody>
-            {MODULES.map((mod, i) => {
+            {modules.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((mod, i) => {
               const perm = data[activeRole]?.[mod.key] || {};
               const isAdmin = activeRole === 'ADMIN';
               const rowKey = `${activeRole}-${mod.key}`;
               return (
                 <tr key={mod.key}>
-                  <td className="td-muted td-center">{i + 1}</td>
+                  <td className="td-muted td-center">{(page - 1) * PAGE_SIZE + i + 1}</td>
                   <td><span className="pq-mod-label">{mod.label}</span></td>
-                  {ACTIONS.map(a => (
-                    <td key={a.key} className="td-center">
-                      <label className="pq-check-wrap">
-                        <input
-                          type="checkbox"
-                          style={{ display: 'none' }}
-                          checked={isAdmin ? true : !!perm[a.key]}
-                          disabled={isAdmin}
-                          onChange={() => toggle(activeRole, mod.key, a.key)}
-                        />
+                  {ACTIONS.map(a => {
+                    const on = isAdmin || !!perm[a.key];
+                    return (
+                      <td key={a.key} className="td-center">
                         <div
                           className="pq-check-box"
+                          role="checkbox"
+                          aria-checked={on}
+                          aria-disabled={isAdmin}
                           style={{
-                            background: (isAdmin || !!perm[a.key]) ? a.color : '#f0f0f0',
-                            border: `2px solid ${(isAdmin || !!perm[a.key]) ? a.color : '#ddd'}`,
+                            background: on ? a.color : '#f0f0f0',
+                            border: `2px solid ${on ? a.color : '#ddd'}`,
                             cursor: isAdmin ? 'not-allowed' : 'pointer',
                           }}
                           onClick={() => !isAdmin && toggle(activeRole, mod.key, a.key)}
                         >
-                          {(isAdmin || !!perm[a.key]) && <span className="pq-check-mark">✓</span>}
+                          {on && <span className="pq-check-mark">✓</span>}
                         </div>
-                      </label>
-                    </td>
-                  ))}
+                      </td>
+                    );
+                  })}
                   {activeRole !== 'ADMIN' && (
                     <td className="td-center">
                       <button
@@ -211,6 +197,8 @@ export default function PhanQuyen() {
             })}
           </tbody>
         </table>
+
+        <Pagination page={page} total={modules.length} pageSize={PAGE_SIZE} onChange={setPage} />
 
         {activeRole === 'ADMIN' && (
           <div className="pq-admin-note">

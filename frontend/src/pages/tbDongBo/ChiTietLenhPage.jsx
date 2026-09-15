@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { lenhTbDongBoAPI, tbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiX, FiDownload, FiUpload, FiPrinter } from 'react-icons/fi';
+import { lenhTbDongBoAPI, tbDongBoAPI, danhMucAPI, chiTietDongBoAPI } from '../../services/api';
+import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiX, FiDownload, FiUpload, FiPrinter, FiCheckCircle } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import LenhPrintView from './LenhPrintView';
@@ -22,8 +22,15 @@ export default function ChiTietLenhPage() {
   const [lenh, setLenh] = useState(null);
   const [loadingLenh, setLoadingLenh] = useState(true);
   const [tbdbList, setTbdbList] = useState([]);
-  const [loaiTbdbList, setLoaiTbdbList] = useState([]);
   const [cclList, setCclList] = useState([]);
+  const [nhomSpktList, setNhomSpktList] = useState([]);
+  const [loaiSpktList, setLoaiSpktList] = useState([]);
+  // Chi tiết đồng bộ (TBĐB thành viên) của riêng Kiểu SPKT đang chọn trong modal — tải theo tiêu chí
+  // từ backend (query maKieuSpkt), KHÔNG tải hết rồi lọc ở frontend, vì đây mới là danh sách ĐÚNG
+  // từng TBDB thuộc 1 nhóm đồng bộ; không dùng NhomDongBo (chỉ nói "Loại TBĐB X có dùng Kiểu SPKT Y")
+  // để suy luận TBĐB vì 1 Loại TBĐB có thể có nhiều TBDB nhưng chỉ 1 phần thực sự phối thuộc kiểu đó.
+  const [chiTietDongBoLoc, setChiTietDongBoLoc] = useState([]);
+  const [dangTaiChiTietDongBo, setDangTaiChiTietDongBo] = useState(false);
 
   const [rows, setRows] = useState([]);
   const [loadingRows, setLoadingRows] = useState(true);
@@ -63,14 +70,31 @@ export default function ChiTietLenhPage() {
   useEffect(() => {
     Promise.all([
       tbDongBoAPI.getByKho('ALL').then(res => res.data).catch(() => []),
-      danhMucAPI.getAll('loai-tbdb').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('cap-chat-luong').then(res => res.data).catch(() => []),
-    ]).then(([tbdb, loaiTbdb, ccl]) => {
+      danhMucAPI.getAll('nhom-spkt').then(res => res.data).catch(() => []),
+      danhMucAPI.getAll('loai-spkt').then(res => res.data).catch(() => []),
+    ]).then(([tbdb, ccl, nhomSpkt, loaiSpkt]) => {
       setTbdbList(tbdb);
-      setLoaiTbdbList(loaiTbdb);
       setCclList(ccl);
+      setNhomSpktList(nhomSpkt);
+      setLoaiSpktList(loaiSpkt);
     });
   }, []);
+
+  // Chỉ khi đã chọn đủ Nhóm SPKT + Loại SPKT cụ thể mới gọi API lấy chi tiết đồng bộ theo đúng
+  // Kiểu SPKT tương ứng (truyền tham số maKieuSpkt cho backend lọc) — không tải hết rồi lọc ở client.
+  useEffect(() => {
+    if (!addModal) return;
+    const { selectedNhomSpkt, selectedLoaiSpkt } = addModal;
+    if (selectedNhomSpkt === 'ALL' || selectedLoaiSpkt === 'ALL') { setChiTietDongBoLoc([]); return; }
+    const maKieu = loaiSpktList.find(l => l.maLoai === selectedLoaiSpkt)?.maKieu;
+    if (!maKieu) { setChiTietDongBoLoc([]); return; }
+    setDangTaiChiTietDongBo(true);
+    chiTietDongBoAPI.getByNhom(maKieu)
+      .then(res => setChiTietDongBoLoc(res.data))
+      .catch(() => setChiTietDongBoLoc([]))
+      .finally(() => setDangTaiChiTietDongBo(false));
+  }, [addModal?.selectedNhomSpkt, addModal?.selectedLoaiSpkt, loaiSpktList]);
 
   const load = () => {
     setLoadingRows(true);
@@ -96,7 +120,7 @@ export default function ChiTietLenhPage() {
 
   const openAdd = () => setAddModal({
     maTbdb: '', soLuongTheoCap: { 1: '', 2: '', 3: '', 4: '', 5: '' }, donGiaTheoCap: { 1: '', 2: '', 3: '', 4: '', 5: '' },
-    ghiChu: '', selectedLoai: 'ALL', search: '',
+    ghiChu: '', selectedNhomSpkt: 'ALL', selectedLoaiSpkt: 'ALL', search: '',
   });
 
   const taiMauNhapChiTiet = async () => {
@@ -249,19 +273,42 @@ export default function ChiTietLenhPage() {
     } catch (err) { showToast(err.response?.data?.message || 'Không thể xóa', 'error'); }
   };
 
+  const handleGhiLenh = async () => {
+    if (!(await confirm(`Ghi lệnh "${maLenh}"? Sau khi ghi lệnh sẽ không thể sửa lệnh hoặc thêm/sửa/xóa dòng chi tiết nữa.`))) return;
+    try {
+      await lenhTbDongBoAPI.ghiLenh(maLenh);
+      showToast('Ghi lệnh thành công! Lệnh đã chuyển sang trạng thái đã ban hành.');
+      const res = await lenhTbDongBoAPI.getOne(maLenh);
+      setLenh(res.data);
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi ghi lệnh', 'error'); }
+  };
+
   // Có kho nguồn nội bộ xác định (kho xuất, dù là lệnh Xuất hay lệnh Nhập chuyển kho nội bộ):
   // chỉ chọn được TBDB mà kho đó đang thực sự có tồn kho (chỉ tính lô đã hoàn thành). Không có
   // kho nguồn (VD lệnh Nhập từ nhà cung cấp ngoài hệ thống): chọn từ toàn bộ danh mục TBDB.
   const nguonTbdb = khoNguon ? tbdbList.filter(t => tonKhoTheoCap[t.maTbdb]) : tbdbList;
-  const tbdbTrongLoai = (loai, q) => nguonTbdb.filter(t =>
-    (loai === 'ALL' || t.maLoaiTbdb === loai) &&
-    (!q || `${t.maTbdb} ${t.tenTbdb}`.toLowerCase().includes(q.toLowerCase()))
-  );
+
+  // Chọn Nhóm SPKT rồi Loại SPKT — từ Loại SPKT tra ra nó thuộc Kiểu SPKT nào (LoaiSpkt.maKieu), rồi
+  // gọi API chi-tiet-dong-bo?maKieuSpkt=... (xem useEffect ở trên) để backend trả về đúng các TBDB
+  // phối thuộc — KHÔNG lấy hết TBDB cùng Loại TBĐB, vì 1 Loại TBĐB có thể có nhiều TBDB nhưng chỉ một
+  // phần trong đó thực sự thuộc về Kiểu SPKT đang chọn. chiTietDongBoLoc đã là kết quả lọc theo tiêu
+  // chí từ backend nên chỉ cần lấy tập maTbdb của nó.
+  const tbdbTrongLoai = (selectedNhomSpkt, selectedLoaiSpkt, q) => {
+    if (selectedNhomSpkt === 'ALL' || selectedLoaiSpkt === 'ALL') return [];
+    const choPhep = new Set(chiTietDongBoLoc.map(c => c.maTbdb));
+    return nguonTbdb.filter(t =>
+      choPhep.has(t.maTbdb) &&
+      (!q || `${t.maTbdb} ${t.tenTbdb}`.toLowerCase().includes(q.toLowerCase()))
+    );
+  };
 
   if (loadingLenh) return <div className="empty-state" style={{ padding: '40px 0' }}>Đang tải...</div>;
   if (!lenh) return <div className="empty-state" style={{ padding: '40px 0' }}>Không tìm thấy lệnh</div>;
 
-  const daKetThuc = lenh.trangThai === 'HOAN_THANH';
+  // Chỉ còn sửa được lệnh/dòng chi tiết khi đang soạn thảo — sau khi "Ghi lệnh" (DA_BAN_HANH) hoặc
+  // "Kết thúc lệnh" (HOAN_THANH, ở bước xử lý thực nhập/xuất) đều khóa lại.
+  const dangSoanThao = lenh.trangThai === 'DANG_SOAN_THAO';
+  const daKetThuc = !dangSoanThao;
 
   return (
     <div>
@@ -286,9 +333,16 @@ export default function ChiTietLenhPage() {
             </p>
           </div>
         </div>
-        <button className="btn-print" onClick={() => window.print()}>
-          <FiPrinter style={{ marginRight: 6 }} />In lệnh
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {lenh.trangThai === 'HOAN_THANH'
+            ? <span className="badge badge--active"><FiCheckCircle size={11} style={{ marginRight: 4 }} />Đã hoàn thành</span>
+            : lenh.trangThai === 'DA_BAN_HANH'
+              ? <span className="badge badge--info">Đã ban hành</span>
+              : <span className="badge badge--pending">Đang soạn thảo</span>}
+          <button className="btn-print" onClick={() => window.print()}>
+            <FiPrinter style={{ marginRight: 6 }} />In lệnh
+          </button>
+        </div>
       </div>
 
       <div className="data-card" style={{ padding: 20 }}>
@@ -304,6 +358,11 @@ export default function ChiTietLenhPage() {
                 <input type="file" accept=".xlsx" hidden disabled={dangNhapFile} onChange={chonFileNhapChiTiet} />
               </label>
               <button className="btn-add" onClick={openAdd}><FiPlus style={{ marginRight: 6 }} />Thêm dòng</button>
+              {rows.length > 0 && (
+                <button className="btn-success" onClick={handleGhiLenh} title="Ghi lệnh — kết thúc soạn thảo, chuyển sang đã ban hành">
+                  Ghi lệnh
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -356,23 +415,38 @@ export default function ChiTietLenhPage() {
         <div className="overlay" onClick={() => setAddModal(null)}>
           <div className="modal modal--form-wide fade-in" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Thêm dòng chi tiết - {lenh.tenLoaiLenh}</h3>
+              <h3 className="modal-title">Thêm dòng chi tiết lệnh {lenh.tenLoaiLenh}</h3>
               <button className="modal-close-btn" onClick={() => setAddModal(null)}><FiX /></button>
             </div>
             <form onSubmit={submitAdd} className="modal-body">
               <div className="form-grid-pick">
                 <div className="form-field">
-                  <label className="form-label">Trang bị đồng bộ *</label>
+                  <label className="form-label">Trang bị đồng bộ </label>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <select className="form-input" style={{ flex: '0 0 140px' }} value={addModal.selectedLoai}
-                      onChange={e => setAddModal({ ...addModal, selectedLoai: e.target.value })}>
-                      <option value="ALL">Tất cả loại</option>
-                      {loaiTbdbList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
+                    <select className="form-input" style={{ flex: '0 0 160px' }} value={addModal.selectedNhomSpkt}
+                      onChange={e => setAddModal({ ...addModal, selectedNhomSpkt: e.target.value, selectedLoaiSpkt: 'ALL' })}>
+                      <option value="ALL">Tất cả nhóm SPKT</option>
+                      {nhomSpktList.map(n => <option key={n.maNhom} value={n.maNhom}>{n.tenNhom}</option>)}
+                    </select>
+                    <select className="form-input" style={{ flex: '0 0 160px' }} value={addModal.selectedLoaiSpkt}
+                      onChange={e => setAddModal({ ...addModal, selectedLoaiSpkt: e.target.value })}>
+                      <option value="ALL">Tất cả loại SPKT</option>
+                      {loaiSpktList
+                        .filter(l => addModal.selectedNhomSpkt === 'ALL' || l.maNhom === addModal.selectedNhomSpkt)
+                        .map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
                     </select>
                     <input className="form-input" placeholder="Tìm theo mã/tên..." value={addModal.search}
                       onChange={e => setAddModal({ ...addModal, search: e.target.value })} style={{ flex: 1 }} />
                   </div>
-                  {tbdbTrongLoai(addModal.selectedLoai, addModal.search).length === 0 ? (
+                  {(addModal.selectedNhomSpkt === 'ALL' || addModal.selectedLoaiSpkt === 'ALL') ? (
+                    <div className="tbdb-pick-list">
+
+                    </div>
+                  ) : dangTaiChiTietDongBo ? (
+                    <div className="tbdb-pick-list">
+                      <div className="form-hint" style={{ padding: 12 }}>Đang tải...</div>
+                    </div>
+                  ) : tbdbTrongLoai(addModal.selectedNhomSpkt, addModal.selectedLoaiSpkt, addModal.search).length === 0 ? (
                     <div className="tbdb-pick-list">
                       <div className="form-hint" style={{ padding: 12 }}>
                         {khoNguon ? 'Kho xuất này không có tồn kho trang bị đồng bộ nào phù hợp' : 'Không tìm thấy trang bị phù hợp'}
@@ -388,7 +462,7 @@ export default function ChiTietLenhPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {tbdbTrongLoai(addModal.selectedLoai, addModal.search).map(t => {
+                          {tbdbTrongLoai(addModal.selectedNhomSpkt, addModal.selectedLoaiSpkt, addModal.search).map(t => {
                             const daCo = rows.some(r => r.maTbdb === t.maTbdb);
                             const ton = tonKhoTheoCap[t.maTbdb];
                             return (
@@ -410,23 +484,31 @@ export default function ChiTietLenhPage() {
                       </table>
                     </div>
                   ) : (
-                    <div className="tbdb-pick-list">
-                      {tbdbTrongLoai(addModal.selectedLoai, addModal.search).map(t => {
-                        const daCo = rows.some(r => r.maTbdb === t.maTbdb);
-                        return (
-                          <button type="button" key={t.maTbdb}
-                            className={`tbdb-pick-item${addModal.maTbdb === t.maTbdb ? ' tbdb-pick-item--active' : ''}`}
-                            onClick={() => setAddModal({ ...addModal, maTbdb: t.maTbdb })}>
-                            <span className="tbdb-pick-item-main">
-                              <span className="sub-value">{t.maTbdb}</span> — {t.tenTbdb}
-                            </span>
-                            <span className="tbdb-pick-item-meta">
-                              {t.tenDvt || t.maDvt || ''}
-                              {daCo && <span className="badge tbdb-status-badge" style={{ marginLeft: 6 }}>Đã có trong lệnh</span>}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div style={{ maxHeight: 260, overflowY: 'auto', border: '1.5px solid #e0e0e0', borderRadius: 8 }}>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Tên TB</th>
+                            <th>ĐVT</th>
+                            <th>Trạng thái</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tbdbTrongLoai(addModal.selectedNhomSpkt, addModal.selectedLoaiSpkt, addModal.search).map(t => {
+                            const daCo = rows.some(r => r.maTbdb === t.maTbdb);
+                            return (
+                              <tr key={t.maTbdb}
+                                className={addModal.maTbdb === t.maTbdb ? 'tbdb-pick-item--active' : ''}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => setAddModal({ ...addModal, maTbdb: t.maTbdb })}>
+                                <td>{t.tenTbdb}</td>
+                                <td>{t.tenDvt || t.maDvt || ''}</td>
+                                <td>{daCo && <span className="badge tbdb-status-badge">Đã có trong lệnh</span>}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                   {addModal.maTbdb && (

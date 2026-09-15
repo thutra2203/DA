@@ -1,5 +1,6 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -37,6 +38,7 @@ public record XacNhanNhapTonDauDto(List<LoTonDauDto> DanhSachLo);
 [ApiController]
 [Authorize]
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/ton-dau")]
+[YeuCauQuyen(Cn.TbdbTonDauXl)]
 public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
     private const string MaLoaiLenhTonDau = "TDK";
@@ -72,6 +74,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // thúc lệnh) vẫn hiện đúng số liệu ở đây, không còn im lặng hiện 0/0 như khi còn staging ở
     // localStorage.
     [HttpGet]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, Cn.TbdbTonDauXl)]
     public async Task<IActionResult> GetAll()
     {
         var query = db.Lenhs
@@ -116,6 +119,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // Chi tiết 1 lệnh tồn đầu — đã khóa chưa, và tổng hợp các TBĐB/lô (dùng cho màn hình sau khi
     // đã "Kết thúc lệnh"; trước đó dùng GET .../lo bên dưới để lấy danh sách chi tiết từng lô).
     [HttpGet("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, Cn.TbdbTonDauXl)]
     public async Task<IActionResult> GetOne(string maLenh)
     {
         var lenh = await db.Lenhs.Include(l => l.MaKhoNhapNavigation)
@@ -159,6 +163,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // Bước 1: tạo lệnh tồn đầu thật cho 1 kho/năm — mã lệnh do người dùng đặt (có thể tự gợi ý
     // ở frontend), không phải mã ẩn tự sinh. Mỗi kho/năm chỉ có 1 lệnh tồn đầu tại 1 thời điểm.
     [HttpPost("tao-lenh")]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, QuyenHanhDong.Them)]
     public async Task<IActionResult> TaoLenh([FromBody] TaoLenhTonDauDto dto)
     {
         if (this.IsGioiHanKho()) dto = dto with { MaKho = this.CurrentMaKho()! };
@@ -172,7 +177,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             return BadRequest(new { message = $"Ngày lập phải thuộc năm {dto.Nam} (đúng năm bắt đầu quản lý đã chọn)" });
 
         var daCoLenh = await db.Lenhs.AnyAsync(l => l.MaLoaiLenh == MaLoaiLenhTonDau && l.MaKhoNhap == dto.MaKho && l.Ngay.Year == dto.Nam);
-        if (daCoLenh) return BadRequest(new { message = $"Kho \"{dto.MaKho}\" năm {dto.Nam} đã có lệnh tồn đầu — dùng lại lệnh đó thay vì tạo mới" });
+        if (daCoLenh) return BadRequest(new { message = $"Kho \"{dto.MaKho}\" năm {dto.Nam} đã có lệnh tồn đầu,dùng lại lệnh đó thay vì tạo mới" });
 
         if (await db.Lenhs.AnyAsync(l => l.MaLenh == dto.MaLenh))
             return BadRequest(new { message = $"Mã lệnh \"{dto.MaLenh}\" đã tồn tại, chọn mã khác" });
@@ -208,6 +213,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // đổi sẽ làm lệch dữ liệu tồn đầu kỳ đã ghi). Cho phép sửa dù lệnh đã hoàn tất hay chưa, vì
     // 2 trường này thuần là thông tin hành chính, không ảnh hưởng tồn kho đã ghi nhận.
     [HttpPut("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, QuyenHanhDong.Sua)]
     public async Task<IActionResult> Sua(string maLenh, [FromBody] SuaLenhTonDauDto dto)
     {
         var lenh = await TimLenhAsync(maLenh);
@@ -230,12 +236,13 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // có thể đã được dùng ở nghiệp vụ khác (kiểm kê, xuất kho...) — xóa sẽ để lại dữ liệu mồ côi
     // nên không cho phép.
     [HttpDelete("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, QuyenHanhDong.Xoa)]
     public async Task<IActionResult> Xoa(string maLenh)
     {
         var lenh = await TimLenhAsync(maLenh);
         if (lenh == null) return NotFound(new { message = "Không tìm thấy lệnh tồn đầu" });
         if (lenh.TrangThai == "HOAN_THANH")
-            return BadRequest(new { message = "Lệnh đã hoàn tất khởi tạo — dữ liệu tồn kho đã được ghi nhận, không thể xóa" });
+            return BadRequest(new { message = "Lệnh đã hoàn tất khởi tạo, dữ liệu tồn kho đã được ghi nhận, không thể xóa" });
 
         var loList = await db.CtdongBoTrongLenhs.Include(c => c.LoTbdb).ThenInclude(l => l!.TonKhoTbdbs)
             .Where(c => c.MaLenh == maLenh).ToListAsync();
@@ -351,6 +358,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // lô vì trang xử lý cần hiển thị đầy đủ dù lệnh đã hoàn tất hay chưa (chỉ khác ở việc còn cho
     // sửa/xóa hay không — do frontend tự quyết định dựa trên lenh.daKhoa).
     [HttpGet("{maLenh}/lo")]
+    [YeuCauQuyen(Cn.TbdbTonDauLap, Cn.TbdbTonDauXl)]
     public async Task<IActionResult> GetDanhSachLo(string maLenh)
     {
         var lenh = await TimLenhAsync(maLenh);
@@ -512,6 +520,7 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // rồi khóa lệnh lại. Không còn nhận danh sách lô qua body — dữ liệu đã nằm sẵn trong CSDL từ
     // các lần "Thêm/Sửa lô" trước đó.
     [HttpPost("{maLenh}/hoan-tat")]
+    [YeuCauQuyen(Cn.TbdbTonDauXl, QuyenHanhDong.Sua)]
     public async Task<IActionResult> HoanTat(string maLenh)
     {
         var lenh = await TimLenhAsync(maLenh);
@@ -599,6 +608,14 @@ public class TonDauTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
         ws.Row(1).Style.Font.Bold = true;
         ws.Cell(1, MauNhapHeaders.Length + 2).Value = "* = cột bắt buộc. Mỗi dòng = 1 vị trí của 1 lô — các dòng cùng Mã lô phải cùng TBĐB/Cấp CL/Tổng số lượng lô, và tổng Số lượng tại vị trí phải khớp đúng bằng Tổng số lượng lô.";
         ws.Cell(1, MauNhapHeaders.Length + 2).Style.Font.Italic = true;
+
+        // Cột "Cấp CL (mã)" chỉ nhận 1 trong 5 giá trị — dùng dropdown Excel thay vì gõ tay để tránh sai sót.
+        var capClValidation = ws.Range(2, 3, 1000, 3).CreateDataValidation();
+        capClValidation.List("\"1,2,3,4,5\"", true);
+        capClValidation.ShowErrorMessage = true;
+        capClValidation.ErrorTitle = "Giá trị không hợp lệ";
+        capClValidation.ErrorMessage = "Cấp chất lượng phải là 1 trong các giá trị: 1, 2, 3, 4, 5";
+
         ws.Columns().AdjustToContents();
 
         var wsDm = wb.Worksheets.Add("Danh muc");

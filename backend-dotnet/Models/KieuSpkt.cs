@@ -13,9 +13,13 @@ public partial class KieuSpkt
 
     public string? MaDvt { get; set; }
 
+    public string? MaNhom { get; set; }
+
     public string? GhiChu { get; set; }
 
     public virtual ICollection<NhomDongBo> NhomDongBos { get; set; } = new List<NhomDongBo>();
 
-    public virtual ICollection<LoaiSpkt> MaLoaiSpkts { get; set; } = new List<LoaiSpkt>();
+    public virtual NhomSpkt? MaNhomNavigation { get; set; }
+
+    public virtual ICollection<LoaiSpkt> LoaiSpkts { get; set; } = new List<LoaiSpkt>();
 }

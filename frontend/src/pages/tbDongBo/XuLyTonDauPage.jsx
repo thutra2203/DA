@@ -4,6 +4,7 @@ import { tbDongBoAPI, tonDauTbDongBoAPI, danhMucAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiCheckCircle, FiLock, FiX, FiDownload, FiUpload } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
@@ -24,6 +25,7 @@ export default function XuLyTonDauPage() {
   const { maLenh } = useParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_TON_DAU_XL');
 
   const [tbdbCatalog, setTbdbCatalog] = useState([]);
   const [cclList, setCclList] = useState([]);
@@ -362,7 +364,7 @@ export default function XuLyTonDauPage() {
             <FiCheckCircle size={14} style={{ marginRight: 6 }} />Đã hoàn thành
           </span>
         )}
-        {!daKhoa && (
+        {!daKhoa && canSua && (
           <button type="button" className="btn-success" disabled={loList.length === 0 || dangHoanTat} onClick={hoanTatKhoiTao}>
             <FiCheckCircle style={{ marginRight: 6 }} />{dangHoanTat ? 'Đang xử lý...' : 'Kết thúc lệnh'}
           </button>
@@ -374,7 +376,7 @@ export default function XuLyTonDauPage() {
           <span style={{ fontWeight: 600, fontSize: 19 }}>
             Danh sách lô tồn đầu
           </span>
-          {!daKhoa && (
+          {!daKhoa && canThem && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="btn-cancel" disabled={dangTaiMau} onClick={taiMauNhap}>
                 <FiDownload style={{ marginRight: 6 }} />{dangTaiMau ? 'Đang tải...' : 'Tải mẫu'}
@@ -408,7 +410,7 @@ export default function XuLyTonDauPage() {
                   <th style={{ textAlign: 'right' }}>Đơn giá</th>
                   <th style={{ textAlign: 'center' }}>Tổng SL</th>
                   <th style={{ textAlign: 'right' }}>Thành tiền</th>
-                  {!daKhoa && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
+                  {!daKhoa && (canSua || canXoa) && <th style={{ width: 90, textAlign: 'center' }}>Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
@@ -423,11 +425,11 @@ export default function XuLyTonDauPage() {
                     <td style={{ textAlign: 'right' }}>{Number(l.donGia).toLocaleString('vi-VN')}</td>
                     <td className="td-center">{l.soLuongTonDau}</td>
                     <td style={{ textAlign: 'right' }}>{fmtMoney(Number(l.donGia) * Number(l.soLuongTonDau))}</td>
-                    {!daKhoa && (
+                    {!daKhoa && (canSua || canXoa) && (
                       <td className="td-center">
                         <div className="td-actions">
-                          <button className="btn-icon-warn" onClick={() => openEdit(l)} title="Sửa"><FiEdit2 size={12} /></button>
-                          <button className="btn-icon-delete" onClick={() => xoaLo(l)} title="Xóa"><FiTrash2 size={12} /></button>
+                          {canSua && <button className="btn-icon-warn" onClick={() => openEdit(l)} title="Sửa"><FiEdit2 size={12} /></button>}
+                          {canXoa && <button className="btn-icon-delete" onClick={() => xoaLo(l)} title="Xóa"><FiTrash2 size={12} /></button>}
                         </div>
                       </td>
                     )}

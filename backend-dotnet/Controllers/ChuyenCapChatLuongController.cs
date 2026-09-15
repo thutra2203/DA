@@ -1,5 +1,6 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,6 +32,7 @@ public record ThemChiTietChuyenCapDto(long MaTonKho, int SoLuong, int MaCclMoi, 
 [ApiController]
 [Authorize]
 [Route("api/tb-dong-bo/chuyen-cap")]
+[YeuCauQuyen(Cn.TbdbCclXl)]
 public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
     private const string MaLoaiLenhChuyenCap = "CCL";
@@ -41,6 +43,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
     // GET api/tb-dong-bo/chuyen-cap?maKho=
     [HttpGet]
+    [YeuCauQuyen(Cn.TbdbCclLap, Cn.TbdbCclXl)]
     public async Task<IActionResult> GetAll([FromQuery] string? maKho)
     {
         if (this.IsGioiHanKho()) maKho = this.CurrentMaKho();
@@ -79,6 +82,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
     // GET api/tb-dong-bo/chuyen-cap/{maLenh}
     [HttpGet("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbCclLap, Cn.TbdbCclXl)]
     public async Task<IActionResult> GetOne(string maLenh)
     {
         var lenh = await db.LenhChuyenCaps.Include(l => l.MaKhoNavigation).FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -143,6 +147,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
     // lượng khả dụng = tồn kho trừ đi phần ĐÃ đưa vào lệnh này (ở các dòng chi tiết khác), để chọn
     // tiếp phần còn lại cho 1 cấp đích khác (VD 2 cái sang cấp 3).
     [HttpGet("{maLenh}/lo-kha-dung")]
+    [YeuCauQuyen(Cn.TbdbCclLap, Cn.TbdbCclXl)]
     public async Task<IActionResult> GetLoKhaDung(string maLenh)
     {
         var lenh = await db.LenhChuyenCaps.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -179,18 +184,21 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
             .ToListAsync();
 
         // Trừ thêm phần đang bị "giữ chỗ" bởi các lệnh chuyển cấp KHÁC còn đang mở (chưa kết thúc),
-        // 1 lệnh hủy/thanh lý, HOẶC 1 dòng "Xuất kho" khác (chưa kết thúc) — tránh các nơi khác nhau
-        // cùng nhận là còn đủ số lượng của cùng 1 dòng tồn kho.
+        // 1 lệnh hủy/thanh lý, 1 dòng "Xuất kho" khác (chưa kết thúc), 1 lệnh thay đổi vị trí, HOẶC 1
+        // lệnh thay đổi hình thức niêm cất — tránh các nơi khác nhau cùng nhận là còn đủ số lượng của
+        // cùng 1 dòng tồn kho.
         var maTonKhoIds = listRaw.Select(t => t.maTonKho).ToList();
         var giuChoLenhKhac = await ChuyenCapReservationHelper.LayGiuChoAsync(db, maTonKhoIds, boQuaMaLenh: maLenh);
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
 
         var list = listRaw
             .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maCcl, t.capChatLuong, t.namSx,
                 soLuong = t.soLuong - daDungTheoTonKho.GetValueOrDefault(t.maTonKho) - giuChoLenhKhac.GetValueOrDefault(t.maTonKho)
-                    - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho),
+                    - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho)
+                    - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho),
                 t.tenNhaKho, t.tenDinhKhu, t.tenKhoi, t.tenGia, t.tenTang, t.tenHom, t.moTaViTri })
             .Where(t => t.soLuong > 0)
             .ToList();
@@ -200,6 +208,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
     // POST api/tb-dong-bo/chuyen-cap/tao-lenh
     [HttpPost("tao-lenh")]
+    [YeuCauQuyen(Cn.TbdbCclLap, QuyenHanhDong.Them)]
     public async Task<IActionResult> TaoLenh([FromBody] TaoLenhChuyenCapDto dto)
     {
         if (this.IsGioiHanKho()) dto = dto with { MaKho = this.CurrentMaKho()! };
@@ -231,6 +240,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
     // PUT api/tb-dong-bo/chuyen-cap/{maLenh}
     [HttpPut("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbCclLap, QuyenHanhDong.Sua)]
     public async Task<IActionResult> SuaLenh(string maLenh, [FromBody] TaoLenhChuyenCapDto dto)
     {
         var lenh = await db.LenhChuyenCaps.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -280,12 +290,14 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
         var daDung = await db.ChiTietLenhChuyenCaps
             .Where(c => c.MaLenh == maLenh && c.MaTonKho == dto.MaTonKho).SumAsync(c => (int?)c.SoLuong) ?? 0;
         var giuChoLenhKhac = (await ChuyenCapReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho], boQuaMaLenh: maLenh)).GetValueOrDefault(dto.MaTonKho);
-        // Cùng 1 dòng tồn kho cũng có thể đang bị 1 lệnh hủy/thanh lý hoặc 1 dòng "Xuất kho" khác
-        // (chưa kết thúc) giữ chỗ — cùng lý do như các nơi khác trong hệ thống trừ 3 nguồn này.
+        // Cùng 1 dòng tồn kho cũng có thể đang bị 1 lệnh hủy/thanh lý, 1 dòng "Xuất kho" khác, 1 lệnh
+        // thay đổi vị trí, hoặc 1 lệnh thay đổi hình thức niêm cất (chưa kết thúc) giữ chỗ — cùng lý
+        // do như các nơi khác trong hệ thống trừ các nguồn này.
         var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
         var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
         var giuChoThayDoiViTri = (await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
-        var khaDung = tonKho.SoLuong - daDung - giuChoLenhKhac - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri;
+        var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [dto.MaTonKho])).GetValueOrDefault(dto.MaTonKho);
+        var khaDung = tonKho.SoLuong - daDung - giuChoLenhKhac - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri - giuChoThayDoiHtnc;
         if (dto.SoLuong > khaDung) return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chuyển {dto.SoLuong}" });
 
         if (await db.CapChatLuongs.FindAsync(dto.MaCclMoi) == null) return BadRequest(new { message = "Cấp chất lượng mới không tồn tại" });
@@ -345,7 +357,8 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
         var giuChoHuy = (await HuyThanhLyReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
         var giuChoXuatKho = (await XuatKhoReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
         var giuChoThayDoiViTri = (await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
-        var khaDung = tonKho.SoLuong - daDungODongKhac - giuChoLenhKhac - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri;
+        var giuChoThayDoiHtnc = (await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, [ct.MaTonKho])).GetValueOrDefault(ct.MaTonKho);
+        var khaDung = tonKho.SoLuong - daDungODongKhac - giuChoLenhKhac - giuChoHuy - giuChoXuatKho - giuChoThayDoiViTri - giuChoThayDoiHtnc;
         if (dto.SoLuong > khaDung) return BadRequest(new { message = $"Dòng tồn kho này chỉ còn {khaDung} khả dụng, không thể chuyển {dto.SoLuong}" });
 
         if (await db.CapChatLuongs.FindAsync(dto.MaCclMoi) == null) return BadRequest(new { message = "Cấp chất lượng mới không tồn tại" });
@@ -402,6 +415,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
     // DELETE api/tb-dong-bo/chuyen-cap/{maLenh}
     [HttpDelete("{maLenh}")]
+    [YeuCauQuyen(Cn.TbdbCclLap, QuyenHanhDong.Xoa)]
     public async Task<IActionResult> XoaLenh(string maLenh)
     {
         var lenh = await db.LenhChuyenCaps.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -434,6 +448,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
     // POST api/tb-dong-bo/chuyen-cap/{maLenh}/ket-thuc
     // Áp dụng thật — xem chi tiết thuật toán ở đầu file. Khóa lệnh sau khi xong.
     [HttpPost("{maLenh}/ket-thuc")]
+    [YeuCauQuyen(Cn.TbdbCclXl, QuyenHanhDong.Sua)]
     public async Task<IActionResult> KetThuc(string maLenh)
     {
         var lenh = await db.LenhChuyenCaps.FirstOrDefaultAsync(l => l.MaLenh == maLenh);
@@ -483,7 +498,10 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
 
             if (laDongDuyNhatCuaLo && loHetSachTonKho)
             {
-                // Chuyển cả lô — cập nhật cấp tại chỗ, giữ nguyên mã lô.
+                // Chuyển cả lô — cập nhật cấp tại chỗ, giữ nguyên mã lô. Không có gì di chuyển vật lý
+                // nên phải hoàn lại số lượng đã trừ tạm ở bước 1 (chỉ dùng để tính tongConLaiTheoLo),
+                // nếu không dòng tồn kho này sẽ bị trừ về 0 một cách sai lệch.
+                tonKho.SoLuong += ct.SoLuong;
                 lo.MaCcl = ct.MaCclMoi;
                 lo.CapNhatMoiNhat = DateTime.Now;
                 soDongGiuMaLo++;
@@ -537,6 +555,13 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
             ws.Cell(1, col).Style.Fill.BackgroundColor = XLColor.FromArgb(255, 235, 205);
             ws.Cell(1, col).Style.Font.FontColor = XLColor.FromArgb(140, 60, 0);
         }
+
+        // Cột "Cấp CL mới (1-5)" chỉ nhận 1 trong 5 giá trị — dùng dropdown Excel thay vì gõ tay để tránh sai sót.
+        var capClMoiValidation = ws.Range(2, MauCcCapMoi, 1000, MauCcCapMoi).CreateDataValidation();
+        capClMoiValidation.List("\"1,2,3,4,5\"", true);
+        capClMoiValidation.ShowErrorMessage = true;
+        capClMoiValidation.ErrorTitle = "Giá trị không hợp lệ";
+        capClMoiValidation.ErrorMessage = "Cấp chất lượng phải là 1 trong các giá trị: 1, 2, 3, 4, 5";
 
         // Khả dụng = tồn kho trừ phần đã đưa vào CHÍNH lệnh này (dòng chi tiết khác) và phần đang bị
         // giữ chỗ NGOÀI lệnh (lệnh chuyển cấp khác, hủy/thanh lý, xuất kho) — cùng công thức với
@@ -606,9 +631,10 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, ids);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, ids);
         var giuChoNgoaiLenh = ids.ToDictionary(id => id, id =>
             giuChoChuyenCapKhac.GetValueOrDefault(id) + giuChoHuy.GetValueOrDefault(id) + giuChoXuatKho.GetValueOrDefault(id)
-                + giuChoThayDoiViTri.GetValueOrDefault(id));
+                + giuChoThayDoiViTri.GetValueOrDefault(id) + giuChoThayDoiHtnc.GetValueOrDefault(id));
 
         return (byMaTonKho, giuChoNgoaiLenh);
     }

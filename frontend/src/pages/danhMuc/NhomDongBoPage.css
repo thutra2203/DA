@@ -1,0 +1,208 @@
+/* Bố cục master-detail: Kiểu SPKT bên trái, các Loại TBĐB thuộc kiểu đó bên phải.
+   .content-area (MainLayout) đã là flex:1 chiếm hết chiều cao còn lại của màn hình,
+   nên chỉ cần kéo height:100% xuyên suốt là 2 ô sẽ sát lề dưới của khung nội dung. */
+.nhomdb-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.nhomdb-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.nhomdb-sidebar {
+  width: 300px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  overflow: hidden;
+}
+
+.nhomdb-sidebar-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.nhomdb-sidebar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a3a5c;
+  margin: 0 0 8px;
+}
+
+.nhomdb-sidebar-header .search-input {
+  font-size: 15px;
+}
+
+/* ===== Cây phân cấp kiểu Windows TreeView: đường nối chấm + ô toggle vuông [+]/[−] ===== */
+.nhomdb-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font-size: 15.5px;
+}
+
+.nhomdb-tree-node {
+  position: relative;
+}
+
+.nhomdb-tree-children {
+  margin-left: 15px;
+  padding-left: 11px;
+  border-left: 1px dotted #a9b7cc;
+}
+
+.nhomdb-tree-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  margin: 1px 0;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #222;
+  transition: background 0.12s ease;
+}
+
+.nhomdb-tree-row:hover {
+  background: #eaf1fb;
+}
+
+.nhomdb-tree-row--active {
+  background: #cfe3fa;
+  color: #1a3a5c;
+  font-weight: 700;
+}
+
+/* đường nối ngang chấm từ khung dọc của cha tới từng node con */
+.nhomdb-tree-children>.nhomdb-tree-node>.nhomdb-tree-row::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 9px;
+  border-top: 1px dotted #a9b7cc;
+}
+
+.nhomdb-tree-toggle {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #8497b0;
+  border-radius: 2px;
+  background: #fff;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  color: #444;
+}
+
+.nhomdb-tree-toggle-spacer {
+  flex: none;
+  width: 14px;
+}
+
+.nhomdb-tree-leaf-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8497b0;
+  margin: 0 3px;
+}
+
+.nhomdb-tree-icon {
+  flex: none;
+  color: #e8b64a;
+}
+
+.nhomdb-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nhomdb-tree-count {
+  flex: none;
+  margin-left: auto;
+  padding-left: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a97a8;
+}
+
+.nhomdb-tree-row--active .nhomdb-tree-count {
+  color: #1a3a5c;
+}
+
+.nhomdb-list-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #bbb;
+  font-size: 12px;
+}
+
+.nhomdb-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.nhomdb-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 20px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.nhomdb-detail-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a3a5c;
+  margin: 0;
+}
+
+.nhomdb-detail-sub {
+  font-size: 12px;
+  color: #888;
+  margin-top: 3px;
+}
+
+.nhomdb-page .nhomdb-ct-modal {
+  width: 1000px;
+  max-width: 96vw;
+}
+
+
+@media (max-width: 900px) {
+  .nhomdb-layout {
+    flex-direction: column;
+  }
+
+  .nhomdb-sidebar {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .nhomdb-tree {
+    max-height: 300px;
+    flex: none;
+  }
+}

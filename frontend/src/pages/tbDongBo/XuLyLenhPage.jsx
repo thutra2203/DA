@@ -4,6 +4,7 @@ import { lenhTbDongBoAPI, tbDongBoAPI, danhMucAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiCheckCircle, FiMapPin, FiDownload, FiUpload, FiX } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
@@ -14,6 +15,7 @@ export default function XuLyLenhPage() {
   const { maLenh } = useParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { canSua } = useModulePerm('TBDB_LENH_XL');
 
   const [lenh, setLenh] = useState(null);
   const [loadingLenh, setLoadingLenh] = useState(true);
@@ -312,7 +314,7 @@ export default function XuLyLenhPage() {
             <FiCheckCircle size={14} style={{ marginRight: 6 }} />Đã hoàn thành !
           </span>
         )}
-        {!daKetThuc && (
+        {!daKetThuc && canSua && (
           <button className="btn-primary" disabled={!sanSangKetThuc || dangHoanThanh} onClick={ketThucLenh}
             title={!sanSangKetThuc ? (xuat ? 'Cần xuất đủ số lượng cho tất cả các dòng trước' : 'Cần tạo lô và phân bổ đủ tồn kho cho tất cả các dòng trước') : ''}>
             <FiCheckCircle style={{ marginRight: 6 }} />{dangHoanThanh ? 'Đang xử lý...' : 'Kết thúc lệnh'}
@@ -327,7 +329,7 @@ export default function XuLyLenhPage() {
           </div>
         )}
 
-        {!xuat && !daKetThuc && (
+        {!xuat && !daKetThuc && canSua && (
           <div className="tbdb-tab-toolbar">
 
             <div style={{ display: 'flex', gap: 8 }}>
@@ -371,7 +373,7 @@ export default function XuLyLenhPage() {
                       <th colSpan={2}>Theo lệnh</th>
                       <th colSpan={daKetThuc ? 4 : 8}>Thực nhập</th>
                       <th rowSpan={2} style={{ width: 110 }}>Phân bổ</th>
-                      {!daKetThuc && <th rowSpan={2} style={{ width: 80 }}>Thao tác</th>}
+                      {!daKetThuc && canSua && <th rowSpan={2} style={{ width: 80 }}>Thao tác</th>}
                     </tr>
                     <tr>
                       <th style={{ width: 90, textAlign: 'center', whiteSpace: 'normal' }}>Số lượng</th>
@@ -398,7 +400,7 @@ export default function XuLyLenhPage() {
                     <th style={{ width: 70 }}>Cấp CL</th>
                     <th style={{ width: 75, textAlign: 'center', whiteSpace: 'normal' }}>{xuat ? 'SL phải xuất' : 'SL phải nhập'}</th>
                     <th style={{ width: 90 }}>{xuat ? 'Đã chọn' : 'Phân bổ'}</th>
-                    {!daKetThuc && <th style={{ width: 80, textAlign: 'center' }}>Thao tác</th>}
+                    {!daKetThuc && canSua && <th style={{ width: 80, textAlign: 'center' }}>Thao tác</th>}
                   </tr>
                 )}
               </thead>
@@ -484,7 +486,7 @@ export default function XuLyLenhPage() {
                             : <span className="td-muted">Chưa tạo lô</span>
                         )}
                       </td>
-                      {!daKetThuc && (
+                      {!daKetThuc && canSua && (
                         <td className="td-center">
                           {xuat ? (
                             <div className="td-actions">
@@ -989,7 +991,7 @@ function QuanLyViTriModal({ row, lenh, khoList, trangThaiList, onClose, onChange
           </div>
         )}
         <div className="modal-header">
-          <h3 className="modal-title">Quản lý vị trí — Lô {row.maLoTbdb} ({row.tenTbdb || row.maTbdb})</h3>
+          <h3 className="modal-title">Quản lý vị trí - Lô {row.maLoTbdb} ({row.tenTbdb || row.maTbdb})</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">

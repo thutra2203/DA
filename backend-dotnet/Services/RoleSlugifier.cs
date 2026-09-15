@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 
 namespace backend_dotnet.Services;
 
-// Tương đương slugifyRoleCode trong backend/src/controllers/vaiTroController.js:
-// bỏ dấu tiếng Việt, viết hoa, nối bằng dấu gạch dưới -> dùng làm mã vai trò (maVaiTro).
+// Bỏ dấu tiếng Việt, viết hoa, loại bỏ mọi ký tự không phải chữ/số (kể cả khoảng trắng)
+// -> dùng làm mã vai trò (maVaiTro). VD: "Trưởng kho" -> "TRUONGKHO".
 public static class RoleSlugifier
 {
     public static string Slugify(string? name)
@@ -18,9 +18,8 @@ public static class RoleSlugifier
             if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
                 sb.Append(c);
         }
-        var code = sb.ToString().Trim().ToUpperInvariant();
-        code = Regex.Replace(code, "[^A-Z0-9]+", "_");
-        code = code.Trim('_');
-        return string.IsNullOrEmpty(code) ? $"VT_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}" : code;
+        var code = sb.ToString().ToUpperInvariant();
+        code = Regex.Replace(code, "[^A-Z0-9]+", "");
+        return string.IsNullOrEmpty(code) ? $"VT{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}" : code;
     }
 }

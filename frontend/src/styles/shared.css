@@ -95,6 +95,36 @@
   width: 460px;
 }
 
+/* Modal form rộng hơn cho danh mục có nhiều trường — dùng cùng .form-grid-2col bên dưới để gom
+   các trường liên quan lại thành 2 cột thay vì xếp chồng từng dòng. */
+.modal--form {
+  width: 680px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.modal--form .modal-body {
+  overflow-y: auto;
+}
+
+.form-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 20px;
+}
+
+.form-grid-2col .form-field--full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .form-grid-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
 .confirm-body {
   display: flex;
   gap: 14px;
@@ -355,9 +385,30 @@
   box-shadow: 0 3px 9px rgba(255, 202, 40, 0.5);
 }
 
+.btn-icon-success {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #43a848;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
+}
+
+.btn-icon-success:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 3px 9px rgba(46, 125, 50, 0.5);
+}
+
 .btn-icon-edit:disabled,
 .btn-icon-delete:disabled,
-.btn-icon-warn:disabled {
+.btn-icon-warn:disabled,
+.btn-icon-success:disabled {
   background: #d5d5d5;
   color: #9a9a9a;
   cursor: not-allowed;
@@ -366,7 +417,8 @@
 
 .btn-icon-edit:disabled:hover,
 .btn-icon-delete:disabled:hover,
-.btn-icon-warn:disabled:hover {
+.btn-icon-warn:disabled:hover,
+.btn-icon-success:disabled:hover {
   filter: none;
   box-shadow: none;
 }
@@ -548,6 +600,11 @@
 .badge--pending {
   background: #fff3e0;
   color: #e65100;
+}
+
+.badge--info {
+  background: #e3f2fd;
+  color: #1565c0;
 }
 
 .main-value {

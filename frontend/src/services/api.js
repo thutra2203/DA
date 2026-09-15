@@ -14,7 +14,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    const url = err.config?.url || '';
+    const laAuth = url.includes('/auth/');
+    // 401 = token hết hạn / không hợp lệ -> đăng xuất và về trang login.
+    // Nhưng KHÔNG áp dụng cho chính lời gọi /auth/* (đăng nhập sai/khóa tài khoản) — để trang
+    // Login tự hiển thị thông báo lỗi, không bị reload mất thông báo.
+    // 403 = đã đăng nhập nhưng thiếu quyền -> để nơi gọi tự xử lý, không đá về login.
+    if (err.response?.status === 401 && !laAuth) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -26,6 +32,11 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
+  me: () => api.get('/auth/me'),
+};
+
+export const thongBaoAPI = {
+  getAll: () => api.get('/thong-bao'),
 };
 
 export const userAPI = {
@@ -49,6 +60,22 @@ export const danhMucAPI = {
   create: (type, data) => api.post(`/danh-muc/${type}`, data),
   update: (type, id, data) => api.put(`/danh-muc/${type}/${id}`, data),
   remove: (type, id) => api.delete(`/danh-muc/${type}/${id}`),
+};
+
+// Danh mục có khóa ghép — không dùng danhMucAPI generic được.
+export const nhomDongBoAPI = {
+  getAll: () => api.get('/danh-muc/nhom-dong-bo'),
+  create: (data) => api.post('/danh-muc/nhom-dong-bo', data),
+  update: (maKieuSpkt, maLoaiTbdb, data) => api.put(`/danh-muc/nhom-dong-bo/${maKieuSpkt}/${maLoaiTbdb}`, data),
+  remove: (maKieuSpkt, maLoaiTbdb) => api.delete(`/danh-muc/nhom-dong-bo/${maKieuSpkt}/${maLoaiTbdb}`),
+};
+
+export const chiTietDongBoAPI = {
+  getByNhom: (maKieuSpkt, maLoaiTbdb) => api.get('/danh-muc/chi-tiet-dong-bo', { params: { maKieuSpkt, maLoaiTbdb } }),
+  getTbdbList: () => api.get('/danh-muc/chi-tiet-dong-bo/tbdb'),
+  create: (data) => api.post('/danh-muc/chi-tiet-dong-bo', data),
+  update: (maKieuSpkt, maLoaiTbdb, maTbdb, data) => api.put(`/danh-muc/chi-tiet-dong-bo/${maKieuSpkt}/${maLoaiTbdb}/${maTbdb}`, data),
+  remove: (maKieuSpkt, maLoaiTbdb, maTbdb) => api.delete(`/danh-muc/chi-tiet-dong-bo/${maKieuSpkt}/${maLoaiTbdb}/${maTbdb}`),
 };
 
 export const tbDongBoAPI = {
@@ -83,6 +110,7 @@ export const lenhTbDongBoAPI = {
   create: (data) => api.post('/tb-dong-bo/lenh', data),
   update: (maLenh, data) => api.put(`/tb-dong-bo/lenh/${maLenh}`, data),
   remove: (maLenh) => api.delete(`/tb-dong-bo/lenh/${maLenh}`),
+  ghiLenh: (maLenh) => api.post(`/tb-dong-bo/lenh/${maLenh}/ghi-lenh`),
 
   chiTiet: {
     getAll: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/chi-tiet`),
@@ -121,6 +149,8 @@ export const lenhTbDongBoAPI = {
     return api.post(`/tb-dong-bo/lenh/${maLenh}/nhap-lo-file/xem-truoc`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   xacNhanNhapLoTuFile: (maLenh, danhSach) => api.post(`/tb-dong-bo/lenh/${maLenh}/nhap-lo-file/xac-nhan`, { danhSach }),
+
+  doiChieu: (maLenhXuat, maLenhNhap) => api.get('/tb-dong-bo/lenh/doi-chieu', { params: { maLenhXuat, maLenhNhap } }),
 
   lo: {
     taiMauNhapViTri: (maLenh, maLoTbdb) => api.get(`/tb-dong-bo/lenh/${maLenh}/lo/${maLoTbdb}/mau-nhap-vi-tri`, { responseType: 'blob' }),
@@ -165,6 +195,10 @@ export const kiemKeTbDongBoAPI = {
   capNhatChiTietViTri: (maPhieu, maCtKiemKe, maCtKiemKeViTri, data) =>
     api.put(`/tb-dong-bo/kiem-ke/${maPhieu}/chi-tiet/${maCtKiemKe}/vi-tri/${maCtKiemKeViTri}`, data),
   ketThuc: (maPhieu) => api.post(`/tb-dong-bo/kiem-ke/${maPhieu}/ket-thuc`),
+};
+
+export const baoCaoAPI = {
+  getDongBoSungBoBinh: (maKho) => api.get('/bao-cao/dong-bo-sung-bo-binh', { params: { maKho } }),
 };
 
 export const chuyenKyAPI = {
@@ -215,8 +249,40 @@ export const thayDoiViTriAPI = {
   xacNhanNhapTuFile: (maLenh, danhSach) => api.post(`/tb-dong-bo/thay-doi-vi-tri/${maLenh}/nhap-file/xac-nhan`, { danhSach }),
 };
 
+export const thayDoiHtncAPI = {
+  getAll: (params) => api.get('/tb-dong-bo/thay-doi-htnc', { params }),
+  getOne: (maLenh) => api.get(`/tb-dong-bo/thay-doi-htnc/${maLenh}`),
+  getLoKhaDung: (maLenh) => api.get(`/tb-dong-bo/thay-doi-htnc/${maLenh}/lo-kha-dung`),
+  taoLenh: (data) => api.post('/tb-dong-bo/thay-doi-htnc/tao-lenh', data),
+  suaLenh: (maLenh, data) => api.put(`/tb-dong-bo/thay-doi-htnc/${maLenh}`, data),
+  themChiTiet: (maLenh, data) => api.post(`/tb-dong-bo/thay-doi-htnc/${maLenh}/chi-tiet`, data),
+  suaChiTiet: (maLenh, id, data) => api.put(`/tb-dong-bo/thay-doi-htnc/${maLenh}/chi-tiet/${id}`, data),
+  xoaChiTiet: (maLenh, id) => api.delete(`/tb-dong-bo/thay-doi-htnc/${maLenh}/chi-tiet/${id}`),
+  xoaLenh: (maLenh) => api.delete(`/tb-dong-bo/thay-doi-htnc/${maLenh}`),
+
+  taiMauNhap: (maLenh) => api.get(`/tb-dong-bo/thay-doi-htnc/${maLenh}/mau-nhap`, { responseType: 'blob' }),
+  xemTruocNhapTuFile: (maLenh, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/tb-dong-bo/thay-doi-htnc/${maLenh}/nhap-file/xem-truoc`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  xacNhanNhapTuFile: (maLenh, danhSach) => api.post(`/tb-dong-bo/thay-doi-htnc/${maLenh}/nhap-file/xac-nhan`, { danhSach }),
+  ketThuc: (maLenh) => api.post(`/tb-dong-bo/thay-doi-htnc/${maLenh}/ket-thuc`),
+};
+
 export const statsAPI = {
   get: () => api.get('/stats'),
+};
+
+// Đồ thị Neo4j cho phần Tổng quan. Các endpoint trả 503 { available: false, message }
+// khi Neo4j chưa bật/không kết nối được — nơi gọi tự xử lý mềm, không coi là lỗi nặng.
+export const graphAPI = {
+  tongQuan: () => api.get('/graph/tong-quan'),
+  luanChuyenKho: () => api.get('/graph/luan-chuyen-kho'),
+  khoThucLuc: (maKho) => api.get(`/graph/kho/${encodeURIComponent(maKho)}/thuc-luc`),
+  timLo: (q) => api.get('/graph/lo', { params: { q } }),
+  dongDoiLo: (maLo) => api.get(`/graph/dong-doi-lo/${encodeURIComponent(maLo)}`),
+  dongBo: () => api.post('/graph/dong-bo'),
 };
 
 export const nhatKyAPI = {

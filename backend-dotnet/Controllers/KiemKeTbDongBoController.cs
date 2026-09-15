@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,12 +25,14 @@ public record CapNhatChiTietViTriDto(int SoLuongThucTe, string? GhiChu);
 [ApiController]
 [Authorize]
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/kiem-ke")]
+[YeuCauQuyen(Cn.TbdbKiemKeXl)]
 public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
     private const string NhomTbTbdb = "TBDB";
 
     // GET api/tb-dong-bo/kiem-ke?maDotKiemKe=&maKho=
     [HttpGet]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, Cn.TbdbKiemKeXl)]
     public async Task<IActionResult> GetAll([FromQuery] string? maDotKiemKe, [FromQuery] string? maKho)
     {
         if (this.IsGioiHanKho()) maKho = this.CurrentMaKho();
@@ -74,6 +77,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
 
     // GET api/tb-dong-bo/kiem-ke/{maPhieu}
     [HttpGet("{maPhieu}")]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, Cn.TbdbKiemKeXl)]
     public async Task<IActionResult> GetOne(string maPhieu)
     {
         var phieu = await db.PhieuKiemKes
@@ -90,11 +94,14 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             .OrderBy(c => c.MaTbdb).ThenBy(c => c.MaCcl)
             .ToListAsync();
 
-        // Thuyết minh thừa/thiếu, Năm SX, Nước SX trên bản in lấy từ các dòng vị trí (qua lô) —
-        // dòng tổng hợp (ChiTietKiemKe) không lưu trực tiếp các thông tin này, và 1 dòng tổng hợp
-        // có thể gồm nhiều lô khác năm/nước SX nên gộp lại thành danh sách giá trị khác nhau.
+        // Thuyết minh thừa/thiếu, Năm SX, Nước SX, Tình trạng bao gói trên bản in lấy từ các dòng vị
+        // trí (qua lô) — dòng tổng hợp (ChiTietKiemKe) không lưu trực tiếp các thông tin này, và 1
+        // dòng tổng hợp có thể gồm nhiều lô khác năm/nước SX/tình trạng bao gói nên gộp lại thành
+        // danh sách giá trị khác nhau. "Trạng thái cất giữ" trên Báo cáo kiểm kê TBĐB lấy từ đây
+        // (Tình trạng bao gói của lô) — hệ thống không có khái niệm "có hòm/trên giá/kê kích" riêng.
         var viTriInfo = await db.ChiTietKiemKeViTris
             .Include(v => v.MaLoTbdbNavigation).ThenInclude(l => l!.MaNuocSxNavigation)
+            .Include(v => v.MaLoTbdbNavigation).ThenInclude(l => l!.MaTinhTrangBaoGoiNavigation)
             .Where(v => v.MaCtkiemKeNavigation!.MaPhieuKiemKe == maPhieu)
             .Select(v => new
             {
@@ -102,6 +109,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
                 v.GhiChu,
                 NamSx = v.MaLoTbdbNavigation != null ? v.MaLoTbdbNavigation.NamSx : null,
                 NuocSx = v.MaLoTbdbNavigation != null && v.MaLoTbdbNavigation.MaNuocSxNavigation != null ? v.MaLoTbdbNavigation.MaNuocSxNavigation.TenNsx : null,
+                TinhTrangBaoGoi = v.MaLoTbdbNavigation != null && v.MaLoTbdbNavigation.MaTinhTrangBaoGoiNavigation != null ? v.MaLoTbdbNavigation.MaTinhTrangBaoGoiNavigation.TenTtbg : null,
             })
             .ToListAsync();
 
@@ -111,6 +119,8 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             .GroupBy(v => v.MaCtkiemKe).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.NamSx).Distinct().OrderBy(x => x)));
         var nuocSxMap = viTriInfo.Where(v => !string.IsNullOrWhiteSpace(v.NuocSx))
             .GroupBy(v => v.MaCtkiemKe).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.NuocSx).Distinct()));
+        var tinhTrangBaoGoiMap = viTriInfo.Where(v => !string.IsNullOrWhiteSpace(v.TinhTrangBaoGoi))
+            .GroupBy(v => v.MaCtkiemKe).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.TinhTrangBaoGoi).Distinct()));
 
         var chiTiet = chiTietRaw.Select(c => new
         {
@@ -131,6 +141,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             ghiChu = ghiChuMap.GetValueOrDefault(c.MaCtkiemKe),
             namSx = namSxMap.GetValueOrDefault(c.MaCtkiemKe),
             nuocSx = nuocSxMap.GetValueOrDefault(c.MaCtkiemKe),
+            tinhTrangBaoGoi = tinhTrangBaoGoiMap.GetValueOrDefault(c.MaCtkiemKe),
         }).ToList();
 
         return Ok(new
@@ -156,6 +167,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // Chi tiết 1 dòng (TBĐB, cấp chất lượng) — kèm danh sách các dòng lô + vị trí tồn kho cụ thể
     // để nhập số lượng thực tế.
     [HttpGet("{maPhieu}/chi-tiet/{maCtKiemKe:int}")]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, Cn.TbdbKiemKeXl)]
     public async Task<IActionResult> GetChiTietViTri(string maPhieu, int maCtKiemKe)
     {
         var ct = await db.ChiTietKiemKes
@@ -215,6 +227,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // Sửa thông tin đầu phiếu (ngày lập, ngày kiểm kê, nội dung) — không cho sửa đợt kiểm kê /
     // kho vì mã phiếu và toàn bộ chi tiết đã được sinh gắn với 2 giá trị đó lúc tạo phiếu.
     [HttpPut("{maPhieu}")]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, QuyenHanhDong.Sua)]
     public async Task<IActionResult> SuaPhieu(string maPhieu, [FromBody] SuaPhieuKiemKeDto dto)
     {
         var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu && p.NhomTb == NhomTbTbdb);
@@ -240,6 +253,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // vị trí/lô, rồi các dòng chi tiết theo cấp, rồi mới xóa phiếu (các FK không cho null) trong
     // cùng 1 transaction.
     [HttpDelete("{maPhieu}")]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, QuyenHanhDong.Xoa)]
     public async Task<IActionResult> XoaPhieu(string maPhieu)
     {
         var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu && p.NhomTb == NhomTbTbdb);
@@ -279,6 +293,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // (1 dòng / cấp, gộp mọi lô cùng cấp) — soLuongSoSach chốt ngay tại thời điểm tạo phiếu
     // (không tự cập nhật lại nếu tồn kho thay đổi sau đó).
     [HttpPost("tao-phieu")]
+    [YeuCauQuyen(Cn.TbdbKiemKeLap, QuyenHanhDong.Them)]
     public async Task<IActionResult> TaoPhieu([FromBody] TaoPhieuKiemKeDto dto)
     {
         if (this.IsGioiHanKho()) dto = dto with { MaKho = this.CurrentMaKho()! };
@@ -416,6 +431,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
     // từng dòng vị trí (TonKhoTBDB) — CỘNG DỒN chênh lệch thay vì ghi đè bằng SL thực tế, để không
     // xóa mất các giao dịch Nhập/Xuất đã phát sinh hợp lệ trong lúc phiếu kiểm kê còn đang mở.
     [HttpPost("{maPhieu}/ket-thuc")]
+    [YeuCauQuyen(Cn.TbdbKiemKeXl, QuyenHanhDong.Sua)]
     public async Task<IActionResult> KetThuc(string maPhieu)
     {
         var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu);

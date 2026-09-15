@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { lenhTbDongBoAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiCheckCircle, FiPrinter, FiList } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import LenhPrintView from './LenhPrintView';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
@@ -31,6 +32,7 @@ export default function LenhTbDongBo() {
   usePageTitle('Lệnh nhập/xuất TB đồng bộ');
   const confirm = useConfirm();
   const navigate = useNavigate();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_LENH_LAP');
   const { user } = useAuth();
   const maKhoNguoiDung = user?.maDonVi || null;
   const [loaiLenhList, setLoaiLenhList] = useState([]);
@@ -57,6 +59,7 @@ export default function LenhTbDongBo() {
   const [printData, setPrintData] = useState(null); // { lenh, rows } — dữ liệu của lệnh đang chuẩn bị in
   const [dangInLenh, setDangInLenh] = useState(false);
   const [maLenhChonIn, setMaLenhChonIn] = useState(null); // chỉ chọn được đúng 1 lệnh để in tại 1 thời điểm
+  const [detailRow, setDetailRow] = useState(null); // lệnh đang xem chi tiết (dữ liệu đã có sẵn trong danh sách, không cần gọi API riêng)
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -93,9 +96,11 @@ export default function LenhTbDongBo() {
       danhMucAPI.getAll('ncc').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('ht-van-chuyen').then(res => res.data).catch(() => []),
     ]).then(([nx, ctnx, httt, kho, ncc, htvc]) => {
-      // Loại "Xuất hủy/thanh lý" (NX05) đã có màn hình riêng ("Hủy/Thanh lý" ở menu), không hiện
-      // lại ở đây để tránh trùng chức năng.
-      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && n.maNX !== 'NX05');
+      // Trang này chỉ làm Nhập/Xuất — các loại lệnh khác (Chuyển cấp chất lượng, Xuất hủy/thanh lý,
+      // Thay đổi hình thức niêm cất, Tồn đầu kỳ) đã có màn hình riêng ở menu, không hiện lại ở đây
+      // để tránh trùng chức năng.
+      const CHI_NHAP_XUAT = ['NX03', 'NX04'];
+      const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && CHI_NHAP_XUAT.includes(n.maNX));
       setLoaiLenhList(nxTbdb);
       setActiveLoaiLenh(nxTbdb[0]?.maNX || '');
       setLyDoList(ctnx);
@@ -135,7 +140,8 @@ export default function LenhTbDongBo() {
         const quaHan = !daHoanThanh && isQuaHan(l);
         if (selectedTrangThai === 'HOAN_THANH' && !daHoanThanh) return false;
         if (selectedTrangThai === 'QUA_HAN' && !quaHan) return false;
-        if (selectedTrangThai === 'DANG_XU_LY' && (daHoanThanh || quaHan)) return false;
+        if (selectedTrangThai === 'DANG_SOAN_THAO' && (daHoanThanh || quaHan || l.trangThai !== 'DANG_SOAN_THAO')) return false;
+        if (selectedTrangThai === 'DA_BAN_HANH' && (daHoanThanh || quaHan || l.trangThai !== 'DA_BAN_HANH')) return false;
       }
       if (!q) return true;
       return [l.maLenh, l.veViec, l.canCu, l.tenLyDo].some(v => String(v ?? '').toLowerCase().includes(q));
@@ -150,7 +156,7 @@ export default function LenhTbDongBo() {
     setEditing(null);
     setForm({
       maLenh: '', maLenhChiTiet: '', ngay: new Date().toISOString().slice(0, 10), ngayHieuLuc: '', giaTriDenNgay: '',
-      trangThai: 'DANG_XU_LY', canCu: '', veViec: '', maHttt: '', maKhoNhap: '', maKhoXuat: '', maNcc: '', doiTacLoai: 'KHO', ptVanChuyen: '', donViChuyen: '', ghiChu: '',
+      trangThai: 'DANG_SOAN_THAO', canCu: '', veViec: '', maHttt: '', maKhoNhap: '', maKhoXuat: '', maNcc: '', doiTacLoai: 'KHO', ptVanChuyen: '', donViChuyen: '', ghiChu: '',
     });
     setErrors({});
     setShowModal(true);
@@ -239,6 +245,15 @@ export default function LenhTbDongBo() {
     } catch (err) { showToast(err.response?.data?.message || 'Không thể xóa, lệnh đang có dữ liệu liên quan', 'error'); }
   };
 
+  const handleGhiLenh = async (row) => {
+    if (!(await confirm(`Ghi lệnh "${row.maLenh}"? Sau khi ghi lệnh sẽ không thể sửa lệnh hoặc thêm/sửa/xóa dòng chi tiết nữa.`))) return;
+    try {
+      await lenhTbDongBoAPI.ghiLenh(row.maLenh);
+      showToast('Ghi lệnh thành công! Lệnh đã chuyển sang trạng thái đã ban hành.');
+      loadItems(activeLoaiLenh, selectedKho);
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi ghi lệnh', 'error'); }
+  };
+
   const lyDoTrongLoai = lyDoList.filter(l => l.maNX === activeLoaiLenh);
 
   return (
@@ -256,9 +271,9 @@ export default function LenhTbDongBo() {
             <button className="btn-print" onClick={handlePrint} disabled={!maLenhChonIn || dangInLenh}>
               <FiPrinter style={{ marginRight: 6 }} /> {dangInLenh ? 'Đang tải...' : 'In lệnh'}
             </button>
-            <button className="btn-add" onClick={openAdd} disabled={!activeLoaiLenh}>
-              <FiPlus style={{ marginRight: 6 }} /> Thêm lệnh
-            </button>
+            {canThem && <button className="btn-add" onClick={openAdd} disabled={!activeLoaiLenh}>
+              <FiPlus style={{ marginRight: 6 }} /> Tạo lệnh
+            </button>}
           </div>
         </div>
 
@@ -291,15 +306,16 @@ export default function LenhTbDongBo() {
             </select>
             <select className="tbdb-filter-select" value={selectedTrangThai} onChange={e => setSelectedTrangThai(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
+              <option value="DANG_SOAN_THAO">Đang soạn thảo</option>
+              <option value="DA_BAN_HANH">Đã ban hành</option>
               <option value="HOAN_THANH">Đã hoàn thành</option>
-              <option value="DANG_XU_LY">Đang xử lý</option>
               <option value="QUA_HAN">Quá hạn</option>
             </select>
           </div>
         </div>
 
         {loading ? (
-          <SkeletonTable cols={12} rows={6} />
+          <SkeletonTable cols={11} rows={6} />
         ) : bySearch.length === 0 ? (
           <div className="empty-state">
 
@@ -320,7 +336,6 @@ export default function LenhTbDongBo() {
                     <th>Lý do</th>
                     <th>{xuat ? 'Kho xuất' : 'Kho nhập'}</th>
                     <th>Đối tác</th>
-                    <th>Về việc</th>
                     <th style={{ textAlign: 'center' }}>Số dòng</th>
                     <th>Trạng thái</th>
                     <th style={{ width: 150, textAlign: 'center' }}>Thao tác</th>
@@ -329,6 +344,8 @@ export default function LenhTbDongBo() {
                 <tbody>
                   {paged.map((row, i) => {
                     const daHoanThanh = row.trangThai === 'HOAN_THANH';
+                    const daBanHanh = row.trangThai === 'DA_BAN_HANH';
+                    const dangSoanThao = !daHoanThanh && !daBanHanh;
                     return (
                       <tr key={row.maLenh}>
                         <td className="td-center">
@@ -345,20 +362,27 @@ export default function LenhTbDongBo() {
                             ? (row.tenNcc || row.maNcc)
                             : (xuat ? (row.tenKhoNhap || khoMap[row.maKhoNhap] || '') : (row.tenKhoXuat || khoMap[row.maKhoXuat] || ''))}
                         </td>
-                        <td>{row.veViec || ''}</td>
                         <td className="td-center"><span className="badge tbdb-status-badge">{row.soDongChiTiet}</span></td>
                         <td>
                           {daHoanThanh
                             ? <span className="badge badge--active"><FiCheckCircle size={11} style={{ marginRight: 4 }} />Đã hoàn thành</span>
                             : isQuaHan(row)
                               ? <span className="badge badge--locked">Quá hạn</span>
-                              : <span className="badge badge--pending">Đang xử lý</span>}
+                              : daBanHanh
+                                ? <span className="badge badge--info">Đã ban hành</span>
+                                : <span className="badge badge--pending">Đang soạn thảo</span>}
                         </td>
                         <td className="td-center">
                           <div className="td-actions">
-                            <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/tao-lenh-nhap-xuat/${row.maLenh}`)} title="Chi tiết"><FiEye size={13} /></button>
-                            <button className="btn-icon-warn" disabled={daHoanThanh} onClick={() => openEdit(row)} title={daHoanThanh ? 'Lệnh đã hoàn thành, không thể sửa' : 'Sửa'}><FiEdit2 size={13} /></button>
-                            <button className="btn-icon-delete" disabled={daHoanThanh} onClick={() => handleDelete(row)} title={daHoanThanh ? 'Lệnh đã hoàn thành, không thể xóa' : 'Xóa'}><FiTrash2 size={13} /></button>
+                            <button className="btn-icon-edit" onClick={() => setDetailRow(row)} title="Xem chi tiết"><FiEye size={13} /></button>
+                            <button className="btn-icon-success" onClick={() => navigate(`/tb-dong-bo/tao-lenh-nhap-xuat/${row.maLenh}`)} title="Thêm/sửa dòng chi tiết"><FiList size={13} /></button>
+                            {canSua && dangSoanThao && (
+                              <button className="btn-icon-success" onClick={() => handleGhiLenh(row)} title="Ghi lệnh">
+                                <FiCheckCircle size={13} />
+                              </button>
+                            )}
+                            {canSua && <button className="btn-icon-warn" disabled={!dangSoanThao} onClick={() => openEdit(row)} title={dangSoanThao ? 'Sửa' : 'Lệnh đã ban hành hoặc hoàn thành, không thể sửa'}><FiEdit2 size={13} /></button>}
+                            {canXoa && <button className="btn-icon-delete" disabled={!dangSoanThao} onClick={() => handleDelete(row)} title={dangSoanThao ? 'Xóa' : 'Lệnh đã ban hành hoặc hoàn thành, không thể xóa'}><FiTrash2 size={13} /></button>}
                           </div>
                         </td>
                       </tr>
@@ -519,6 +543,64 @@ export default function LenhTbDongBo() {
       )}
 
       <LenhPrintView lenh={printData?.lenh} rows={printData?.rows} />
+
+      {detailRow && (
+        <ChiTietLenhModal row={detailRow} xuat={xuat} khoMap={khoMap} htttList={htttList} onClose={() => setDetailRow(null)} />
+      )}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng Lenh) — không phải dòng chi tiết (đã có ở trang
+// Cập nhật lệnh) và không phải bản in trang trọng (đã có ở nút "In lệnh"). Dữ liệu lấy thẳng từ
+// dòng đang có trong danh sách, không cần gọi thêm API.
+function ChiTietLenhModal({ row, xuat, khoMap, htttList, onClose }) {
+  const daHoanThanh = row.trangThai === 'HOAN_THANH';
+  const tenHttt = htttList.find(h => h.maHTTT === row.maHttt)?.tenHTTT || '';
+  const doiTac = row.maNcc
+    ? (row.tenNcc || row.maNcc)
+    : (xuat ? (row.tenKhoNhap || khoMap[row.maKhoNhap] || '') : (row.tenKhoXuat || khoMap[row.maKhoXuat] || ''));
+
+  const rows = [
+    ['Số lệnh', row.maLenh],
+    ['Loại lệnh', xuat ? 'Xuất' : 'Nhập'],
+    ['Lý do', row.tenLyDo || ''],
+    ['Ngày', fmtDate(row.ngay)],
+    ['Ngày hiệu lực', fmtDate(row.ngayHieuLuc)],
+    ['Ngày hết hạn', fmtDate(row.giaTriDenNgay)],
+    [xuat ? 'Kho xuất' : 'Kho nhập', xuat ? (row.tenKhoXuat || khoMap[row.maKhoXuat] || '') : (row.tenKhoNhap || khoMap[row.maKhoNhap] || '')],
+    ['Đối tác', doiTac],
+    ['Hình thức thanh toán', tenHttt],
+    ['Phương thức vận chuyển', row.ptVanChuyen || ''],
+    ['Đơn vị chuyển', row.donViChuyen || ''],
+    ['Trạng thái', daHoanThanh ? 'Đã hoàn thành' : isQuaHan(row) ? 'Quá hạn' : row.trangThai === 'DA_BAN_HANH' ? 'Đã ban hành' : 'Đang soạn thảo'],
+    ['Số dòng', row.soDongChiTiet],
+    ['Căn cứ', row.canCu || ''],
+    ['Về việc', row.veViec || ''],
+    ['Ghi chú', row.ghiChu || ''],
+  ];
+
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh {row.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

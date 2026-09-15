@@ -30,3 +30,13 @@
 .actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
 .page-icon--blue { background: #e3f2fd; }
 .search-wrap--lg { width: 300px; }
+
+/* Ô nhập mật khẩu có nút xem/ẩn */
+.pw-input { position: relative; }
+.pw-input .form-input { width: 100%; padding-right: 40px; }
+.pw-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: #98a2b3; display: flex; padding: 5px;
+}
+.pw-toggle:hover { color: #1a3a5c; }

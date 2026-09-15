@@ -1,5 +1,6 @@
 using backend_dotnet.Models;
 using backend_dotnet.Services;
+using backend_dotnet.Services.Rbac;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ namespace backend_dotnet.Controllers;
 public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<Tbdb>(db, log)
 {
     protected override string TableLabel => "Hồ sơ trang bị đồng bộ";
+    protected override string MaChucNang => Cn.TbdbHoSo;
 
     private readonly QuanLyKhoQuanKhiContext _db = db;
 
@@ -28,7 +30,8 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         string MaTbdb, string? TenTbdb, string MaLoaiTbdb, string? TenLoaiTbdb,
         string? MaDvt, string? TenDvt, string? GhiChu,
         DateTime ThoiGianTao, DateTime? CapNhatMoiNhat, int TongSoLuong,
-        int SoLuongCap1, int SoLuongCap2, int SoLuongCap3, int SoLuongCap4, int SoLuongCap5);
+        int SoLuongCap1, int SoLuongCap2, int SoLuongCap3, int SoLuongCap4, int SoLuongCap5,
+        string? NuocSx);
 
     // Lọc danh sách TBDB theo kho/loại/kiểu SPKT/cấp chất lượng/trạng thái — dùng chung cho cả
     // GET by-kho (hiển thị danh sách) và xuat-excel (xuất đúng những gì đang hiển thị theo bộ lọc)
@@ -45,7 +48,13 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         if (!string.IsNullOrEmpty(maTrangThaiTb)) tonKhoQuery = tonKhoQuery.Where(t => t.MaTrangThaiTb == maTrangThaiTb);
 
         var tonKhoRaw = await tonKhoQuery
-            .Select(t => new { MaTbdb = t.MaLoTbdbNavigation.MaTbdb, MaCcl = t.MaLoTbdbNavigation.MaCcl, t.SoLuong })
+            .Select(t => new
+            {
+                MaTbdb = t.MaLoTbdbNavigation.MaTbdb,
+                MaCcl = t.MaLoTbdbNavigation.MaCcl,
+                TenNuocSx = t.MaLoTbdbNavigation.MaNuocSxNavigation != null ? t.MaLoTbdbNavigation.MaNuocSxNavigation.TenNsx : null,
+                t.SoLuong,
+            })
             .ToListAsync();
 
         var theoTbdb = tonKhoRaw
@@ -54,6 +63,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             {
                 Tong = g.Sum(x => x.SoLuong),
                 TheoCap = g.GroupBy(x => x.MaCcl).ToDictionary(gc => gc.Key, gc => gc.Sum(x => x.SoLuong)),
+                NuocSx = string.Join(", ", g.Select(x => x.TenNuocSx).Where(n => !string.IsNullOrEmpty(n)).Distinct()),
             });
 
         var chiLocTonKho = locTheoKho || maCcl.HasValue || !string.IsNullOrEmpty(maTrangThaiTb);
@@ -89,7 +99,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
                     t.ThoiGianTao, t.CapNhatMoiNhat, tk?.Tong ?? 0,
                     tk?.TheoCap.GetValueOrDefault(1) ?? 0, tk?.TheoCap.GetValueOrDefault(2) ?? 0,
                     tk?.TheoCap.GetValueOrDefault(3) ?? 0, tk?.TheoCap.GetValueOrDefault(4) ?? 0,
-                    tk?.TheoCap.GetValueOrDefault(5) ?? 0);
+                    tk?.TheoCap.GetValueOrDefault(5) ?? 0, tk?.NuocSx);
             })
             .ToList();
     }
@@ -116,6 +126,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             tenLoaiTbdb = t.TenLoaiTbdb,
             maDvt = t.MaDvt,
             tenDvt = t.TenDvt,
+            nuocSx = t.NuocSx,
             ghiChu = t.GhiChu,
             thoiGianTao = t.ThoiGianTao,
             capNhatMoiNhat = t.CapNhatMoiNhat,
@@ -517,6 +528,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoTheoTbCapAsync(_db, maKho);
         var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoTheoTbCapAsync(_db, maKho);
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoTheoTbCapAsync(_db, maKho);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoTheoTbCapAsync(_db, maKho);
 
         var grouped = raw.GroupBy(x => x.MaTbdb)
             .Select(g => new
@@ -529,7 +541,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         int ConLai(string maTbdb, int maCcl, Dictionary<int, int> theoCap) =>
             Math.Max(0, theoCap.GetValueOrDefault(maCcl) - giuChoChuyenCap.GetValueOrDefault((maTbdb, maCcl))
                 - giuChoHuy.GetValueOrDefault((maTbdb, maCcl)) - giuChoXuatKho.GetValueOrDefault((maTbdb, maCcl))
-                - giuChoThayDoiViTri.GetValueOrDefault((maTbdb, maCcl)));
+                - giuChoThayDoiViTri.GetValueOrDefault((maTbdb, maCcl)) - giuChoThayDoiHtnc.GetValueOrDefault((maTbdb, maCcl)));
 
         var maTbdbs = grouped.Select(g => g.MaTbdb).ToList();
         var tbdbInfo = await _db.Tbdbs
@@ -568,13 +580,17 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 // CRUD cho từng lô hàng của TBDB (nguồn gốc nhập, năm SX, nước SX, tình trạng bao gói, đơn giá...).
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/lo")]
 public class TbDongBoLoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<LoTbdb>(db, log)
-{ protected override string TableLabel => "Lô trang bị đồng bộ"; }
+{
+    protected override string TableLabel => "Lô trang bị đồng bộ";
+    protected override string MaChucNang => Cn.TbdbHoSo;
+}
 
 // CRUD cho tồn kho thực tế của từng lô theo kho/vị trí/trạng thái.
 [Microsoft.AspNetCore.Mvc.Route("api/tb-dong-bo/ton-kho")]
 public class TbDongBoTonKhoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<TonKhoTbdb>(db, log)
 {
     protected override string TableLabel => "Tồn kho trang bị đồng bộ";
+    protected override string MaChucNang => Cn.TbdbHoSo;
 
     protected override IQueryable<TonKhoTbdb> ApplyScope(IQueryable<TonKhoTbdb> query)
         => this.IsGioiHanKho() ? query.Where(t => t.MaKho == this.CurrentMaKho()) : query;

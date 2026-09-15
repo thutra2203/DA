@@ -4,12 +4,14 @@ import { kiemKeTbDongBoAPI } from '../../services/api';
 import { FiArrowLeft, FiCheckCircle, FiList, FiSearch } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
 export default function XuLyKiemKePage() {
   const { maPhieu } = useParams();
   const navigate = useNavigate();
+  const { canSua } = useModulePerm('TBDB_KIEM_KE_XL');
   const confirm = useConfirm();
 
   const [phieu, setPhieu] = useState(null);
@@ -92,7 +94,7 @@ export default function XuLyKiemKePage() {
             <FiCheckCircle size={14} style={{ marginRight: 6 }} />Đã kết thúc
           </span>
         )}
-        {!daKetThuc && (
+        {!daKetThuc && canSua && (
           <button className="btn-primary" disabled={dangKetThuc} onClick={ketThucKiemKe}>
             <FiCheckCircle style={{ marginRight: 6 }} />{dangKetThuc ? 'Đang xử lý...' : 'Kết thúc kiểm kê'}
           </button>

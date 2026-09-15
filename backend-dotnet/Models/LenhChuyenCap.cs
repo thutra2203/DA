@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace backend_dotnet.Models;
@@ -13,10 +13,6 @@ public partial class LenhChuyenCap
 
     public string? TrangThai { get; set; }
 
-    public string? CanCu { get; set; }
-
-    public string? VeViec { get; set; }
-
     public string? NguoiTao { get; set; }
 
     public string? NguoiKetThuc { get; set; }
@@ -25,7 +21,11 @@ public partial class LenhChuyenCap
 
     public string? GhiChu { get; set; }
 
-    public virtual Kho MaKhoNavigation { get; set; } = null!;
+    public string? CanCu { get; set; }
+
+    public string? VeViec { get; set; }
 
     public virtual ICollection<ChiTietLenhChuyenCap> ChiTietLenhChuyenCaps { get; set; } = new List<ChiTietLenhChuyenCap>();
+
+    public virtual Kho MaKhoNavigation { get; set; } = null!;
 }

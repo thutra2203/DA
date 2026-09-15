@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { thayDoiViTriAPI, danhMucAPI } from '../../services/api';
-import { FiSearch, FiEye, FiCheckCircle, FiPrinter } from 'react-icons/fi';
+import { FiSearch, FiEye, FiEdit2, FiCheckCircle, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import ThayDoiViTriPrintView from './ThayDoiViTriPrintView';
@@ -21,6 +21,7 @@ export default function ThayDoiViTri() {
   const [printData, setPrintData] = useState(null); // lệnh (kèm chiTiet) đang chuẩn bị in
   const [dangInLenh, setDangInLenh] = useState(false);
   const [maLenhChonIn, setMaLenhChonIn] = useState(null); // chỉ chọn được đúng 1 lệnh để in tại 1 thời điểm
+  const [detailRow, setDetailRow] = useState(null);
 
   const toggleChonIn = (maLenh) => setMaLenhChonIn(prev => (prev === maLenh ? null : maLenh));
 
@@ -121,8 +122,11 @@ export default function ThayDoiViTri() {
                     </td>
                     <td className="td-center">
                       <div className="td-actions">
-                        <button className="btn-icon-edit" onClick={() => navigate(`/tb-dong-bo/thay-doi-vi-tri/${r.maLenh}`)} title="Xử lý">
+                        <button className="btn-icon-edit" onClick={() => setDetailRow(r)} title="Xem chi tiết">
                           <FiEye size={13} />
+                        </button>
+                        <button className="btn-icon-warn" onClick={() => navigate(`/tb-dong-bo/thay-doi-vi-tri/${r.maLenh}`)} title="Xử lý">
+                          <FiEdit2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -135,6 +139,49 @@ export default function ThayDoiViTri() {
       </div>
 
       <ThayDoiViTriPrintView lenh={printData} />
+
+      {detailRow && <ChiTietLenhModal row={detailRow} khoMap={khoMap} onClose={() => setDetailRow(null)} />}
+    </div>
+  );
+}
+
+// Xem thông tin các trường của bản ghi lệnh (bảng LenhThayDoiViTri) — không phải dòng chi tiết
+// (đã có ở trang Xử lý) và không phải bản in trang trọng (đã có ở nút "In lệnh"). Dữ liệu lấy thẳng
+// từ dòng đang có trong danh sách, không cần gọi thêm API.
+function ChiTietLenhModal({ row, khoMap, onClose }) {
+  const rows = [
+    ['Số lệnh', row.maLenh],
+    ['Kho', row.tenKho || khoMap[row.maKho] || ''],
+    ['Ngày lập', fmtDate(row.ngayLap)],
+    ['Ngày kết thúc', fmtDate(row.ngayKetThuc)],
+    ['Người lập', row.nguoiTao || ''],
+    ['Trạng thái', row.daKetThuc ? 'Đã kết thúc' : 'Chờ thực hiện'],
+    ['Số dòng', row.soDong ?? ''],
+    ['Căn cứ', row.canCu || ''],
+    ['Về việc', row.veViec || ''],
+    ['Ghi chú', row.ghiChu || ''],
+  ];
+  return (
+    <div className="overlay">
+      <div className="modal modal--form fade-in">
+        <div className="modal-header">
+          <h3 className="modal-title">Chi tiết lệnh {row.maLenh}</h3>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid-2col">
+            {rows.map(([label, value]) => (
+              <div className={`form-field${label === 'Ghi chú' ? ' form-field--full' : ''}`} key={label}>
+                <label className="form-label">{label}</label>
+                <div className="form-input" style={{ background: '#f5f6f8', color: '#000', minHeight: 37 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiX, FiDownload } from 'rea
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
+import { useModulePerm } from '../../hooks/useModulePerm';
 import SkeletonTable from '../../components/ui/SkeletonTable';
 import Pagination from '../../components/ui/Pagination';
 import '../../styles/shared.css';
@@ -17,16 +18,21 @@ export default function HoSoTbDongBo() {
   usePageTitle('HỒ SƠ TRANG BỊ ĐB');
   const confirm = useConfirm();
   const { user } = useAuth();
+  const { canThem, canSua, canXoa } = useModulePerm('TBDB_HOSO');
   const maKhoNguoiDung = user?.maDonVi || null; // null = không bị giới hạn theo kho (ADMIN hoặc chưa gán kho)
   const [items, setItems] = useState([]);
   const [loaiList, setLoaiList] = useState([]);
   const [khoList, setKhoList] = useState([]);
+  const [loaiKhoList, setLoaiKhoList] = useState([]);
+  const [capQuanLyList, setCapQuanLyList] = useState([]);
   const [dvtList, setDvtList] = useState([]);
   const [kieuSpktList, setKieuSpktList] = useState([]);
   const [capList, setCapList] = useState([]);
   const [trangThaiList, setTrangThaiList] = useState([]);
 
   const [selectedKho, setSelectedKho] = useState(maKhoNguoiDung || 'ALL');
+  const [selectedCapQuanLy, setSelectedCapQuanLy] = useState('ALL');
+  const [selectedLoaiKho, setSelectedLoaiKho] = useState('ALL');
   const [selectedLoai, setSelectedLoai] = useState('ALL');
   const [selectedKieuSpkt, setSelectedKieuSpkt] = useState('ALL');
   const [selectedCcl, setSelectedCcl] = useState('ALL');
@@ -52,13 +58,17 @@ export default function HoSoTbDongBo() {
     danhMucAPI.getAll('kieu-spkt').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('cap-chat-luong').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('trang-thai-tb').then(res => res.data).catch(() => []),
-  ]).then(([loai, kho, dvt, kieuSpkt, cap, trangThai]) => {
+    danhMucAPI.getAll('loai-kho').then(res => res.data).catch(() => []),
+    danhMucAPI.getAll('cap-quan-ly').then(res => res.data).catch(() => []),
+  ]).then(([loai, kho, dvt, kieuSpkt, cap, trangThai, loaiKho, capQuanLy]) => {
     setLoaiList(loai);
     setKhoList(kho);
     setDvtList(dvt);
     setKieuSpktList(kieuSpkt);
     setCapList(cap);
     setTrangThaiList(trangThai);
+    setLoaiKhoList(loaiKho);
+    setCapQuanLyList(capQuanLy);
   });
 
   const buildFilterExtra = () => {
@@ -96,6 +106,21 @@ export default function HoSoTbDongBo() {
   useEffect(() => { loadItems(); }, [selectedKho, selectedLoai, selectedKieuSpkt, selectedCcl, selectedTrangThai]);
 
   const loaiMap = useMemo(() => Object.fromEntries(loaiList.map(l => [l.maLoai, l.tenLoai])), [loaiList]);
+
+  // Lọc theo Cấp quản lý/Loại kho chỉ để RÚT GỌN danh sách kho cần chọn — không phải bộ lọc dữ liệu
+  // TBĐB (dữ liệu vẫn lọc theo đúng 1 kho đã CHỌN, xem selectedKho).
+  const khoLocList = useMemo(() => khoList.filter(k =>
+    (selectedCapQuanLy === 'ALL' || k.maCapQuanLy === selectedCapQuanLy) &&
+    (selectedLoaiKho === 'ALL' || k.maLoaiKho === selectedLoaiKho)
+  ), [khoList, selectedCapQuanLy, selectedLoaiKho]);
+
+  // Kho đang chọn không còn nằm trong danh sách đã rút gọn (do vừa đổi Cấp quản lý/Loại kho) —
+  // quay về "Tất cả kho" để tránh giữ 1 lựa chọn đã ẩn khỏi dropdown.
+  useEffect(() => {
+    if (maKhoNguoiDung) return;
+    if (selectedKho !== 'ALL' && !khoLocList.some(k => k.maKho === selectedKho)) setSelectedKho('ALL');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [khoLocList]);
 
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -191,9 +216,9 @@ export default function HoSoTbDongBo() {
             <button className="btn-excel" onClick={xuatExcel} disabled={dangXuatExcel}>
               <FiDownload style={{ marginRight: 6 }} /> {dangXuatExcel ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
-            <button className="btn-add" onClick={openAdd}>
+            {canThem && <button className="btn-add" onClick={openAdd}>
               <FiPlus style={{ marginRight: 6 }} /> Thêm mới TB
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -216,9 +241,17 @@ export default function HoSoTbDongBo() {
               <option value="ALL">Tất cả kiểu SPKT</option>
               {kieuSpktList.map(k => <option key={k.maKieu} value={k.maKieu}>{k.tenKieu}</option>)}
             </select>
+            <select className="tbdb-filter-select" value={selectedCapQuanLy} onChange={e => setSelectedCapQuanLy(e.target.value)} disabled={!!maKhoNguoiDung}>
+              <option value="ALL">Tất cả cấp quản lý</option>
+              {capQuanLyList.map(c => <option key={c.maCapQuanLy} value={c.maCapQuanLy}>{c.tenCapQuanLy}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedLoaiKho} onChange={e => setSelectedLoaiKho(e.target.value)} disabled={!!maKhoNguoiDung}>
+              <option value="ALL">Tất cả loại kho</option>
+              {loaiKhoList.map(l => <option key={l.maLoaiKho} value={l.maLoaiKho}>{l.tenLoaiKho}</option>)}
+            </select>
             <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)} disabled={!!maKhoNguoiDung}>
               {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
-              {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+              {khoLocList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
             </select>
             <select className="tbdb-filter-select" value={selectedCcl} onChange={e => setSelectedCcl(e.target.value)}>
               <option value="ALL">Tất cả cấp CL</option>
@@ -286,12 +319,16 @@ export default function HoSoTbDongBo() {
                           <button className="btn-icon-edit" onClick={() => setDetailTbdb(row.maTbdb)} title="Xem chi tiết">
                             <FiEye size={13} />
                           </button>
-                          <button className="btn-icon-warn" onClick={() => openEdit(row)} title="Sửa hồ sơ">
-                            <FiEdit2 size={13} />
-                          </button>
-                          <button className="btn-icon-delete" onClick={() => handleDelete(row)} title="Xóa hồ sơ">
-                            <FiTrash2 size={13} />
-                          </button>
+                          {canSua && (
+                            <button className="btn-icon-warn" onClick={() => openEdit(row)} title="Sửa hồ sơ">
+                              <FiEdit2 size={13} />
+                            </button>
+                          )}
+                          {canXoa && (
+                            <button className="btn-icon-delete" onClick={() => handleDelete(row)} title="Xóa hồ sơ">
+                              <FiTrash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -391,6 +428,10 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
   const [dangXuatExcelLo, setDangXuatExcelLo] = useState(false);
 
   const [vtSearch, setVtSearch] = useState('');
+  // true khi vtSearch được set từ nút "Xem vị trí của lô này" (xemViTriLo) — lúc đó phải lọc ĐÚNG
+  // 1 mã lô, không dùng kiểu "chứa chuỗi" như gõ tay, vì mã lô con tách ra (VD "TBDB01-2CC1") luôn
+  // chứa mã lô gốc ("TBDB01-2") làm tiền tố nên sẽ bị lẫn vào nếu lọc theo kiểu chứa chuỗi.
+  const [vtSearchChinhXac, setVtSearchChinhXac] = useState(false);
   const [vtNhaKho, setVtNhaKho] = useState('ALL');
   const [vtKhu, setVtKhu] = useState('ALL');
   const [vtKhoi, setVtKhoi] = useState('ALL');
@@ -467,10 +508,16 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
       if (vtKhoi !== 'ALL' && tk.tenKhoi !== vtKhoi) return false;
       if (vtGia !== 'ALL' && tk.tenGia !== vtGia) return false;
       if (vtTang !== 'ALL' && tk.tenTang !== vtTang) return false;
-      if (q && !`${tk.maLoTbdb} ${tk.tenHom || ''} ${tk.moTaViTri || ''}`.toLowerCase().includes(q)) return false;
+      if (q) {
+        if (vtSearchChinhXac) {
+          if (tk.maLoTbdb.toLowerCase() !== q) return false;
+        } else if (!`${tk.maLoTbdb} ${tk.tenHom || ''} ${tk.moTaViTri || ''}`.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [data, vtSearch, vtNhaKho, vtKhu, vtKhoi, vtGia, vtTang]);
+  }, [data, vtSearch, vtSearchChinhXac, vtNhaKho, vtKhu, vtKhoi, vtGia, vtTang]);
 
   const xuatExcelLo = async () => {
     setDangXuatExcelLo(true);
@@ -498,6 +545,7 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
     // lô của TOÀN HỆ THỐNG thay vì chỉ đúng kho đang xem.
     setVtNhaKho('ALL'); setVtKhu('ALL'); setVtKhoi('ALL'); setVtGia('ALL'); setVtTang('ALL');
     setVtSearch(maLoTbdb);
+    setVtSearchChinhXac(true);
     setTab('vitri');
   };
 
@@ -652,7 +700,7 @@ function ChiTietModal({ maTbdb, maKhoNgoai, khoList, onClose }) {
                         className="search-input"
                         placeholder="Tìm theo mã lô, hòm, mô tả..."
                         value={vtSearch}
-                        onChange={e => setVtSearch(e.target.value)}
+                        onChange={e => { setVtSearch(e.target.value); setVtSearchChinhXac(false); }}
                       />
                     </div>
                     <select className="tbdb-filter-select" value={maKhoLoc} onChange={e => setMaKhoLoc(e.target.value)} disabled={!!maKhoNguoiDung}>

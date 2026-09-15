@@ -73,6 +73,22 @@
   padding: 8px 0;
 }
 
+/* Section titles (Nghiệp vụ / Danh mục / Hệ thống) */
+.sidebar-section-title {
+  padding: 16px 18px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 10px 14px;
+}
+
 /* Menu items */
 .menu-item {
   display: flex;
@@ -358,6 +374,106 @@
   background: #fff5f5;
 }
 
+/* ===== THÔNG BÁO ===== */
+.header-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: #f5f7fa;
+  border-radius: 10px;
+  border: 1px solid #e8ecf0;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.2s;
+}
+
+.header-bell:hover {
+  background: #eef2f8;
+}
+
+.header-bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.thongbao-dropdown {
+  width: 360px;
+  max-width: 88vw;
+}
+
+.thongbao-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.thongbao-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f5f5f5;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.thongbao-item:last-child {
+  border-bottom: none;
+}
+
+.thongbao-item:hover {
+  background: #f8f8f8;
+}
+
+.thongbao-item-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #1565c0;
+}
+
+.thongbao-item--canh-bao .thongbao-item-icon {
+  color: #c62828;
+}
+
+.thongbao-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a3a5c;
+  margin-bottom: 2px;
+}
+
+.thongbao-item-noidung {
+  font-size: 12px;
+  color: #777;
+  line-height: 1.4;
+}
+
+.thongbao-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+}
+
 /* ===== CONTENT ===== */
 .main-content {
   flex: 1;
@@ -372,4 +488,10 @@
   min-height: 0;
   padding: 12px 16px;
   overflow-y: auto;
+}
+
+/* Cho phép trang con dùng height:100% để kéo dài đúng bằng khoảng trống còn lại của màn hình
+   (vd. bố cục master-detail của Nhóm đồng bộ) thay vì luôn co theo nội dung. */
+.content-area > .fade-in {
+  height: 100%;
 }

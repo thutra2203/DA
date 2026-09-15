@@ -62,6 +62,10 @@ public class TinhController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : D
 public class LoaiKhoController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<LoaiKho>(db, log)
 { protected override string TableLabel => "Loại kho"; }
 
+[Microsoft.AspNetCore.Mvc.Route("api/danh-muc/cap-quan-ly")]
+public class CapQuanLyController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<CapQuanLy>(db, log)
+{ protected override string TableLabel => "Cấp quản lý"; }
+
 [Microsoft.AspNetCore.Mvc.Route("api/danh-muc/tinh-chat-nhap-xuat")]
 public class TinhChatNhapXuatController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : DanhMucControllerBase<TinhChatNhapXuat>(db, log)
 { protected override string TableLabel => "Tính chất nhập xuất"; }
