@@ -23,7 +23,7 @@ namespace backend_dotnet.Controllers;
 //          (mã lô tự sinh, copy năm SX/nước SX/tình trạng bao gói/đơn giá từ lô gốc) ở cấp đích,
 //          cộng số lượng đó vào tồn kho lô mới tại đúng vị trí cũ. Việc tạo lô mới này BẮT BUỘC
 //          phải đi qua 1 "Lệnh" + "CtdongBoTrongLenh" nội bộ (LoTbdb.MaCtdongBoLenh là khóa ngoại
-//          bắt buộc) — dùng loại lệnh ẩn "CCL" (không hiển thị ở Tạo lệnh/Cập nhật lệnh nhập-xuất
+//          bắt buộc) — dùng loại lệnh ẩn "CCCL" (không hiển thị ở Tạo lệnh/Cập nhật lệnh nhập-xuất
 //          bình thường), giống hệt cách "TDK" đã làm cho tồn đầu. Người dùng KHÔNG thấy và không
 //          thao tác với các lệnh nội bộ này — mọi việc diễn ra ẩn phía sau nút "Kết thúc chuyển cấp".
 public record TaoLenhChuyenCapDto(string MaKho, DateOnly NgayLap, DateOnly? NgayKetThuc, string? CanCu, string? VeViec, string? GhiChu);
@@ -35,11 +35,11 @@ public record ThemChiTietChuyenCapDto(long MaTonKho, int SoLuong, int MaCclMoi, 
 [YeuCauQuyen(Cn.TbdbCclXl)]
 public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : ControllerBase
 {
-    private const string MaLoaiLenhChuyenCap = "CCL";
+    private const string MaLoaiLenhChuyenCap = "CCCL";
     private const string NhomTbNoiBo = "TBDB_NOIBO";
     // Trạng thái TB (TrangThaiTB) tạm gán cho dòng tồn kho trong lúc đang chờ xử lý lệnh chuyển cấp
     // (xem ThemChiTiet/SuaChiTiet/XoaChiTiet/XoaLenh/KetThuc) — trả về trạng thái gốc khi xong.
-    private const string MaTrangThaiDangChuyenCap = "TT04";
+    private const string MaTrangThaiDangChuyenCap = "CC";
 
     // GET api/tb-dong-bo/chuyen-cap?maKho=
     [HttpGet]
@@ -832,7 +832,7 @@ public class ChuyenCapChatLuongController(QuanLyKhoQuanKhiContext db, IActivityL
     }
 
     // Tách 1 phần số lượng của lô gốc thành 1 lô mới ở cấp đích — tạo qua 1 "Lệnh" + 1 dòng
-    // "CtdongBoTrongLenh" nội bộ (loại "CCL", ẩn khỏi Tạo lệnh/Cập nhật lệnh nhập-xuất bình
+    // "CtdongBoTrongLenh" nội bộ (loại "CCCL", ẩn khỏi Tạo lệnh/Cập nhật lệnh nhập-xuất bình
     // thường) vì LoTbdb.MaCtdongBoLenh là khóa ngoại bắt buộc — không thể tạo lô "trôi nổi" ngoài
     // khung Nhập. Copy nguyên vẹn năm SX/nước SX/tình trạng bao gói/hình thức niêm cất/đơn giá từ
     // lô gốc; vị trí lấy đúng theo dòng tồn kho nguồn.

@@ -23,7 +23,7 @@ namespace backend_dotnet.Controllers;
 //        - Nếu chỉ là MỘT PHẦN → tách: trừ đúng số lượng khỏi dòng tồn kho nguồn, tạo 1 lô MỚI (mã
 //          lô tự sinh, copy năm SX/nước SX/tình trạng bao gói/cấp chất lượng/đơn giá từ lô gốc) ở
 //          HTNC đích, cộng số lượng đó vào tồn kho lô mới tại đúng vị trí cũ — qua 1 "Lệnh" +
-//          "CtdongBoTrongLenh" nội bộ ẩn (loại "TDHTNC"), giống hệt cách "CCL" đã làm cho chuyển cấp.
+//          "CtdongBoTrongLenh" nội bộ ẩn (loại "TDHTNC"), giống hệt cách "CCCL" đã làm cho chuyển cấp.
 public record TaoLenhThayDoiHtncDto(string MaKho, DateOnly NgayLap, DateOnly? NgayKetThuc, string? CanCu, string? VeViec, string? GhiChu);
 public record ThemChiTietThayDoiHtncDto(long MaTonKho, int SoLuong, string MaHtncMoi, string? GhiChu);
 
@@ -37,8 +37,8 @@ public class ThayDoiHinhThucNiemCatController(QuanLyKhoQuanKhiContext db, IActiv
     private const string NhomTbNoiBo = "TBDB_NOIBO";
     // Trạng thái TB (TrangThaiTB) tạm gán cho dòng tồn kho trong lúc đang chờ xử lý lệnh thay đổi
     // HTNC (xem ThemChiTiet/SuaChiTiet/XoaChiTiet/XoaLenh/KetThuc) — trả về trạng thái gốc khi xong.
-    // Dùng chung mã "TT03 - Đang làm lệnh" với Thay đổi vị trí (không có mã riêng cho HTNC).
-    private const string MaTrangThaiDangLamLenh = "TT03";
+    // Dùng chung mã "LL - Đang làm lệnh" với Thay đổi vị trí (không có mã riêng cho HTNC).
+    private const string MaTrangThaiDangLamLenh = "LL";
 
     // GET api/tb-dong-bo/thay-doi-htnc?maKho=
     [HttpGet]
@@ -164,6 +164,7 @@ public class ThayDoiHinhThucNiemCatController(QuanLyKhoQuanKhiContext db, IActiv
                 maLoTbdb = t.MaLoTbdb,
                 maTbdb = t.MaLoTbdbNavigation.MaTbdb,
                 tenTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.TenTbdb,
+                maLoaiTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.MaLoaiTbdb,
                 maHtnc = t.MaLoTbdbNavigation.MaHinhThucNiemCat,
                 hinhThucNiemCat = t.MaLoTbdbNavigation.MaHinhThucNiemCatNavigation != null ? t.MaLoTbdbNavigation.MaHinhThucNiemCatNavigation.TenHtnc : null,
                 namSx = t.MaLoTbdbNavigation.NamSx,
@@ -189,7 +190,7 @@ public class ThayDoiHinhThucNiemCatController(QuanLyKhoQuanKhiContext db, IActiv
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
 
         var list = listRaw
-            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maHtnc, t.hinhThucNiemCat, t.namSx,
+            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maLoaiTbdb, t.maHtnc, t.hinhThucNiemCat, t.namSx,
                 soLuong = t.soLuong - daDungTheoTonKho.GetValueOrDefault(t.maTonKho) - giuChoLenhKhac.GetValueOrDefault(t.maTonKho)
                     - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho)
                     - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho),

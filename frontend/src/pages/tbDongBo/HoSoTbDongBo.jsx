@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { tbDongBoAPI, danhMucAPI } from '../../services/api';
+import { tbDongBoAPI, danhMucAPI, chiTietDongBoAPI } from '../../services/api';
 import { FiSearch, FiPlus, FiEye, FiEdit2, FiTrash2, FiX, FiDownload } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -26,7 +26,10 @@ export default function HoSoTbDongBo() {
   const [loaiKhoList, setLoaiKhoList] = useState([]);
   const [capQuanLyList, setCapQuanLyList] = useState([]);
   const [dvtList, setDvtList] = useState([]);
+  const [nhomSpktList, setNhomSpktList] = useState([]);
+  const [loaiSpktList, setLoaiSpktList] = useState([]);
   const [kieuSpktList, setKieuSpktList] = useState([]);
+  const [chiTietDongBoList, setChiTietDongBoList] = useState([]);
   const [capList, setCapList] = useState([]);
   const [trangThaiList, setTrangThaiList] = useState([]);
 
@@ -34,7 +37,8 @@ export default function HoSoTbDongBo() {
   const [selectedCapQuanLy, setSelectedCapQuanLy] = useState('ALL');
   const [selectedLoaiKho, setSelectedLoaiKho] = useState('ALL');
   const [selectedLoai, setSelectedLoai] = useState('ALL');
-  const [selectedKieuSpkt, setSelectedKieuSpkt] = useState('ALL');
+  const [selectedNhomSpkt, setSelectedNhomSpkt] = useState('ALL');
+  const [selectedLoaiSpkt, setSelectedLoaiSpkt] = useState('ALL');
   const [selectedCcl, setSelectedCcl] = useState('ALL');
   const [selectedTrangThai, setSelectedTrangThai] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -55,26 +59,33 @@ export default function HoSoTbDongBo() {
     danhMucAPI.getAll('loai-tbdb').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('kho').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('dvt').then(res => res.data).catch(() => []),
+    danhMucAPI.getAll('nhom-spkt').then(res => res.data).catch(() => []),
+    danhMucAPI.getAll('loai-spkt').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('kieu-spkt').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('cap-chat-luong').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('trang-thai-tb').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('loai-kho').then(res => res.data).catch(() => []),
     danhMucAPI.getAll('cap-quan-ly').then(res => res.data).catch(() => []),
-  ]).then(([loai, kho, dvt, kieuSpkt, cap, trangThai, loaiKho, capQuanLy]) => {
+    chiTietDongBoAPI.getByNhom().then(res => res.data).catch(() => []),
+  ]).then(([loai, kho, dvt, nhomSpkt, loaiSpkt, kieuSpkt, cap, trangThai, loaiKho, capQuanLy, chiTietDongBo]) => {
     setLoaiList(loai);
     setKhoList(kho);
     setDvtList(dvt);
+    setNhomSpktList(nhomSpkt);
+    setLoaiSpktList(loaiSpkt);
     setKieuSpktList(kieuSpkt);
     setCapList(cap);
     setTrangThaiList(trangThai);
     setLoaiKhoList(loaiKho);
     setCapQuanLyList(capQuanLy);
+    setChiTietDongBoList(chiTietDongBo);
   });
 
   const buildFilterExtra = () => {
     const extra = {};
     if (selectedLoai !== 'ALL') extra.maLoaiTbdb = selectedLoai;
-    if (selectedKieuSpkt !== 'ALL') extra.maKieuSpkt = selectedKieuSpkt;
+    if (selectedNhomSpkt !== 'ALL') extra.maNhomSpkt = selectedNhomSpkt;
+    if (selectedLoaiSpkt !== 'ALL') extra.maLoaiSpkt = selectedLoaiSpkt;
     if (selectedCcl !== 'ALL') extra.maCcl = selectedCcl;
     if (selectedTrangThai !== 'ALL') extra.maTrangThaiTb = selectedTrangThai;
     return extra;
@@ -103,9 +114,36 @@ export default function HoSoTbDongBo() {
   };
 
   useEffect(() => { loadDanhMuc(); }, []);
-  useEffect(() => { loadItems(); }, [selectedKho, selectedLoai, selectedKieuSpkt, selectedCcl, selectedTrangThai]);
+  useEffect(() => { loadItems(); }, [selectedKho, selectedLoai, selectedNhomSpkt, selectedLoaiSpkt, selectedCcl, selectedTrangThai]);
 
   const loaiMap = useMemo(() => Object.fromEntries(loaiList.map(l => [l.maLoai, l.tenLoai])), [loaiList]);
+
+  // Đồng bộ (ChiTietDongBo) gắn với Kiểu SPKT, không gắn trực tiếp với Nhóm/Loại — nên lọc theo
+  // Loại SPKT phải tra qua Loại.MaKieu, còn lọc theo Nhóm SPKT phải gộp tất cả Kiểu thuộc nhóm đó.
+  // Loại TBĐB (dropdown lọc) cũng ràng buộc theo cùng tập ChiTietDongBo này — chỉ hiện các Loại TBĐB
+  // thực sự phối thuộc cho Kiểu SPKT đang chọn, giống các trang xử lý lệnh khác.
+  const cacKieuLienQuan = useMemo(() => {
+    if (selectedLoaiSpkt !== 'ALL') {
+      const loai = loaiSpktList.find(l => l.maLoai === selectedLoaiSpkt);
+      return loai?.maKieu ? [loai.maKieu] : [];
+    }
+    if (selectedNhomSpkt !== 'ALL') return kieuSpktList.filter(k => k.maNhom === selectedNhomSpkt).map(k => k.maKieu);
+    return null;
+  }, [selectedLoaiSpkt, selectedNhomSpkt, loaiSpktList, kieuSpktList]);
+
+  const dongBoEntriesLienQuan = useMemo(() => (
+    cacKieuLienQuan == null ? null : chiTietDongBoList.filter(c => cacKieuLienQuan.includes(c.maKieuSpkt))
+  ), [cacKieuLienQuan, chiTietDongBoList]);
+
+  const loaiTbdbLocList = useMemo(() => {
+    if (dongBoEntriesLienQuan == null) return loaiList;
+    const allowed = new Set(dongBoEntriesLienQuan.map(c => c.maLoaiTbdb));
+    return loaiList.filter(l => allowed.has(l.maLoai));
+  }, [dongBoEntriesLienQuan, loaiList]);
+
+  useEffect(() => {
+    if (selectedLoai !== 'ALL' && !loaiTbdbLocList.some(l => l.maLoai === selectedLoai)) setSelectedLoai('ALL');
+  }, [loaiTbdbLocList]);
 
   // Lọc theo Cấp quản lý/Loại kho chỉ để RÚT GỌN danh sách kho cần chọn — không phải bộ lọc dữ liệu
   // TBĐB (dữ liệu vẫn lọc theo đúng 1 kho đã CHỌN, xem selectedKho).
@@ -131,7 +169,7 @@ export default function HoSoTbDongBo() {
     });
   }, [items, search]);
 
-  useEffect(() => { setPage(1); }, [selectedLoai, selectedKieuSpkt, selectedKho, selectedCcl, selectedTrangThai, search]);
+  useEffect(() => { setPage(1); }, [selectedLoai, selectedNhomSpkt, selectedLoaiSpkt, selectedKho, selectedCcl, selectedTrangThai, search]);
 
   const paged = bySearch.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
@@ -233,14 +271,6 @@ export default function HoSoTbDongBo() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <select className="tbdb-filter-select" value={selectedLoai} onChange={e => setSelectedLoai(e.target.value)}>
-              <option value="ALL">Tất cả loại</option>
-              {loaiList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
-            </select>
-            <select className="tbdb-filter-select" value={selectedKieuSpkt} onChange={e => setSelectedKieuSpkt(e.target.value)}>
-              <option value="ALL">Tất cả kiểu SPKT</option>
-              {kieuSpktList.map(k => <option key={k.maKieu} value={k.maKieu}>{k.tenKieu}</option>)}
-            </select>
             <select className="tbdb-filter-select" value={selectedCapQuanLy} onChange={e => setSelectedCapQuanLy(e.target.value)} disabled={!!maKhoNguoiDung}>
               <option value="ALL">Tất cả cấp quản lý</option>
               {capQuanLyList.map(c => <option key={c.maCapQuanLy} value={c.maCapQuanLy}>{c.tenCapQuanLy}</option>)}
@@ -252,6 +282,18 @@ export default function HoSoTbDongBo() {
             <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)} disabled={!!maKhoNguoiDung}>
               {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
               {khoLocList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedNhomSpkt} onChange={e => { setSelectedNhomSpkt(e.target.value); setSelectedLoaiSpkt('ALL'); }}>
+              <option value="ALL">Tất cả nhóm SPKT</option>
+              {nhomSpktList.map(n => <option key={n.maNhom} value={n.maNhom}>{n.tenNhom}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedLoaiSpkt} onChange={e => setSelectedLoaiSpkt(e.target.value)}>
+              <option value="ALL">Tất cả loại SPKT</option>
+              {loaiSpktList.filter(l => selectedNhomSpkt === 'ALL' || l.maNhom === selectedNhomSpkt).map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
+            </select>
+            <select className="tbdb-filter-select" value={selectedLoai} onChange={e => setSelectedLoai(e.target.value)}>
+              <option value="ALL">Tất cả loại</option>
+              {loaiTbdbLocList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
             </select>
             <select className="tbdb-filter-select" value={selectedCcl} onChange={e => setSelectedCcl(e.target.value)}>
               <option value="ALL">Tất cả cấp CL</option>
@@ -274,7 +316,7 @@ export default function HoSoTbDongBo() {
             </div>
             <div className="empty-state-desc">
               {items.length === 0
-                ? (selectedKho === 'ALL' && selectedLoai === 'ALL' && selectedKieuSpkt === 'ALL' && selectedCcl === 'ALL' && selectedTrangThai === 'ALL'
+                ? (selectedKho === 'ALL' && selectedLoai === 'ALL' && selectedNhomSpkt === 'ALL' && selectedLoaiSpkt === 'ALL' && selectedCcl === 'ALL' && selectedTrangThai === 'ALL'
                   ? 'Chưa có trang bị đồng bộ nào trong hệ thống — nhấn "+ Thêm hồ sơ" để tạo bản ghi đầu tiên'
                   : 'Không có trang bị nào khớp với bộ lọc đang chọn')
                 : 'Không có bản ghi nào khớp với bộ lọc / từ khóa hiện tại'}

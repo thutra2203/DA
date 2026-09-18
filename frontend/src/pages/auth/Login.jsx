@@ -19,7 +19,7 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await authAPI.login({ username: form.username, password: form.password });
-      login(res.data.user, res.data.token);
+      login(res.data.user, res.data.token, res.data.refreshToken);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại');

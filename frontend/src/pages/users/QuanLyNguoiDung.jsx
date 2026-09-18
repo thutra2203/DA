@@ -24,6 +24,20 @@ function styleVaiTro(maVaiTro) {
   return PALETTE[h % PALETTE.length];
 }
 
+// Ràng buộc độ mạnh mật khẩu — khớp đúng MatKhauValidator.KiemTra ở backend (UsersController),
+// để báo lỗi ngay trên form thay vì phải đợi gọi API rồi mới biết sai.
+const DO_DAI_MK_TOI_THIEU = 8;
+function kiemTraDoMauMatKhau(matKhau) {
+  if (!matKhau) return 'Mật khẩu không được để trống';
+  if (matKhau.length < DO_DAI_MK_TOI_THIEU) return `Mật khẩu phải có ít nhất ${DO_DAI_MK_TOI_THIEU} ký tự`;
+  if (!/[A-Z]/.test(matKhau)) return 'Mật khẩu phải có ít nhất 1 chữ hoa';
+  if (!/[a-z]/.test(matKhau)) return 'Mật khẩu phải có ít nhất 1 chữ thường';
+  if (!/[0-9]/.test(matKhau)) return 'Mật khẩu phải có ít nhất 1 chữ số';
+  if (!/[^A-Za-z0-9]/.test(matKhau)) return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt';
+  return '';
+}
+const GOI_Y_MAT_KHAU = `Tối thiểu ${DO_DAI_MK_TOI_THIEU} ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.`;
+
 export default function QuanLyNguoiDung() {
   usePageTitle('Quản lý người dùng');
   const [users, setUsers] = useState([]);
@@ -89,7 +103,8 @@ export default function QuanLyNguoiDung() {
     const next = {};
     if (!form.tenDangNhap || !form.tenDangNhap.trim()) next.tenDangNhap = 'Tên đăng nhập không được để trống';
     if (!form.hoTen || !form.hoTen.trim()) next.hoTen = 'Họ và tên không được để trống';
-    if (!form.matKhau) next.matKhau = 'Mật khẩu không được để trống';
+    const loiMatKhau = kiemTraDoMauMatKhau(form.matKhau);
+    if (loiMatKhau) next.matKhau = loiMatKhau;
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -225,14 +240,7 @@ export default function QuanLyNguoiDung() {
                             <span className="main-value">{u.TenDangNhap}</span>
                           </div>
                         </td>
-                        <td>
-                          {u.HoTen}
-                          {(u.TenChucVu || u.TenCapBac) && (
-                            <div className="sub-value" style={{ fontSize: 12 }}>
-                              {[u.TenChucVu, u.TenCapBac].filter(Boolean).join(' • ')}
-                            </div>
-                          )}
-                        </td>
+                        <td>{u.HoTen}</td>
                         <td>
                           <span className="badge" style={{ background: rc.bg, color: rc.color }}>{tenVaiTro}</span>
                         </td>
@@ -293,7 +301,7 @@ export default function QuanLyNguoiDung() {
               <div className="form-field">
                 <label className="form-label">Mật khẩu *</label>
                 <input className={`form-input${errors.matKhau ? ' form-input--invalid' : ''}`} type="password" autoComplete="new-password" value={form.matKhau} onChange={e => { setForm({ ...form, matKhau: e.target.value }); clearError('matKhau'); }} placeholder="Nhập mật khẩu" />
-                {errors.matKhau && <p className="form-error-text">{errors.matKhau}</p>}
+                {errors.matKhau ? <p className="form-error-text">{errors.matKhau}</p> : <p className="form-hint-text">{GOI_Y_MAT_KHAU}</p>}
               </div>
               <div className="form-field">
                 <label className="form-label">Email</label>
@@ -431,10 +439,7 @@ function ResetModal({ user, onClose, onSubmit }) {
   const [show, setShow] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  const loi = !pw ? 'Mật khẩu không được để trống'
-    : pw.length < 6 ? 'Mật khẩu phải từ 6 ký tự trở lên'
-      : pw2 !== pw ? 'Mật khẩu nhập lại không khớp'
-        : '';
+  const loi = kiemTraDoMauMatKhau(pw) || (pw2 !== pw ? 'Mật khẩu nhập lại không khớp' : '');
 
   const submit = () => {
     setTouched(true);
@@ -460,6 +465,7 @@ function ResetModal({ user, onClose, onSubmit }) {
             {show ? <FiEyeOff size={15} /> : <FiEye size={15} />}
           </button>
         </div>
+        {!(touched && loi) && <p className="form-hint-text">{GOI_Y_MAT_KHAU}</p>}
       </div>
       <div className="form-field">
         <label className="form-label">Nhập lại mật khẩu</label>

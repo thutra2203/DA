@@ -9,13 +9,13 @@ import SkeletonTable from '../../components/ui/SkeletonTable';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
-const MA_LOAI_LENH = 'NX05'; // Xuất hủy/thanh lý
+const MA_LOAI_LENH = 'HUYTBDB'; // Xuất hủy/thanh lý
 
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : '');
 
 // Chức năng "Tạo lệnh hủy/thanh lý" — CHỈ tạo lệnh, không thêm dòng chi tiết ở đây (làm ở chức
 // năng riêng "Cập nhật lệnh xuất hủy/thanh lý"). Dùng lại nguyên hệ Lệnh/CTDongBoTrongLenh của
-// Nhập/Xuất — chỉ là 1 loại lệnh Xuất mới ("NX05"). Form giống lệnh Xuất bình thường, bớt các
+// Nhập/Xuất — chỉ là 1 loại lệnh Xuất mới ("HUYTBDB"). Form giống lệnh Xuất bình thường, bớt các
 // trường không liên quan (hình thức thanh toán, phương thức/đơn vị vận chuyển). Khác lệnh Xuất
 // bình thường ở "kho nhận": thay vì chọn kho nội bộ HOẶC nhà cung cấp, ở đây LUÔN là 1 kho nghiệp
 // vụ (KNV, VD "Kho hủy/thanh lý") — trang bị coi như ra khỏi lưu thông nhưng vẫn giữ dấu vết.

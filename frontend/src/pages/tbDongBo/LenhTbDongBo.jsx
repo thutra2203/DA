@@ -40,6 +40,7 @@ export default function LenhTbDongBo() {
   const [lyDoList, setLyDoList] = useState([]);
   const [htttList, setHtttList] = useState([]);
   const [khoList, setKhoList] = useState([]);
+  const [capQuanLyList, setCapQuanLyList] = useState([]);
   const [nccList, setNccList] = useState([]);
   const [htVanChuyenList, setHtVanChuyenList] = useState([]);
 
@@ -47,6 +48,7 @@ export default function LenhTbDongBo() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedKho, setSelectedKho] = useState(maKhoNguoiDung || 'ALL');
+  const [selectedCapQuanLy, setSelectedCapQuanLy] = useState('ALL');
   const [selectedLyDo, setSelectedLyDo] = useState('ALL');
   const [selectedTrangThai, setSelectedTrangThai] = useState('ALL');
   const [page, setPage] = useState(1);
@@ -58,23 +60,23 @@ export default function LenhTbDongBo() {
   const [toast, setToast] = useState(null);
   const [printData, setPrintData] = useState(null); // { lenh, rows } — dữ liệu của lệnh đang chuẩn bị in
   const [dangInLenh, setDangInLenh] = useState(false);
-  const [maLenhChonIn, setMaLenhChonIn] = useState(null); // chỉ chọn được đúng 1 lệnh để in tại 1 thời điểm
+  const [maLenhChon, setMaLenhChon] = useState(null); // chỉ chọn được đúng 1 lệnh tại 1 thời điểm — dùng chung cho cả "In lệnh" và "Ghi lệnh" ở thanh công cụ
   const [detailRow, setDetailRow] = useState(null); // lệnh đang xem chi tiết (dữ liệu đã có sẵn trong danh sách, không cần gọi API riêng)
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
-  const toggleChonIn = (maLenh) => setMaLenhChonIn(prev => (prev === maLenh ? null : maLenh));
+  const toggleChon = (maLenh) => setMaLenhChon(prev => (prev === maLenh ? null : maLenh));
 
   // In nhanh ngay từ danh sách, không cần điều hướng sang trang chi tiết — tự tải thông tin lệnh
   // + danh sách dòng chi tiết của lệnh đang được chọn (checkbox), render ẩn (LenhPrintView) rồi mở
   // hộp thoại in ngay khi có đủ dữ liệu.
   const handlePrint = async () => {
-    if (!maLenhChonIn) return;
+    if (!maLenhChon) return;
     setDangInLenh(true);
     try {
       const [lenhRes, ctRes] = await Promise.all([
-        lenhTbDongBoAPI.getOne(maLenhChonIn),
-        lenhTbDongBoAPI.chiTiet.getAll(maLenhChonIn),
+        lenhTbDongBoAPI.getOne(maLenhChon),
+        lenhTbDongBoAPI.chiTiet.getAll(maLenhChon),
       ]);
       setPrintData({ lenh: lenhRes.data, rows: ctRes.data });
     } catch { showToast('Không tải được dữ liệu để in', 'error'); }
@@ -95,11 +97,12 @@ export default function LenhTbDongBo() {
       danhMucAPI.getAll('kho').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('ncc').then(res => res.data).catch(() => []),
       danhMucAPI.getAll('ht-van-chuyen').then(res => res.data).catch(() => []),
-    ]).then(([nx, ctnx, httt, kho, ncc, htvc]) => {
+      danhMucAPI.getAll('cap-quan-ly').then(res => res.data).catch(() => []),
+    ]).then(([nx, ctnx, httt, kho, ncc, htvc, capQuanLy]) => {
       // Trang này chỉ làm Nhập/Xuất — các loại lệnh khác (Chuyển cấp chất lượng, Xuất hủy/thanh lý,
       // Thay đổi hình thức niêm cất, Tồn đầu kỳ) đã có màn hình riêng ở menu, không hiện lại ở đây
       // để tránh trùng chức năng.
-      const CHI_NHAP_XUAT = ['NX03', 'NX04'];
+      const CHI_NHAP_XUAT = ['NHAPTBDB', 'XUATTBDB'];
       const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && CHI_NHAP_XUAT.includes(n.maNX));
       setLoaiLenhList(nxTbdb);
       setActiveLoaiLenh(nxTbdb[0]?.maNX || '');
@@ -108,6 +111,7 @@ export default function LenhTbDongBo() {
       setKhoList(kho);
       setNccList(ncc);
       setHtVanChuyenList(htvc);
+      setCapQuanLyList(capQuanLy);
     });
   }, []);
 
@@ -121,7 +125,7 @@ export default function LenhTbDongBo() {
   };
 
   useEffect(() => { loadItems(activeLoaiLenh, selectedKho); }, [activeLoaiLenh, selectedKho]);
-  useEffect(() => { setSelectedLyDo('ALL'); setMaLenhChonIn(null); }, [activeLoaiLenh]);
+  useEffect(() => { setSelectedLyDo('ALL'); setMaLenhChon(null); }, [activeLoaiLenh]);
 
   const activeLoai = loaiLenhList.find(n => n.maNX === activeLoaiLenh);
   const xuat = isXuat(activeLoai?.tenNX);
@@ -129,11 +133,23 @@ export default function LenhTbDongBo() {
   // sách CHỌN trong form/bộ lọc mới giới hạn kho vật lý — kho nghiệp vụ (KNV, VD "Kho chuyển cấp"/
   // "Kho hủy/thanh lý") là kho nội bộ dành riêng cho 2 chức năng đó, không tham gia lệnh Nhập/Xuất chung.
   const khoMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.tenKho])), [khoList]);
+  const khoCapQuanLyMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.maCapQuanLy])), [khoList]);
   const khoVatLyList = useMemo(() => khoList.filter(k => k.maLoaiKho !== 'KNV'), [khoList]);
+  const khoVatLyLocList = useMemo(() => (
+    selectedCapQuanLy === 'ALL' ? khoVatLyList : khoVatLyList.filter(k => k.maCapQuanLy === selectedCapQuanLy)
+  ), [khoVatLyList, selectedCapQuanLy]);
+
+  useEffect(() => {
+    if (selectedKho !== 'ALL' && !khoVatLyLocList.some(k => k.maKho === selectedKho)) setSelectedKho('ALL');
+  }, [khoVatLyLocList]);
 
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter(l => {
+      if (selectedCapQuanLy !== 'ALL') {
+        const khoTuThan = xuat ? l.maKhoXuat : l.maKhoNhap;
+        if (khoCapQuanLyMap[khoTuThan] !== selectedCapQuanLy) return false;
+      }
       if (selectedLyDo !== 'ALL' && l.maLenhChiTiet !== selectedLyDo) return false;
       if (selectedTrangThai !== 'ALL') {
         const daHoanThanh = l.trangThai === 'HOAN_THANH';
@@ -146,9 +162,9 @@ export default function LenhTbDongBo() {
       if (!q) return true;
       return [l.maLenh, l.veViec, l.canCu, l.tenLyDo].some(v => String(v ?? '').toLowerCase().includes(q));
     });
-  }, [items, search, selectedLyDo, selectedTrangThai]);
+  }, [items, search, selectedCapQuanLy, selectedLyDo, selectedTrangThai, khoCapQuanLyMap, xuat]);
 
-  useEffect(() => { setPage(1); }, [activeLoaiLenh, selectedKho, selectedLyDo, selectedTrangThai, search]);
+  useEffect(() => { setPage(1); }, [activeLoaiLenh, selectedKho, selectedCapQuanLy, selectedLyDo, selectedTrangThai, search]);
   const paged = bySearch.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE;
 
@@ -254,6 +270,12 @@ export default function LenhTbDongBo() {
     } catch (err) { showToast(err.response?.data?.message || 'Lỗi ghi lệnh', 'error'); }
   };
 
+  // Lệnh đang được tích chọn ở checkbox đầu dòng — dùng để bật/tắt nút "Ghi lệnh" trên thanh công cụ
+  // (chỉ ghi được khi lệnh đang soạn thảo, giống điều kiện vốn có ở nút ghi lệnh trên từng dòng).
+  const rowChon = items.find(r => r.maLenh === maLenhChon);
+  const chonDangSoanThao = !!rowChon && rowChon.trangThai !== 'HOAN_THANH' && rowChon.trangThai !== 'DA_BAN_HANH';
+  const handleGhiLenhTuChon = () => { if (rowChon) handleGhiLenh(rowChon); };
+
   const lyDoTrongLoai = lyDoList.filter(l => l.maNX === activeLoaiLenh);
 
   return (
@@ -268,9 +290,15 @@ export default function LenhTbDongBo() {
         <div className="table-toolbar">
           <span className="table-total">Tổng: <strong>{bySearch.length}</strong> lệnh</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-print" onClick={handlePrint} disabled={!maLenhChonIn || dangInLenh}>
+            <button className="btn-print" onClick={handlePrint} disabled={!maLenhChon || dangInLenh}>
               <FiPrinter style={{ marginRight: 6 }} /> {dangInLenh ? 'Đang tải...' : 'In lệnh'}
             </button>
+            {canSua && (
+              <button className="btn-success" onClick={handleGhiLenhTuChon} disabled={!chonDangSoanThao}
+                title={maLenhChon && !chonDangSoanThao ? 'Lệnh đã ban hành hoặc hoàn thành, không thể ghi lệnh' : 'Ghi lệnh — kết thúc soạn thảo, chuyển sang đã ban hành'}>
+                <FiCheckCircle style={{ marginRight: 6 }} />Ghi lệnh
+              </button>
+            )}
             {canThem && <button className="btn-add" onClick={openAdd} disabled={!activeLoaiLenh}>
               <FiPlus style={{ marginRight: 6 }} /> Tạo lệnh
             </button>}
@@ -300,9 +328,13 @@ export default function LenhTbDongBo() {
               <option value="ALL">Tất cả lý do</option>
               {lyDoTrongLoai.map(l => <option key={l.maCTNX} value={l.maCTNX}>{l.tenCTNX}</option>)}
             </select>
+            <select className="tbdb-filter-select" value={selectedCapQuanLy} onChange={e => setSelectedCapQuanLy(e.target.value)} disabled={!!maKhoNguoiDung}>
+              <option value="ALL">Tất cả cấp quản lý</option>
+              {capQuanLyList.map(c => <option key={c.maCapQuanLy} value={c.maCapQuanLy}>{c.tenCapQuanLy}</option>)}
+            </select>
             <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)} disabled={!!maKhoNguoiDung}>
               {!maKhoNguoiDung && <option value="ALL">Tất cả kho</option>}
-              {khoVatLyList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+              {khoVatLyLocList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
             </select>
             <select className="tbdb-filter-select" value={selectedTrangThai} onChange={e => setSelectedTrangThai(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
@@ -349,7 +381,7 @@ export default function LenhTbDongBo() {
                     return (
                       <tr key={row.maLenh}>
                         <td className="td-center">
-                          <input type="checkbox" checked={maLenhChonIn === row.maLenh} onChange={() => toggleChonIn(row.maLenh)} title="Chọn để in" />
+                          <input type="checkbox" checked={maLenhChon === row.maLenh} onChange={() => toggleChon(row.maLenh)} title="Chọn để in / ghi lệnh" />
                         </td>
                         <td className="td-muted td-center">{startIdx + i + 1}</td>
                         <td><span className="sub-value">{row.maLenh}</span></td>
@@ -376,11 +408,6 @@ export default function LenhTbDongBo() {
                           <div className="td-actions">
                             <button className="btn-icon-edit" onClick={() => setDetailRow(row)} title="Xem chi tiết"><FiEye size={13} /></button>
                             <button className="btn-icon-success" onClick={() => navigate(`/tb-dong-bo/tao-lenh-nhap-xuat/${row.maLenh}`)} title="Thêm/sửa dòng chi tiết"><FiList size={13} /></button>
-                            {canSua && dangSoanThao && (
-                              <button className="btn-icon-success" onClick={() => handleGhiLenh(row)} title="Ghi lệnh">
-                                <FiCheckCircle size={13} />
-                              </button>
-                            )}
                             {canSua && <button className="btn-icon-warn" disabled={!dangSoanThao} onClick={() => openEdit(row)} title={dangSoanThao ? 'Sửa' : 'Lệnh đã ban hành hoặc hoàn thành, không thể sửa'}><FiEdit2 size={13} /></button>}
                             {canXoa && <button className="btn-icon-delete" disabled={!dangSoanThao} onClick={() => handleDelete(row)} title={dangSoanThao ? 'Xóa' : 'Lệnh đã ban hành hoặc hoàn thành, không thể xóa'}><FiTrash2 size={13} /></button>}
                           </div>
@@ -475,7 +502,7 @@ export default function LenhTbDongBo() {
                   </div>
                 )}
                 <div className="form-field">
-                  <label className="form-label">{xuat ? 'Kho xuất)' : 'Kho xuất'} *</label>
+                  <label className="form-label">{xuat ? 'Kho nhập' : 'Kho xuất'} *</label>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                     <button type="button"
                       className={`tbdb-loai-chip${form.doiTacLoai === 'KHO' ? ' tbdb-loai-chip--active' : ''}`}

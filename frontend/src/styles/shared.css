@@ -209,6 +209,12 @@
   font-weight: 600;
 }
 
+.form-hint-text {
+  font-size: 11px;
+  color: #888;
+  margin-top: 5px;
+}
+
 /* ===== BUTTONS ===== */
 .btn-primary {
   display: inline-flex;

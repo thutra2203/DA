@@ -33,11 +33,11 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         int SoLuongCap1, int SoLuongCap2, int SoLuongCap3, int SoLuongCap4, int SoLuongCap5,
         string? NuocSx);
 
-    // Lọc danh sách TBDB theo kho/loại/kiểu SPKT/cấp chất lượng/trạng thái — dùng chung cho cả
-    // GET by-kho (hiển thị danh sách) và xuat-excel (xuất đúng những gì đang hiển thị theo bộ lọc)
-    // để 2 nơi luôn khớp nhau. Xem ghi chú chi tiết ở GetByKho bên dưới.
+    // Lọc danh sách TBDB theo kho/loại/nhóm SPKT/loại SPKT/cấp chất lượng/trạng thái — dùng chung
+    // cho cả GET by-kho (hiển thị danh sách) và xuat-excel (xuất đúng những gì đang hiển thị theo
+    // bộ lọc) để 2 nơi luôn khớp nhau. Xem ghi chú chi tiết ở GetByKho bên dưới.
     private async Task<List<HoSoRow>> LayDanhSachHoSoAsync(
-        string? maKho, string? maLoaiTbdb, string? maKieuSpkt, int? maCcl, string? maTrangThaiTb)
+        string? maKho, string? maLoaiTbdb, string? maNhomSpkt, string? maLoaiSpkt, int? maCcl, string? maTrangThaiTb)
     {
         // Chỉ tính vào "thực lực" các tồn kho thuộc lô đã HOÀN THÀNH (lệnh đã được kết thúc).
         // Lô còn đang xử lý (trangThaiLo = NHAP) chưa chính thức nên không được tính.
@@ -68,15 +68,21 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
         var chiLocTonKho = locTheoKho || maCcl.HasValue || !string.IsNullOrEmpty(maTrangThaiTb);
 
-        HashSet<string>? maTbdbDongBoKieuSpkt = null;
-        if (!string.IsNullOrEmpty(maKieuSpkt))
+        // Đồng bộ (NhomDongBo/ChiTietDongBo) gắn với Kiểu SPKT, không gắn trực tiếp với Nhóm/Loại —
+        // nên lọc theo Loại SPKT phải tra qua Loại.MaKieu (nếu Loại chưa khai Kiểu thì không có TBĐB
+        // nào khớp), còn lọc theo Nhóm SPKT phải gộp tất cả Kiểu thuộc nhóm đó lại.
+        HashSet<string>? maTbdbDongBo = null;
+        if (!string.IsNullOrEmpty(maLoaiSpkt))
         {
-            maTbdbDongBoKieuSpkt = (await _db.ChiTietDongBos
-                .Where(c => c.MaKieuSpkt == maKieuSpkt)
-                .Select(c => c.MaTbdb)
-                .Distinct()
-                .ToListAsync())
-                .ToHashSet();
+            var maKieuCuaLoai = await _db.LoaiSpkts.Where(l => l.MaLoai == maLoaiSpkt).Select(l => l.MaKieu).FirstOrDefaultAsync();
+            maTbdbDongBo = string.IsNullOrEmpty(maKieuCuaLoai)
+                ? []
+                : (await _db.ChiTietDongBos.Where(c => c.MaKieuSpkt == maKieuCuaLoai).Select(c => c.MaTbdb).Distinct().ToListAsync()).ToHashSet();
+        }
+        else if (!string.IsNullOrEmpty(maNhomSpkt))
+        {
+            var cacKieuTrongNhom = await _db.KieuSpkts.Where(k => k.MaNhom == maNhomSpkt).Select(k => k.MaKieu).ToListAsync();
+            maTbdbDongBo = (await _db.ChiTietDongBos.Where(c => cacKieuTrongNhom.Contains(c.MaKieuSpkt)).Select(c => c.MaTbdb).Distinct().ToListAsync()).ToHashSet();
         }
 
         var tbdbQuery = _db.Tbdbs
@@ -89,7 +95,7 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
         return list
             .Where(t => !chiLocTonKho || theoTbdb.ContainsKey(t.MaTbdb))
-            .Where(t => maTbdbDongBoKieuSpkt == null || maTbdbDongBoKieuSpkt.Contains(t.MaTbdb))
+            .Where(t => maTbdbDongBo == null || maTbdbDongBo.Contains(t.MaTbdb))
             .Select(t =>
             {
                 theoTbdb.TryGetValue(t.MaTbdb, out var tk);
@@ -104,19 +110,19 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             .ToList();
     }
 
-    // GET api/tb-dong-bo/ho-so/by-kho?maKho=ALL|<maKho>&maLoaiTbdb=&maKieuSpkt=&maCcl=&maTrangThaiTb=
-    // Danh sách TBDB kèm tổng số lượng tồn khớp bộ lọc — có thể lọc theo kho, loại TBĐB, kiểu
-    // SPKT (chỉ TBĐB đã khai đồng bộ cho kiểu đó — bảng ChiTietDongBo), cấp chất lượng và trạng
-    // thái trang bị. maLoaiTbdb/maKieuSpkt lọc theo định danh; maKho/maCcl/maTrangThaiTb lọc theo
-    // tồn kho nên khi có ít nhất 1 điều kiện tồn kho, chỉ hiện TBĐB thực sự có tồn khớp (tránh
-    // liệt kê "SL = 0" gây hiểu nhầm).
+    // GET api/tb-dong-bo/ho-so/by-kho?maKho=ALL|<maKho>&maLoaiTbdb=&maNhomSpkt=&maLoaiSpkt=&maCcl=&maTrangThaiTb=
+    // Danh sách TBDB kèm tổng số lượng tồn khớp bộ lọc — có thể lọc theo kho, loại TBĐB, nhóm/loại
+    // SPKT (chỉ TBĐB đã khai đồng bộ cho đúng Kiểu SPKT thuộc nhóm/loại đó — bảng ChiTietDongBo),
+    // cấp chất lượng và trạng thái trang bị. maLoaiTbdb/maNhomSpkt/maLoaiSpkt lọc theo định danh;
+    // maKho/maCcl/maTrangThaiTb lọc theo tồn kho nên khi có ít nhất 1 điều kiện tồn kho, chỉ hiện
+    // TBĐB thực sự có tồn khớp (tránh liệt kê "SL = 0" gây hiểu nhầm).
     [HttpGet("by-kho")]
     public async Task<IActionResult> GetByKho(
-        [FromQuery] string? maKho, [FromQuery] string? maLoaiTbdb, [FromQuery] string? maKieuSpkt,
-        [FromQuery] int? maCcl, [FromQuery] string? maTrangThaiTb)
+        [FromQuery] string? maKho, [FromQuery] string? maLoaiTbdb, [FromQuery] string? maNhomSpkt,
+        [FromQuery] string? maLoaiSpkt, [FromQuery] int? maCcl, [FromQuery] string? maTrangThaiTb)
     {
         if (this.IsGioiHanKho()) maKho = this.CurrentMaKho();
-        var list = await LayDanhSachHoSoAsync(maKho, maLoaiTbdb, maKieuSpkt, maCcl, maTrangThaiTb);
+        var list = await LayDanhSachHoSoAsync(maKho, maLoaiTbdb, maNhomSpkt, maLoaiSpkt, maCcl, maTrangThaiTb);
 
         var result = list.Select(t => new
         {
@@ -141,17 +147,17 @@ public class TbDongBoHoSoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         return Ok(result);
     }
 
-    // GET api/tb-dong-bo/ho-so/xuat-excel?maKho=ALL|<maKho>&maLoaiTbdb=&maKieuSpkt=&maCcl=&maTrangThaiTb=&search=
+    // GET api/tb-dong-bo/ho-so/xuat-excel?maKho=ALL|<maKho>&maLoaiTbdb=&maNhomSpkt=&maLoaiSpkt=&maCcl=&maTrangThaiTb=&search=
     // Xuất Excel danh sách hồ sơ TBĐB đúng theo bộ lọc đang áp dụng trên màn hình (dùng chung
     // LayDanhSachHoSoAsync với GetByKho nên luôn khớp với bảng đang hiển thị) — kèm cả từ khóa tìm
     // kiếm đang gõ trên ô tìm kiếm (lọc thêm ở đây vì ô tìm kiếm lọc phía client, không qua API).
     [HttpGet("xuat-excel")]
     public async Task<IActionResult> XuatExcel(
-        [FromQuery] string? maKho, [FromQuery] string? maLoaiTbdb, [FromQuery] string? maKieuSpkt,
-        [FromQuery] int? maCcl, [FromQuery] string? maTrangThaiTb, [FromQuery] string? search)
+        [FromQuery] string? maKho, [FromQuery] string? maLoaiTbdb, [FromQuery] string? maNhomSpkt,
+        [FromQuery] string? maLoaiSpkt, [FromQuery] int? maCcl, [FromQuery] string? maTrangThaiTb, [FromQuery] string? search)
     {
         if (this.IsGioiHanKho()) maKho = this.CurrentMaKho();
-        var list = await LayDanhSachHoSoAsync(maKho, maLoaiTbdb, maKieuSpkt, maCcl, maTrangThaiTb);
+        var list = await LayDanhSachHoSoAsync(maKho, maLoaiTbdb, maNhomSpkt, maLoaiSpkt, maCcl, maTrangThaiTb);
 
         if (!string.IsNullOrWhiteSpace(search))
         {

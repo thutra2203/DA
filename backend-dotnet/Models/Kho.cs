@@ -23,8 +23,6 @@ public partial class Kho
 
     public string? MaCapQuanLy { get; set; }
 
-    public virtual CapQuanLy? MaCapQuanLyNavigation { get; set; }
-
     public virtual ICollection<HoSoSpkt> HoSoSpkts { get; set; } = new List<HoSoSpkt>();
 
     public virtual ICollection<LenhChuyenCap> LenhChuyenCaps { get; set; } = new List<LenhChuyenCap>();
@@ -36,6 +34,8 @@ public partial class Kho
     public virtual ICollection<LenhThayDoiHtnc> LenhThayDoiHtncs { get; set; } = new List<LenhThayDoiHtnc>();
 
     public virtual ICollection<LenhThayDoiViTri> LenhThayDoiViTris { get; set; } = new List<LenhThayDoiViTri>();
+
+    public virtual CapQuanLy? MaCapQuanLyNavigation { get; set; }
 
     public virtual LoaiKho MaLoaiKhoNavigation { get; set; } = null!;
 

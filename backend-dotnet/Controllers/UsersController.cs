@@ -61,6 +61,9 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
         if (string.IsNullOrEmpty(body.TenDangNhap) || string.IsNullOrEmpty(body.MatKhau) || string.IsNullOrEmpty(body.HoTen))
             return BadRequest(new { message = "Thiếu thông tin bắt buộc" });
 
+        var loiMatKhau = MatKhauValidator.KiemTra(body.MatKhau);
+        if (loiMatKhau != null) return BadRequest(new { message = loiMatKhau });
+
         var exists = await db.NguoiDungs.AnyAsync(u => u.TenDangNhap == body.TenDangNhap);
         if (exists) return BadRequest(new { message = "Tên đăng nhập đã tồn tại" });
 
@@ -152,7 +155,12 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
         var user = await db.NguoiDungs.FindAsync(id);
         if (user == null) return NotFound(new { message = "Không tìm thấy tài khoản" });
 
-        user.MatKhauHash = BCrypt.Net.BCrypt.HashPassword(string.IsNullOrEmpty(body.MatKhauMoi) ? "123456" : body.MatKhauMoi, 10);
+        if (string.IsNullOrEmpty(body.MatKhauMoi)) return BadRequest(new { message = "Vui lòng nhập mật khẩu mới" });
+        var loiMatKhau = MatKhauValidator.KiemTra(body.MatKhauMoi);
+        if (loiMatKhau != null) return BadRequest(new { message = loiMatKhau });
+
+        user.MatKhauHash = BCrypt.Net.BCrypt.HashPassword(body.MatKhauMoi, 10);
+        user.SoLanSaiMk = 0; // đặt mật khẩu mới coi như khởi động lại, không giữ số lần sai cũ
         await db.SaveChangesAsync();
 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "NguoiDung", id.ToString(),
@@ -170,6 +178,7 @@ public class UsersController(QuanLyKhoQuanKhiContext db, IActivityLogger log) : 
 
         user.BiKhoa = !user.BiKhoa;
         user.LyDoKhoa = user.BiKhoa ? "Khóa bởi quản trị viên" : null;
+        if (!user.BiKhoa) user.SoLanSaiMk = 0; // mở khóa thì tính lại từ đầu, tránh khóa tự động ngay lần sai kế tiếp
         await db.SaveChangesAsync();
 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "NguoiDung", id.ToString(),

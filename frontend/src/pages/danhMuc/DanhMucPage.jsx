@@ -89,8 +89,8 @@ const CONFIG = {
   'cap-chat-luong': {
     title: 'Cấp chất lượng',
     fields: [
-      { col: 'maCap', label: 'Mã cấp (1-5)', pk: true, required: true, type: 'number' },
-      { col: 'tenCap', label: 'Tên cấp', required: true, display: true },
+      { col: 'maCap', label: 'Mã cấp', pk: true, required: true, type: 'number' },
+      { col: 'tenCap', label: 'Tên cấp CL', required: true, display: true },
       { col: 'moTa', label: 'Mô tả' },
     ],
   },
@@ -179,7 +179,7 @@ const CONFIG = {
       { col: 'maKieu', label: 'Mã kiểu', pk: true, required: true },
       { col: 'tenKieu', label: 'Tên kiểu', required: true, display: true },
       { col: 'maNhom', label: 'Nhóm SPKT', type: 'select', optionsFrom: 'nhom-spkt', optionValueKey: 'maNhom', optionLabelKey: 'tenNhom' },
-      { col: 'nuocSX', label: 'Nước SX' },
+      { col: 'maNuocSX', label: 'Nước SX', type: 'select', optionsFrom: 'nsx', optionValueKey: 'maNSX', optionLabelKey: 'tenNSX' },
       { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
       { col: 'ghiChu', label: 'Ghi chú', full: true },
     ],
@@ -256,7 +256,7 @@ const CONFIG = {
       { col: 'co', label: 'Cỡ' },
       { col: 'kiHieu', label: 'Ký hiệu' },
       // Xuất xứ / đơn vị
-      { col: 'nuocSX', label: 'Nước SX' },
+      { col: 'maNuocSX', label: 'Nước SX', type: 'select', optionsFrom: 'nsx', optionValueKey: 'maNSX', optionLabelKey: 'tenNSX' },
       { col: 'maDVT', label: 'Đơn vị tính', type: 'select', optionsFrom: 'dvt', optionValueKey: 'maDVT', optionLabelKey: 'tenDVT' },
       { col: 'ghiChu', label: 'Ghi chú', full: true },
     ],
@@ -361,6 +361,23 @@ export default function DanhMucPage({ type }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, data, refData, filterValues]);
 
+  // Khi 1 bộ lọc cha (VD "Nhóm SPKT") đổi giá trị, bộ lọc con (VD "Kiểu SPKT") có thể đang giữ 1 lựa
+  // chọn không còn thuộc danh sách đã thu hẹp — bỏ chọn để tránh lọc theo giá trị "ẩn" không còn
+  // hiển thị trong dropdown.
+  useEffect(() => {
+    const invalidCols = (config.filters || [])
+      .filter(f => filterValues[f.col] && !filterOptions(f).some(o => o.value === filterValues[f.col]))
+      .map(f => f.col);
+    if (invalidCols.length > 0) {
+      setFilterValues(prev => {
+        const next = { ...prev };
+        invalidCols.forEach(col => delete next[col]);
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterValues, refData]);
+
   // Tuỳ chọn lọc động: lấy giá trị duy nhất đang có trong dữ liệu (VD các năm đợt kiểm kê đã tạo).
   const filterOptions = (f) => {
     if (f.options) return f.options;
@@ -373,7 +390,18 @@ export default function DanhMucPage({ type }) {
     // thiện (VD "Súng bộ binh") thay vì mã thô ("NHOM01"), không cần khai báo lặp lại.
     const relatedField = config.fields.find(ff => ff.col === f.col && ff.optionsFrom);
     if (relatedField) {
-      return (refData[relatedField.optionsFrom] || []).map(r => ({
+      let rows = refData[relatedField.optionsFrom] || [];
+      // Lọc theo tầng cha: nếu 1 bộ lọc khác trong cùng danh mục đang chọn giá trị, và đối tượng
+      // liên quan (VD Kiểu SPKT) cũng có cột đó (VD maNhom) thì chỉ giữ lại các lựa chọn thuộc đúng
+      // giá trị cha đang chọn — tránh hiện "Kiểu SPKT" của nhóm khác khi đã lọc theo "Nhóm SPKT".
+      (config.filters || []).forEach(g => {
+        if (g.col === f.col) return;
+        const parentVal = filterValues[g.col];
+        if (parentVal && rows.length > 0 && Object.prototype.hasOwnProperty.call(rows[0], g.col)) {
+          rows = rows.filter(r => String(r[g.col]) === parentVal);
+        }
+      });
+      return rows.map(r => ({
         value: String(r[relatedField.optionValueKey]),
         label: r[relatedField.optionLabelKey],
       }));

@@ -23,15 +23,15 @@ public partial class HoSoSpkt
 
     public string? MaKho { get; set; }
 
-    public string? MaNhaKho { get; set; }
+    public string? TenNhaKho { get; set; }
 
-    public string? MaKhu { get; set; }
+    public string? TenDinhKhu { get; set; }
 
-    public string? MaKhoi { get; set; }
+    public string? TenKhoi { get; set; }
 
-    public string? MaTang { get; set; }
+    public string? TenTang { get; set; }
 
-    public string? MaHom { get; set; }
+    public string? TenHom { get; set; }
 
     public string? MaTrangThaiTb { get; set; }
 
@@ -55,21 +55,11 @@ public partial class HoSoSpkt
 
     public virtual HinhThucNiemCat? MaHinhThucNiemCatNavigation { get; set; }
 
-    public virtual Hom? MaHomNavigation { get; set; }
-
     public virtual Kho? MaKhoNavigation { get; set; }
-
-    public virtual KhoiHang? MaKhoiNavigation { get; set; }
-
-    public virtual DinhKhu? MaKhuNavigation { get; set; }
 
     public virtual LoaiSpkt MaLoaiSpktNavigation { get; set; } = null!;
 
-    public virtual NhaKho? MaNhaKhoNavigation { get; set; }
-
     public virtual Nsx? MaNuocSxNavigation { get; set; }
-
-    public virtual Tang? MaTangNavigation { get; set; }
 
     public virtual TinhTrangBaoGoi? MaTinhTrangBaoGoiNavigation { get; set; }
 

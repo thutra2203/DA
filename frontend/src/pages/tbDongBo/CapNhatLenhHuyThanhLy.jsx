@@ -9,7 +9,7 @@ import HuyThanhLyPrintView from './HuyThanhLyPrintView';
 import '../../styles/shared.css';
 import './HoSoTbDongBo.css';
 
-const MA_LOAI_LENH = 'NX05'; // Xuất hủy/thanh lý
+const MA_LOAI_LENH = 'HUYTBDB'; // Xuất hủy/thanh lý
 
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('vi-VN') : '');
 

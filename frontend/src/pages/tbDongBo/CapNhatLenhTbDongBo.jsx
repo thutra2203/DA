@@ -83,7 +83,7 @@ export default function CapNhatLenhTbDongBo() {
       // Trang này chỉ làm Nhập/Xuất — các loại lệnh khác (Chuyển cấp chất lượng, Xuất hủy/thanh lý,
       // Thay đổi hình thức niêm cất, Tồn đầu kỳ) đã có màn hình riêng ở menu, không hiện lại ở đây
       // để tránh trùng chức năng.
-      const CHI_NHAP_XUAT = ['NX03', 'NX04'];
+      const CHI_NHAP_XUAT = ['NHAPTBDB', 'XUATTBDB'];
       const nxTbdb = nx.filter(n => n.nhomTB === 'TBDB' && CHI_NHAP_XUAT.includes(n.maNX));
       setLoaiLenhList(nxTbdb);
       setActiveLoaiLenh(nxTbdb[0]?.maNX || '');

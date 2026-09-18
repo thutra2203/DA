@@ -9,8 +9,9 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const login = (userData, token) => {
+  const login = (userData, token, refreshToken) => {
     localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
@@ -18,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try { await authAPI.logout(); } catch { /* vẫn đăng xuất phía client dù ghi log lỗi */ }
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setUser(null);
   };

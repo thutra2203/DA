@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { thayDoiHtncAPI, danhMucAPI } from '../../services/api';
+import { thayDoiHtncAPI, danhMucAPI, chiTietDongBoAPI } from '../../services/api';
 import { FiArrowLeft, FiPlus, FiSave, FiTrash2, FiCheckCircle, FiSearch, FiDownload, FiUpload, FiX, FiPrinter } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -29,6 +29,14 @@ export default function XuLyThayDoiHtncPage() {
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
   const [dangThem, setDangThem] = useState(false);
+  const [nhomSpktList, setNhomSpktList] = useState([]);
+  const [loaiSpktList, setLoaiSpktList] = useState([]);
+  const [kieuSpktList, setKieuSpktList] = useState([]);
+  const [loaiTbdbList, setLoaiTbdbList] = useState([]);
+  const [chiTietDongBoList, setChiTietDongBoList] = useState([]);
+  const [selectedNhomSpkt, setSelectedNhomSpkt] = useState('ALL');
+  const [selectedLoaiSpkt, setSelectedLoaiSpkt] = useState('ALL');
+  const [selectedLoaiTbdb, setSelectedLoaiTbdb] = useState('ALL');
 
   const [forms, setForms] = useState({}); // { [maCtLenhThayDoiHtnc]: { soLuong, maHtncMoi, ghiChu } }
   const [dangLuuDong, setDangLuuDong] = useState(null);
@@ -53,6 +61,13 @@ export default function XuLyThayDoiHtncPage() {
 
   useEffect(() => { load(); }, [maLenh]);
   useEffect(() => { danhMucAPI.getAll('hinh-thuc-niem-cat').then(res => setHtncList(res.data)).catch(() => setHtncList([])); }, []);
+  useEffect(() => {
+    danhMucAPI.getAll('nhom-spkt').then(res => setNhomSpktList(res.data)).catch(() => setNhomSpktList([]));
+    danhMucAPI.getAll('loai-spkt').then(res => setLoaiSpktList(res.data)).catch(() => setLoaiSpktList([]));
+    danhMucAPI.getAll('kieu-spkt').then(res => setKieuSpktList(res.data)).catch(() => setKieuSpktList([]));
+    danhMucAPI.getAll('loai-tbdb').then(res => setLoaiTbdbList(res.data)).catch(() => setLoaiTbdbList([]));
+    chiTietDongBoAPI.getByNhom().then(res => setChiTietDongBoList(res.data)).catch(() => setChiTietDongBoList([]));
+  }, []);
   usePageTitle('Thay đổi hình thức niêm cất');
 
   const daKetThuc = lenh?.daKetThuc;
@@ -60,13 +75,55 @@ export default function XuLyThayDoiHtncPage() {
   const openAdd = () => {
     setForm({ maTonKho: '', soLuong: '', maHtncMoi: '', ghiChu: '', search: '' });
     setErrors({});
+    setSelectedNhomSpkt('ALL'); setSelectedLoaiSpkt('ALL'); setSelectedLoaiTbdb('ALL');
     setShowModal(true);
     thayDoiHtncAPI.getLoKhaDung(maLenh).then(res => setLoKhaDung(res.data)).catch(() => setLoKhaDung([]));
   };
 
   const dongChon = loKhaDung.find(l => String(l.maTonKho) === String(form.maTonKho));
 
+  // Đồng bộ (ChiTietDongBo) gắn với Kiểu SPKT, không gắn trực tiếp với Nhóm/Loại — nên lọc theo
+  // Loại SPKT phải tra qua Loại.MaKieu, còn lọc theo Nhóm SPKT phải gộp tất cả Kiểu thuộc nhóm đó.
+  // Loại TBĐB cũng ràng buộc theo cùng tập ChiTietDongBo này (chỉ hiện Loại TBĐB thực sự phối thuộc
+  // cho Kiểu SPKT đang chọn) — giống hệt logic đã dùng ở các trang xử lý lệnh khác.
+  const loaiSpktLocList = useMemo(() => (
+    selectedNhomSpkt === 'ALL' ? loaiSpktList : loaiSpktList.filter(l => l.maNhom === selectedNhomSpkt)
+  ), [loaiSpktList, selectedNhomSpkt]);
+
+  useEffect(() => {
+    if (selectedLoaiSpkt !== 'ALL' && !loaiSpktLocList.some(l => l.maLoai === selectedLoaiSpkt)) setSelectedLoaiSpkt('ALL');
+  }, [loaiSpktLocList]);
+
+  const cacKieuLienQuan = useMemo(() => {
+    if (selectedLoaiSpkt !== 'ALL') {
+      const loai = loaiSpktList.find(l => l.maLoai === selectedLoaiSpkt);
+      return loai?.maKieu ? [loai.maKieu] : [];
+    }
+    if (selectedNhomSpkt !== 'ALL') return kieuSpktList.filter(k => k.maNhom === selectedNhomSpkt).map(k => k.maKieu);
+    return null;
+  }, [selectedLoaiSpkt, selectedNhomSpkt, loaiSpktList, kieuSpktList]);
+
+  const dongBoEntriesLienQuan = useMemo(() => (
+    cacKieuLienQuan == null ? null : chiTietDongBoList.filter(c => cacKieuLienQuan.includes(c.maKieuSpkt))
+  ), [cacKieuLienQuan, chiTietDongBoList]);
+
+  const maTbdbDongBo = useMemo(() => (
+    dongBoEntriesLienQuan == null ? null : new Set(dongBoEntriesLienQuan.map(c => c.maTbdb))
+  ), [dongBoEntriesLienQuan]);
+
+  const loaiTbdbLocList = useMemo(() => {
+    if (dongBoEntriesLienQuan == null) return loaiTbdbList;
+    const allowed = new Set(dongBoEntriesLienQuan.map(c => c.maLoaiTbdb));
+    return loaiTbdbList.filter(l => allowed.has(l.maLoai));
+  }, [dongBoEntriesLienQuan, loaiTbdbList]);
+
+  useEffect(() => {
+    if (selectedLoaiTbdb !== 'ALL' && !loaiTbdbLocList.some(l => l.maLoai === selectedLoaiTbdb)) setSelectedLoaiTbdb('ALL');
+  }, [loaiTbdbLocList]);
+
   const loKhaDungLoc = loKhaDung.filter(l => {
+    if (selectedLoaiTbdb !== 'ALL' && l.maLoaiTbdb !== selectedLoaiTbdb) return false;
+    if (maTbdbDongBo != null && !maTbdbDongBo.has(l.maTbdb)) return false;
     const q = (form.search || '').trim().toLowerCase();
     if (!q) return true;
     return [l.tenTbdb, l.maLoTbdb].some(v => String(v ?? '').toLowerCase().includes(q));
@@ -390,10 +447,24 @@ export default function XuLyThayDoiHtncPage() {
                   <p className="form-hint" style={{ marginTop: 6 }}>Không còn dòng tồn kho nào khả dụng tại kho này để thêm vào lệnh.</p>
                 ) : (
                   <>
-                    <div className="search-wrap" style={{ width: 320, marginBottom: 8 }}>
-                      <FiSearch className="search-icon" />
-                      <input className="search-input" placeholder="Tìm theo tên trang bị, mã lô..." value={form.search}
-                        onChange={e => setForm({ ...form, search: e.target.value })} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <div className="search-wrap" style={{ width: 280 }}>
+                        <FiSearch className="search-icon" />
+                        <input className="search-input" placeholder="Tìm theo tên trang bị, mã lô..." value={form.search}
+                          onChange={e => setForm({ ...form, search: e.target.value })} />
+                      </div>
+                      <select className="tbdb-filter-select" value={selectedNhomSpkt} onChange={e => { setSelectedNhomSpkt(e.target.value); setSelectedLoaiSpkt('ALL'); }}>
+                        <option value="ALL">Tất cả nhóm SPKT</option>
+                        {nhomSpktList.map(n => <option key={n.maNhom} value={n.maNhom}>{n.tenNhom}</option>)}
+                      </select>
+                      <select className="tbdb-filter-select" value={selectedLoaiSpkt} onChange={e => setSelectedLoaiSpkt(e.target.value)}>
+                        <option value="ALL">Tất cả loại SPKT</option>
+                        {loaiSpktLocList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
+                      </select>
+                      <select className="tbdb-filter-select" value={selectedLoaiTbdb} onChange={e => setSelectedLoaiTbdb(e.target.value)}>
+                        <option value="ALL">Tất cả loại TBĐB</option>
+                        {loaiTbdbLocList.map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
+                      </select>
                     </div>
                     <div style={{ maxHeight: 320, overflowY: 'auto', border: '1.5px solid #e0e0e0', borderRadius: 0 }}>
                       <table className="data-table">

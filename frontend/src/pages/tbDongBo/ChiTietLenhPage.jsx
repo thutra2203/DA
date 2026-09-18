@@ -423,6 +423,8 @@ export default function ChiTietLenhPage() {
                 <div className="form-field">
                   <label className="form-label">Trang bị đồng bộ </label>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <input className="form-input" placeholder="Tìm theo mã/tên..." value={addModal.search}
+                      onChange={e => setAddModal({ ...addModal, search: e.target.value })} style={{ flex: 1 }} />
                     <select className="form-input" style={{ flex: '0 0 160px' }} value={addModal.selectedNhomSpkt}
                       onChange={e => setAddModal({ ...addModal, selectedNhomSpkt: e.target.value, selectedLoaiSpkt: 'ALL' })}>
                       <option value="ALL">Tất cả nhóm SPKT</option>
@@ -435,8 +437,6 @@ export default function ChiTietLenhPage() {
                         .filter(l => addModal.selectedNhomSpkt === 'ALL' || l.maNhom === addModal.selectedNhomSpkt)
                         .map(l => <option key={l.maLoai} value={l.maLoai}>{l.tenLoai}</option>)}
                     </select>
-                    <input className="form-input" placeholder="Tìm theo mã/tên..." value={addModal.search}
-                      onChange={e => setAddModal({ ...addModal, search: e.target.value })} style={{ flex: 1 }} />
                   </div>
                   {(addModal.selectedNhomSpkt === 'ALL' || addModal.selectedLoaiSpkt === 'ALL') ? (
                     <div className="tbdb-pick-list">
@@ -613,7 +613,7 @@ export default function ChiTietLenhPage() {
 
       {previewModal && (
         <div className="overlay" onClick={() => setPreviewModal(null)}>
-          <div className="modal modal--form-wide fade-in" onClick={e => e.stopPropagation()}>
+          <div className="modal modal--form-xwide fade-in" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Xem trước dữ liệu nhập từ Excel</h3>
               <button className="modal-close-btn" onClick={() => setPreviewModal(null)}><FiX /></button>

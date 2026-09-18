@@ -23,7 +23,7 @@ public partial class CtdongBoTrongLenh
 
     public long? MaTonKho { get; set; }
 
-    public virtual ICollection<CtXuatKho> CtXuatKhos { get; set; } = new List<CtXuatKho>();
+    public virtual ICollection<CtxuatKho> CtxuatKhos { get; set; } = new List<CtxuatKho>();
 
     public virtual LoTbdb? LoTbdb { get; set; }
 

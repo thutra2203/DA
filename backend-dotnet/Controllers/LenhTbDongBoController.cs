@@ -141,7 +141,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         return ([xl], QuyenHanhDong.Xem); // action lạ — mặc định cần quyền xử lý
     }
 
-    // GET api/tb-dong-bo/lenh?maLoaiLenh=NX03&maKho=K01
+    // GET api/tb-dong-bo/lenh?maLoaiLenh=NHAPTBDB&maKho=K01
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? maLoaiLenh, [FromQuery] string? maKho)
     {
@@ -370,7 +370,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             // chỉ ghi nhận, chưa trừ). Dòng tạo trước khi có cơ chế này (nếu còn) sẽ không có
             // CTXuatKho nào — bỏ qua, vì tồn kho của chúng đã được trừ ngay từ trước theo cơ chế cũ.
             var maCtIds = chiTietXuat.Select(c => c.MaCtdongBoLenh).ToList();
-            var xuatKhoRows = await db.CtXuatKhos.Where(x => maCtIds.Contains(x.MaCtdongBoLenh)).ToListAsync();
+            var xuatKhoRows = await db.CtxuatKhos.Where(x => maCtIds.Contains(x.MaCtdongBoLenh)).ToListAsync();
             var maTonKhoIds = xuatKhoRows.Select(x => x.MaTonKho).Distinct().ToList();
             var tonKhoRows = await db.TonKhoTbdbs.Where(t => maTonKhoIds.Contains(t.MaTonKho)).ToListAsync();
             var tonKhoMap = tonKhoRows.ToDictionary(t => t.MaTonKho);
@@ -624,9 +624,12 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             nhapMap.TryGetValue(k, out var n);
             var slTheoLenhXuat = x?.SoLuongTheoLenh;
             var slTheoLenhNhap = n?.SoLuongTheoLenh;
+            // "Khớp" phải đúng cả số lượng KHAI trên 2 chứng từ lẫn số lượng THỰC đã xử lý ở mỗi
+            // bên — chỉ so sánh SL theo lệnh sẽ bỏ sót trường hợp 2 lệnh khai giống nhau nhưng thực
+            // xuất/thực nhập đã lệch nhau (VD kho nhận chưa nhận đủ so với kho giao đã xuất).
             var trangThai = x == null ? "CHI_CO_O_NHAP"
                 : n == null ? "CHI_CO_O_XUAT"
-                : slTheoLenhXuat == slTheoLenhNhap ? "KHOP" : "LECH";
+                : slTheoLenhXuat == slTheoLenhNhap && (x.SoLuongThuc ?? 0) == (n.LoTbdb?.SoLuongNhap ?? 0) ? "KHOP" : "LECH";
             return new
             {
                 maTbdb = k.Item1,
@@ -757,6 +760,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
                 maLoTbdb = t.MaLoTbdb,
                 maTbdb = t.MaLoTbdbNavigation.MaTbdb,
                 tenTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.TenTbdb,
+                maLoaiTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.MaLoaiTbdb,
                 maCcl = t.MaLoTbdbNavigation.MaCcl,
                 capChatLuong = t.MaLoTbdbNavigation.MaCclNavigation.TenCap,
                 namSx = t.MaLoTbdbNavigation.NamSx,
@@ -784,7 +788,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
         var list = listRaw
-            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maCcl, t.capChatLuong, t.namSx, t.tenNuocSx,
+            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maLoaiTbdb, t.maCcl, t.capChatLuong, t.namSx, t.tenNuocSx,
                 soLuong = t.soLuong - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho)
                     - giuChoXuatKho.GetValueOrDefault(t.maTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.maTonKho)
                     - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho),
@@ -797,6 +801,8 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 
     public record XuatKhoDongDto(long MaTonKho, int SoLuong);
     public record XuatKhoDto(List<XuatKhoDongDto> Dong);
+    public record XuatKhoFileRowDto(int Dong, long MaCtdongBoLenh, long MaTonKho, int SoLuong);
+    public record XacNhanNhapXuatKhoDto(List<XuatKhoFileRowDto> DanhSach);
 
     // POST api/tb-dong-bo/lenh/{maLenh}/chi-tiet/{maCtdongBoLenh}/xuat-kho
     // Chọn 1 hoặc nhiều dòng tồn kho (lô + vị trí) cụ thể để "hứa" xuất cho dòng chi tiết này —
@@ -844,7 +850,7 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
             if (d.SoLuong > khaDung)
                 return BadRequest(new { message = $"Dòng tồn kho #{d.MaTonKho} chỉ còn {khaDung} khả dụng (có phần đang giữ chỗ cho lệnh khác), không thể xuất {d.SoLuong}" });
 
-            db.CtXuatKhos.Add(new CtXuatKho { MaCtdongBoLenh = maCtdongBoLenh, MaTonKho = d.MaTonKho, SoLuong = d.SoLuong });
+            db.CtxuatKhos.Add(new CtxuatKho { MaCtdongBoLenh = maCtdongBoLenh, MaTonKho = d.MaTonKho, SoLuong = d.SoLuong });
         }
 
         ctdbtl.SoLuongThuc = (ctdbtl.SoLuongThuc ?? 0) + tongXuatLanNay;
@@ -855,6 +861,296 @@ public class LenhTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "TonKhoTbdb", ctdbtl.MaTbdb,
             $"Chọn xuất kho {tongXuatLanNay} \"{ctdbtl.MaTbdb}\" từ lệnh \"{maLenh}\" (chưa trừ tồn kho — trừ khi Kết thúc lệnh)");
         return Ok(new { message = "Đã ghi nhận — tồn kho sẽ được trừ khi Kết thúc lệnh", soLuongThuc = ctdbtl.SoLuongThuc });
+    }
+
+    private static readonly string[] MauNhapXuatKhoHeaders =
+        ["Mã TB", "Tên TB", "Cấp CL", "SL phải xuất", "SL đã chọn", "Mã lô", "Vị trí", "Tồn khả dụng", "SL xuất"];
+    private const int MauXkSoLuong = 9, MauXkMaCt = 10, MauXkMaTonKho = 11;
+
+    private static string ViTriTonKhoText(TonKhoTbdb t) =>
+        string.Join(" / ", new[] { t.TenNhaKho, t.TenDinhKhu, t.TenKhoi, t.TenGia, t.TenTang, t.TenHom }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    // GET api/tb-dong-bo/lenh/{maLenh}/xuat-kho-file/mau-nhap
+    // Mẫu Excel liệt kê tất cả dòng tồn kho (lô + vị trí) khả dụng tại kho xuất, GHÉP CHO TỪNG dòng
+    // chi tiết của lệnh còn thiếu số lượng cần xuất — để điền "SL xuất" hàng loạt cho nhiều dòng/
+    // nhiều TBĐB trong 1 lần thay vì phải mở từng modal "Xuất kho" riêng lẻ. Cùng công thức khả dụng
+    // với GetTonKhoKhaDung/XuatKho (trừ phần đang giữ chỗ ở chuyển cấp, hủy/thanh lý, xuất kho khác,
+    // thay đổi vị trí, thay đổi HTNC).
+    [HttpGet("{maLenh}/xuat-kho-file/mau-nhap")]
+    public async Task<IActionResult> TaiMauNhapXuatKho(string maLenh)
+    {
+        var lenh = await db.Lenhs.Include(l => l.MaLoaiLenhNavigation).FirstOrDefaultAsync(l => l.MaLenh == maLenh);
+        if (lenh == null) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!ThuocKhoNguoiDung(lenh.MaKhoNhap, lenh.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!(lenh.MaLoaiLenhNavigation.TenNx ?? "").Contains("Xuất", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Chỉ xử lý thực xuất cho lệnh Xuất" });
+        if (string.IsNullOrWhiteSpace(lenh.MaKhoXuat)) return BadRequest(new { message = "Lệnh chưa có Kho xuất" });
+
+        var dsChiTiet = await db.CtdongBoTrongLenhs
+            .Include(c => c.MaTbdbNavigation)
+            .Include(c => c.MaCclNavigation)
+            .Where(c => c.MaLenh == maLenh && (c.SoLuongThuc ?? 0) < c.SoLuongTheoLenh)
+            .OrderBy(c => c.MaTbdb).ThenBy(c => c.MaCcl)
+            .ToListAsync();
+
+        var raw = new List<(CtdongBoTrongLenh Ct, TonKhoTbdb TonKho)>();
+        foreach (var c in dsChiTiet)
+        {
+            var dsTonKho = await db.TonKhoTbdbs
+                .Include(t => t.MaLoTbdbNavigation)
+                .Where(t => t.MaKho == lenh.MaKhoXuat && t.MaLoTbdbNavigation.MaTbdb == c.MaTbdb
+                    && t.MaLoTbdbNavigation.MaCcl == c.MaCcl && t.MaLoTbdbNavigation.TrangThaiLo == "HOAN_THANH" && t.SoLuong > 0)
+                .OrderBy(t => t.MaLoTbdb)
+                .ToListAsync();
+            raw.AddRange(dsTonKho.Select(t => (c, t)));
+        }
+
+        var maTonKhoIds = raw.Select(r => r.TonKho.MaTonKho).Distinct().ToList();
+        var giuChoChuyenCap = await ChuyenCapReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        int KhaDung(TonKhoTbdb t) => t.SoLuong - giuChoChuyenCap.GetValueOrDefault(t.MaTonKho) - giuChoHuy.GetValueOrDefault(t.MaTonKho)
+            - giuChoXuatKho.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiHtnc.GetValueOrDefault(t.MaTonKho);
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Nhap xuat kho");
+        for (var i = 0; i < MauNhapXuatKhoHeaders.Length; i++) ws.Cell(1, i + 1).Value = MauNhapXuatKhoHeaders[i];
+        ws.Row(1).Style.Font.Bold = true;
+        ws.Cell(1, MauXkSoLuong).Style.Fill.BackgroundColor = XLColor.FromArgb(255, 235, 205);
+        ws.Cell(1, MauXkSoLuong).Style.Font.FontColor = XLColor.FromArgb(140, 60, 0);
+
+        var row = 2;
+        foreach (var (c, t) in raw)
+        {
+            var khaDung = KhaDung(t);
+            if (khaDung <= 0) continue;
+            ws.Cell(row, 1).Value = c.MaTbdb;
+            ws.Cell(row, 2).Value = c.MaTbdbNavigation.TenTbdb;
+            ws.Cell(row, 3).Value = c.MaCclNavigation?.TenCap;
+            ws.Cell(row, 4).Value = c.SoLuongTheoLenh;
+            ws.Cell(row, 5).Value = c.SoLuongThuc ?? 0;
+            ws.Cell(row, 6).Value = t.MaLoTbdb;
+            ws.Cell(row, 7).Value = ViTriTonKhoText(t);
+            ws.Cell(row, 8).Value = khaDung;
+            ws.Cell(row, MauXkMaCt).Value = c.MaCtdongBoLenh;
+            ws.Cell(row, MauXkMaTonKho).Value = t.MaTonKho;
+            row++;
+        }
+
+        ws.Cell(row + 1, 1).Value = row == 2
+            ? "Không còn dòng nào cần chọn xuất kho (đã đủ số lượng, hoặc kho xuất hết tồn khả dụng)."
+            : "Chỉ điền \"SL xuất\" (> 0) vào các dòng cần chọn — để trống các dòng còn lại. Không sửa các cột khác.";
+        ws.Cell(row + 1, 1).Style.Font.Italic = true;
+
+        ws.Column(MauXkMaCt).Hide();
+        ws.Column(MauXkMaTonKho).Hide();
+        ws.Columns().AdjustToContents();
+        ws.SheetView.FreezeRows(1);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"mau-xuat-kho-{maLenh}.xlsx");
+    }
+
+    // POST api/tb-dong-bo/lenh/{maLenh}/xuat-kho-file/xem-truoc
+    [HttpPost("{maLenh}/xuat-kho-file/xem-truoc")]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<IActionResult> XemTruocNhapXuatKhoTuFile(string maLenh, IFormFile file)
+    {
+        var lenh = await db.Lenhs.Include(l => l.MaLoaiLenhNavigation).FirstOrDefaultAsync(l => l.MaLenh == maLenh);
+        if (lenh == null) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!ThuocKhoNguoiDung(lenh.MaKhoNhap, lenh.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!(lenh.MaLoaiLenhNavigation.TenNx ?? "").Contains("Xuất", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Chỉ xử lý thực xuất cho lệnh Xuất" });
+        if (lenh.TrangThai == "HOAN_THANH") return BadRequest(new { message = "Lệnh đã kết thúc, không thể xuất thêm" });
+        if (file == null || file.Length == 0) return BadRequest(new { message = "Chưa chọn file" });
+
+        var dsChiTiet = await db.CtdongBoTrongLenhs
+            .Include(c => c.MaTbdbNavigation)
+            .Include(c => c.MaCclNavigation)
+            .Where(c => c.MaLenh == maLenh)
+            .ToListAsync();
+        var ctById = dsChiTiet.ToDictionary(c => c.MaCtdongBoLenh);
+
+        var dsTonKho = await db.TonKhoTbdbs.Where(t => t.MaKho == lenh.MaKhoXuat).ToListAsync();
+        var tonKhoById = dsTonKho.ToDictionary(t => t.MaTonKho);
+
+        var maTonKhoIds = dsTonKho.Select(t => t.MaTonKho).ToList();
+        var giuChoChuyenCap = await ChuyenCapReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        int KhaDungGoc(TonKhoTbdb t) => t.SoLuong - giuChoChuyenCap.GetValueOrDefault(t.MaTonKho) - giuChoHuy.GetValueOrDefault(t.MaTonKho)
+            - giuChoXuatKho.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiHtnc.GetValueOrDefault(t.MaTonKho);
+
+        var daDungTrongFileTheoTonKho = new Dictionary<long, int>();
+        var daDungTrongFileTheoCt = new Dictionary<long, int>();
+
+        using var stream = file.OpenReadStream();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet(1);
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+        var danhSach = new List<object>();
+        for (var r = 2; r <= lastRow; r++)
+        {
+            var maCtStr = ws.Cell(r, MauXkMaCt).GetString().Trim();
+            var maTonKhoStr = ws.Cell(r, MauXkMaTonKho).GetString().Trim();
+            var soLuongStr = ws.Cell(r, MauXkSoLuong).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(maCtStr) || string.IsNullOrWhiteSpace(soLuongStr)) continue; // dòng trống/chưa điền — bỏ qua
+
+            int? soLuong = int.TryParse(soLuongStr, out var sl) ? sl : null;
+            if (soLuong is null or <= 0) continue; // chỉ hiển thị dòng có SL xuất > 0
+
+            var loiHang = new List<string>();
+            CtdongBoTrongLenh? ct = null;
+            if (!long.TryParse(maCtStr, out var maCt) || !ctById.TryGetValue(maCt, out ct))
+                loiHang.Add("Không tìm thấy dòng chi tiết tương ứng — có thể lệnh đã đổi, hãy tải lại mẫu mới nhất");
+
+            TonKhoTbdb? tonKho = null;
+            if (!long.TryParse(maTonKhoStr, out var maTonKho) || !tonKhoById.TryGetValue(maTonKho, out tonKho))
+                loiHang.Add("Không tìm thấy dòng tồn kho tương ứng — có thể đã hết hàng hoặc đổi vị trí, hãy tải lại mẫu mới nhất");
+
+            if (ct != null)
+            {
+                var conCanXuatGoc = ct.SoLuongTheoLenh - (ct.SoLuongThuc ?? 0);
+                var daDungCt = daDungTrongFileTheoCt.GetValueOrDefault(ct.MaCtdongBoLenh);
+                var conCanXuat = conCanXuatGoc - daDungCt;
+                if (soLuong.Value > conCanXuat)
+                    loiHang.Add($"\"{ct.MaTbdb}\" chỉ còn cần xuất {conCanXuat}, không thể chọn {soLuong}");
+                else
+                    daDungTrongFileTheoCt[ct.MaCtdongBoLenh] = daDungCt + soLuong.Value;
+            }
+            if (tonKho != null)
+            {
+                var khaDungGoc = KhaDungGoc(tonKho);
+                var daDungTk = daDungTrongFileTheoTonKho.GetValueOrDefault(tonKho.MaTonKho);
+                var khaDung = khaDungGoc - daDungTk;
+                if (soLuong.Value > khaDung)
+                    loiHang.Add($"Lô \"{tonKho.MaLoTbdb}\" chỉ còn {khaDung} khả dụng, không thể chọn {soLuong}");
+                else
+                    daDungTrongFileTheoTonKho[tonKho.MaTonKho] = daDungTk + soLuong.Value;
+            }
+
+            danhSach.Add(new
+            {
+                dong = r,
+                maCtdongBoLenh = ct?.MaCtdongBoLenh,
+                maTbdb = ct?.MaTbdb,
+                tenTbdb = ct?.MaTbdbNavigation?.TenTbdb,
+                tenCcl = ct?.MaCclNavigation?.TenCap,
+                soLuongTheoLenh = ct?.SoLuongTheoLenh,
+                soLuongThuc = ct?.SoLuongThuc ?? 0,
+                maTonKho = tonKho?.MaTonKho,
+                maLoTbdb = tonKho?.MaLoTbdb,
+                viTri = tonKho == null ? null : ViTriTonKhoText(tonKho),
+                khaDungGoc = tonKho == null ? (int?)null : KhaDungGoc(tonKho),
+                soLuong,
+                hopLe = loiHang.Count == 0,
+                loi = loiHang,
+            });
+        }
+
+        return Ok(new { tongSoDong = danhSach.Count, danhSach });
+    }
+
+    // POST api/tb-dong-bo/lenh/{maLenh}/xuat-kho-file/xac-nhan
+    // Kiểm tra lại từ đầu (không tin kết quả xem trước) — dòng nào lỗi thì báo lỗi và bỏ qua, không
+    // ảnh hưởng các dòng khác. Áp dụng đúng logic của XuatKho (chỉ "giữ chỗ" qua CTXuatKho + cộng
+    // dồn SoLuongThuc của dòng chi tiết — CHƯA trừ Tồn kho, chỉ thực trừ khi Kết thúc lệnh).
+    [HttpPost("{maLenh}/xuat-kho-file/xac-nhan")]
+    public async Task<IActionResult> XacNhanNhapXuatKhoTuFile(string maLenh, [FromBody] XacNhanNhapXuatKhoDto dto)
+    {
+        var lenh = await db.Lenhs.Include(l => l.MaLoaiLenhNavigation).FirstOrDefaultAsync(l => l.MaLenh == maLenh);
+        if (lenh == null) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!ThuocKhoNguoiDung(lenh.MaKhoNhap, lenh.MaKhoXuat)) return NotFound(new { message = "Không tìm thấy lệnh" });
+        if (!(lenh.MaLoaiLenhNavigation.TenNx ?? "").Contains("Xuất", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Chỉ xử lý thực xuất cho lệnh Xuất" });
+        if (lenh.TrangThai == "HOAN_THANH") return BadRequest(new { message = "Lệnh đã kết thúc, không thể xuất thêm" });
+        if (dto.DanhSach == null || dto.DanhSach.Count == 0) return BadRequest(new { message = "Chưa có dòng nào để lưu" });
+
+        var dsChiTiet = await db.CtdongBoTrongLenhs.Where(c => c.MaLenh == maLenh).ToListAsync();
+        var ctById = dsChiTiet.ToDictionary(c => c.MaCtdongBoLenh);
+
+        var dsTonKho = await db.TonKhoTbdbs.Where(t => t.MaKho == lenh.MaKhoXuat).ToListAsync();
+        var tonKhoById = dsTonKho.ToDictionary(t => t.MaTonKho);
+
+        var maTonKhoIds = dsTonKho.Select(t => t.MaTonKho).ToList();
+        var giuChoChuyenCap = await ChuyenCapReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoHuy = await HuyThanhLyReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoXuatKho = await XuatKhoReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiViTri = await ThayDoiViTriReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
+        var daDungTrongFileTheoTonKho = new Dictionary<long, int>();
+        int KhaDung(TonKhoTbdb t) => t.SoLuong - giuChoChuyenCap.GetValueOrDefault(t.MaTonKho) - giuChoHuy.GetValueOrDefault(t.MaTonKho)
+            - giuChoXuatKho.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiViTri.GetValueOrDefault(t.MaTonKho) - giuChoThayDoiHtnc.GetValueOrDefault(t.MaTonKho)
+            - daDungTrongFileTheoTonKho.GetValueOrDefault(t.MaTonKho);
+
+        var daDungTrongLanNayTheoCt = new Dictionary<long, int>();
+        var ketQua = new List<object>();
+        var thanhCong = 0;
+
+        foreach (var row in dto.DanhSach)
+        {
+            if (!ctById.TryGetValue(row.MaCtdongBoLenh, out var ct))
+            {
+                ketQua.Add(new { dong = row.Dong, loi = "Không tìm thấy dòng chi tiết tương ứng" });
+                continue;
+            }
+            if (!tonKhoById.TryGetValue(row.MaTonKho, out var tonKho))
+            {
+                ketQua.Add(new { dong = row.Dong, maTbdb = ct.MaTbdb, loi = "Không tìm thấy dòng tồn kho tương ứng" });
+                continue;
+            }
+            if (row.SoLuong <= 0)
+            {
+                ketQua.Add(new { dong = row.Dong, maTbdb = ct.MaTbdb, loi = "SL xuất phải lớn hơn 0" });
+                continue;
+            }
+
+            var conCanXuat = ct.SoLuongTheoLenh - (ct.SoLuongThuc ?? 0) - daDungTrongLanNayTheoCt.GetValueOrDefault(ct.MaCtdongBoLenh);
+            if (row.SoLuong > conCanXuat)
+            {
+                ketQua.Add(new { dong = row.Dong, maTbdb = ct.MaTbdb, loi = $"\"{ct.MaTbdb}\" chỉ còn cần xuất {conCanXuat}, không thể chọn {row.SoLuong}" });
+                continue;
+            }
+
+            var khaDung = KhaDung(tonKho);
+            if (row.SoLuong > khaDung)
+            {
+                ketQua.Add(new { dong = row.Dong, maTbdb = ct.MaTbdb, loi = $"Lô \"{tonKho.MaLoTbdb}\" chỉ còn {khaDung} khả dụng, không thể chọn {row.SoLuong}" });
+                continue;
+            }
+
+            var xk = new CtxuatKho { MaCtdongBoLenh = ct.MaCtdongBoLenh, MaTonKho = tonKho.MaTonKho, SoLuong = row.SoLuong };
+            db.CtxuatKhos.Add(xk);
+            ct.SoLuongThuc = (ct.SoLuongThuc ?? 0) + row.SoLuong;
+
+            try
+            {
+                await db.SaveChangesAsync();
+                thanhCong++;
+                daDungTrongLanNayTheoCt[ct.MaCtdongBoLenh] = daDungTrongLanNayTheoCt.GetValueOrDefault(ct.MaCtdongBoLenh) + row.SoLuong;
+                daDungTrongFileTheoTonKho[tonKho.MaTonKho] = daDungTrongFileTheoTonKho.GetValueOrDefault(tonKho.MaTonKho) + row.SoLuong;
+            }
+            catch (DbUpdateException ex)
+            {
+                db.Entry(xk).State = EntityState.Detached;
+                ct.SoLuongThuc -= row.SoLuong;
+                ketQua.Add(new { dong = row.Dong, maTbdb = ct.MaTbdb, loi = DbErrorTranslator.Translate(ex) });
+            }
+        }
+
+        if (thanhCong > 0)
+        {
+            await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "TonKhoTbdb", maLenh,
+                $"Nhập file: chọn xuất kho cho {thanhCong} dòng của lệnh \"{maLenh}\" (chưa trừ tồn kho — trừ khi Kết thúc lệnh)");
+        }
+
+        return Ok(new { thanhCong, thatBai = ketQua.Count, chiTietLoi = ketQua });
     }
 
     // POST api/tb-dong-bo/lenh/{maLenh}/chi-tiet/{maCtdongBoLenh}/tao-lo

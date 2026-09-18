@@ -9,19 +9,19 @@ public partial class LoaiSpkt
 
     public string MaNhom { get; set; } = null!;
 
-    public string? MaKieu { get; set; }
-
     public string TenLoai { get; set; } = null!;
 
     public string? Co { get; set; }
 
     public string? KiHieu { get; set; }
 
-    public string? NuocSx { get; set; }
-
     public string? MaDvt { get; set; }
 
     public string? GhiChu { get; set; }
+
+    public string? MaKieu { get; set; }
+
+    public string? MaNsx { get; set; }
 
     public virtual ICollection<ChiTietKiemKe> ChiTietKiemKes { get; set; } = new List<ChiTietKiemKe>();
 
@@ -32,6 +32,8 @@ public partial class LoaiSpkt
     public virtual KieuSpkt? MaKieuNavigation { get; set; }
 
     public virtual NhomSpkt MaNhomNavigation { get; set; } = null!;
+
+    public virtual Nsx? MaNsxNavigation { get; set; }
 
     public virtual ICollection<SpkttrongLenh> SpkttrongLenhs { get; set; } = new List<SpkttrongLenh>();
 

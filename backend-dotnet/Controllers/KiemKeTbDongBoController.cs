@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using backend_dotnet.Models;
 using backend_dotnet.Services;
 using backend_dotnet.Services.Rbac;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,8 @@ namespace backend_dotnet.Controllers;
 public record TaoPhieuKiemKeDto(string MaDotKiemKe, string MaKho, DateOnly NgayLap, DateOnly? NgayKiemKe);
 public record SuaPhieuKiemKeDto(DateOnly NgayLap, DateOnly? NgayKiemKe, string? NoiDung);
 public record CapNhatChiTietViTriDto(int SoLuongThucTe, string? GhiChu);
+public record KiemKeFileRowDto(int Dong, int MaCtKiemKeViTri, int SoLuongThucTe, string? GhiChu);
+public record XacNhanNhapKiemKeDto(List<KiemKeFileRowDto> DanhSach);
 
 [ApiController]
 [Authorize]
@@ -89,6 +92,7 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
 
         var chiTietRaw = await db.ChiTietKiemKes
             .Include(c => c.MaTbdbNavigation).ThenInclude(t => t.MaDvtNavigation)
+            .Include(c => c.MaTbdbNavigation).ThenInclude(t => t.MaLoaiTbdbNavigation)
             .Include(c => c.MaCclNavigation)
             .Where(c => c.MaPhieuKiemKe == maPhieu)
             .OrderBy(c => c.MaTbdb).ThenBy(c => c.MaCcl)
@@ -127,6 +131,8 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             maCtKiemKe = c.MaCtkiemKe,
             maTbdb = c.MaTbdb,
             tenTbdb = c.MaTbdbNavigation?.TenTbdb,
+            maLoaiTbdb = c.MaTbdbNavigation?.MaLoaiTbdb,
+            tenLoaiTbdb = c.MaTbdbNavigation?.MaLoaiTbdbNavigation?.TenLoai,
             tenDvt = c.MaTbdbNavigation?.MaDvtNavigation?.TenDvt,
             maCcl = c.MaCcl,
             capChatLuong = c.MaCclNavigation?.TenCap,
@@ -424,6 +430,191 @@ public class KiemKeTbDongBoController(QuanLyKhoQuanKhiContext db, IActivityLogge
             parentThua = ct.Thua,
             parentThieu = ct.Thieu,
         });
+    }
+
+    private static readonly string[] MauNhapKiemKeHeaders =
+        ["Mã TB", "Tên TB", "Cấp CL", "Mã lô", "Năm SX", "Nước SX", "Vị trí", "SL sổ sách", "SL thực tế", "Ghi chú"];
+    private const int MauKkSlThucTe = 9, MauKkGhiChu = 10, MauKkMaCtViTri = 11;
+
+    private static string MoTaViTriDong(ChiTietKiemKeViTri v) =>
+        string.Join(" / ", new[] { v.TenNhaKho, v.TenDinhKhu, v.TenKhoi, v.TenGia, v.TenTang, v.TenHom }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    // GET api/tb-dong-bo/kiem-ke/{maPhieu}/nhap-file/mau-nhap
+    // Mẫu Excel liệt kê TOÀN BỘ dòng lô/vị trí hiện có của phiếu (không phải để thêm dòng mới —
+    // phiếu kiểm kê chỉ ghi nhận trên các dòng tồn kho đã snapshot lúc tạo phiếu), cột "SL thực tế"
+    // pre-fill giá trị hiện tại để người kiểm kê chỉ cần sửa những dòng có chênh lệch. Mã CT kiểm kê
+    // vị trí (cột ẩn) dùng để khớp lại đúng dòng khi nhập lên, không dựa vào mã lô + vị trí (dễ trùng).
+    [HttpGet("{maPhieu}/nhap-file/mau-nhap")]
+    public async Task<IActionResult> TaiMauNhap(string maPhieu)
+    {
+        var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu && p.NhomTb == NhomTbTbdb);
+        if (phieu == null) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+        if (this.IsGioiHanKho() && phieu.MaKho != this.CurrentMaKho()) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+
+        var dsViTri = await db.ChiTietKiemKeViTris
+            .Include(v => v.MaCtkiemKeNavigation).ThenInclude(c => c.MaTbdbNavigation)
+            .Include(v => v.MaCtkiemKeNavigation).ThenInclude(c => c.MaCclNavigation)
+            .Include(v => v.MaLoTbdbNavigation).ThenInclude(l => l!.MaNuocSxNavigation)
+            .Where(v => v.MaCtkiemKeNavigation.MaPhieuKiemKe == maPhieu)
+            .OrderBy(v => v.MaCtkiemKeNavigation.MaTbdb).ThenBy(v => v.MaCtkiemKe).ThenBy(v => v.MaLoTbdb)
+            .ToListAsync();
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Nhap kiem ke");
+        for (var i = 0; i < MauNhapKiemKeHeaders.Length; i++) ws.Cell(1, i + 1).Value = MauNhapKiemKeHeaders[i];
+        ws.Row(1).Style.Font.Bold = true;
+        foreach (var col in new[] { MauKkSlThucTe, MauKkGhiChu })
+        {
+            ws.Cell(1, col).Style.Fill.BackgroundColor = XLColor.FromArgb(255, 235, 205);
+            ws.Cell(1, col).Style.Font.FontColor = XLColor.FromArgb(140, 60, 0);
+        }
+
+        var row = 2;
+        foreach (var v in dsViTri)
+        {
+            var ct = v.MaCtkiemKeNavigation;
+            ws.Cell(row, 1).Value = ct.MaTbdb;
+            ws.Cell(row, 2).Value = ct.MaTbdbNavigation?.TenTbdb;
+            ws.Cell(row, 3).Value = ct.MaCclNavigation?.TenCap;
+            ws.Cell(row, 4).Value = v.MaLoTbdb;
+            ws.Cell(row, 5).Value = v.MaLoTbdbNavigation?.NamSx;
+            ws.Cell(row, 6).Value = v.MaLoTbdbNavigation?.MaNuocSxNavigation?.TenNsx;
+            ws.Cell(row, 7).Value = MoTaViTriDong(v);
+            ws.Cell(row, 8).Value = v.SoLuongSoSach;
+            ws.Cell(row, MauKkSlThucTe).Value = v.SoLuongThucTe;
+            ws.Cell(row, MauKkGhiChu).Value = v.GhiChu;
+            ws.Cell(row, MauKkMaCtViTri).Value = v.MaCtkiemKeViTri;
+            row++;
+        }
+
+        ws.Cell(row + 1, 1).Value = "Chỉ sửa cột \"SL thực tế\" và \"Ghi chú\" — không sửa các cột khác, không thêm/xóa dòng.";
+        ws.Cell(row + 1, 1).Style.Font.Italic = true;
+
+        ws.Column(MauKkMaCtViTri).Hide();
+        ws.Columns().AdjustToContents();
+        ws.SheetView.FreezeRows(1);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"mau-kiem-ke-{maPhieu}.xlsx");
+    }
+
+    // POST api/tb-dong-bo/kiem-ke/{maPhieu}/nhap-file/xem-truoc
+    [HttpPost("{maPhieu}/nhap-file/xem-truoc")]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<IActionResult> XemTruocNhapTuFile(string maPhieu, IFormFile file)
+    {
+        var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu && p.NhomTb == NhomTbTbdb);
+        if (phieu == null) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+        if (this.IsGioiHanKho() && phieu.MaKho != this.CurrentMaKho()) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+        if (phieu.TrangThai == "HOAN_THANH") return BadRequest(new { message = "Phiếu đã kết thúc, không thể sửa" });
+        if (file == null || file.Length == 0) return BadRequest(new { message = "Chưa chọn file" });
+
+        var dsViTri = await db.ChiTietKiemKeViTris
+            .Include(v => v.MaCtkiemKeNavigation).ThenInclude(c => c.MaTbdbNavigation)
+            .Include(v => v.MaCtkiemKeNavigation).ThenInclude(c => c.MaCclNavigation)
+            .Where(v => v.MaCtkiemKeNavigation.MaPhieuKiemKe == maPhieu)
+            .ToListAsync();
+        var byId = dsViTri.ToDictionary(v => v.MaCtkiemKeViTri);
+
+        using var stream = file.OpenReadStream();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet(1);
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+        var danhSach = new List<object>();
+        for (var r = 2; r <= lastRow; r++)
+        {
+            var idStr = ws.Cell(r, MauKkMaCtViTri).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(idStr)) continue; // dòng trống hoặc ghi chú cuối file — bỏ qua
+
+            var loiHang = new List<string>();
+            ChiTietKiemKeViTri? viTri = null;
+            if (!int.TryParse(idStr, out var maCtViTri) || !byId.TryGetValue(maCtViTri, out viTri))
+                loiHang.Add("Không tìm thấy dòng chi tiết kiểm kê tương ứng — có thể phiếu đã đổi, hãy tải lại mẫu mới nhất");
+
+            var slStr = ws.Cell(r, MauKkSlThucTe).GetString().Trim();
+            int? soLuongThucTe = int.TryParse(slStr, out var sl) ? sl : null;
+            if (soLuongThucTe is null) loiHang.Add("SL thực tế phải là số nguyên");
+            else if (soLuongThucTe < 0) loiHang.Add("SL thực tế không được âm");
+
+            var ghiChuRaw = ws.Cell(r, MauKkGhiChu).GetString().Trim();
+
+            danhSach.Add(new
+            {
+                dong = r,
+                maCtKiemKeViTri = viTri?.MaCtkiemKeViTri,
+                maTbdb = viTri?.MaCtkiemKeNavigation.MaTbdb,
+                tenTbdb = viTri?.MaCtkiemKeNavigation.MaTbdbNavigation?.TenTbdb,
+                capHienTai = viTri?.MaCtkiemKeNavigation.MaCclNavigation?.TenCap,
+                maLoTbdb = viTri?.MaLoTbdb,
+                viTri = viTri == null ? null : MoTaViTriDong(viTri),
+                soLuongSoSach = viTri?.SoLuongSoSach,
+                soLuongThucTe,
+                ghiChu = string.IsNullOrWhiteSpace(ghiChuRaw) ? null : ghiChuRaw,
+                hopLe = loiHang.Count == 0,
+                loi = loiHang,
+            });
+        }
+
+        return Ok(new { tongSoDong = danhSach.Count, danhSach });
+    }
+
+    // POST api/tb-dong-bo/kiem-ke/{maPhieu}/nhap-file/xac-nhan
+    // Kiểm tra lại từ đầu (không tin kết quả xem trước) — dòng nào lỗi thì báo lỗi và bỏ qua, không
+    // ảnh hưởng các dòng khác. Sau khi cập nhật các dòng vị trí, cộng dồn lại soLuongThucTe của TẤT
+    // CẢ dòng cha (ChiTietKiemKe) liên quan từ tổng các dòng con — giống hệt CapNhatChiTietViTri.
+    [HttpPost("{maPhieu}/nhap-file/xac-nhan")]
+    public async Task<IActionResult> XacNhanNhapTuFile(string maPhieu, [FromBody] XacNhanNhapKiemKeDto dto)
+    {
+        var phieu = await db.PhieuKiemKes.FirstOrDefaultAsync(p => p.MaPhieuKiemKe == maPhieu && p.NhomTb == NhomTbTbdb);
+        if (phieu == null) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+        if (this.IsGioiHanKho() && phieu.MaKho != this.CurrentMaKho()) return NotFound(new { message = "Không tìm thấy phiếu kiểm kê" });
+        if (phieu.TrangThai == "HOAN_THANH") return BadRequest(new { message = "Phiếu đã kết thúc, không thể sửa" });
+        if (dto.DanhSach == null || dto.DanhSach.Count == 0) return BadRequest(new { message = "Chưa có dòng nào để lưu" });
+
+        var dsViTri = await db.ChiTietKiemKeViTris
+            .Include(v => v.MaCtkiemKeNavigation)
+            .Where(v => v.MaCtkiemKeNavigation.MaPhieuKiemKe == maPhieu)
+            .ToListAsync();
+        var byId = dsViTri.ToDictionary(v => v.MaCtkiemKeViTri);
+
+        var ketQua = new List<object>();
+        var thanhCong = 0;
+
+        foreach (var row in dto.DanhSach)
+        {
+            if (!byId.TryGetValue(row.MaCtKiemKeViTri, out var viTri))
+            {
+                ketQua.Add(new { dong = row.Dong, loi = "Không tìm thấy dòng chi tiết kiểm kê tương ứng" });
+                continue;
+            }
+            if (row.SoLuongThucTe < 0)
+            {
+                ketQua.Add(new { dong = row.Dong, maLoTbdb = viTri.MaLoTbdb, loi = "SL thực tế không được âm" });
+                continue;
+            }
+
+            viTri.SoLuongThucTe = row.SoLuongThucTe;
+            viTri.GhiChu = row.GhiChu;
+            thanhCong++;
+        }
+
+        if (thanhCong > 0)
+        {
+            // Cộng dồn lại từ TOÀN BỘ dòng con trong bộ nhớ (không query lại DB — các dòng vừa sửa
+            // ở trên chưa SaveChanges nên query mới sẽ đọc phải giá trị cũ).
+            foreach (var ct in dsViTri.Select(v => v.MaCtkiemKeNavigation).Distinct())
+                ct.SoLuongThucTe = dsViTri.Where(v => v.MaCtkiemKe == ct.MaCtkiemKe).Sum(v => v.SoLuongThucTe);
+
+            try { await db.SaveChangesAsync(); }
+            catch (DbUpdateException ex) { return BadRequest(new { message = DbErrorTranslator.Translate(ex) }); }
+
+            await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "SUA", "ChiTietKiemKeViTri", maPhieu,
+                $"Nhập file: cập nhật SL thực tế cho {thanhCong} dòng kiểm kê của phiếu \"{maPhieu}\"");
+        }
+
+        return Ok(new { thanhCong, thatBai = ketQua.Count, chiTietLoi = ketQua });
     }
 
     // POST api/tb-dong-bo/kiem-ke/{maPhieu}/ket-thuc

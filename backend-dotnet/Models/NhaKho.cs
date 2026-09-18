@@ -13,9 +13,5 @@ public partial class NhaKho
 
     public string? GhiChu { get; set; }
 
-    public virtual ICollection<DinhKhu> DinhKhus { get; set; } = new List<DinhKhu>();
-
-    public virtual ICollection<HoSoSpkt> HoSoSpkts { get; set; } = new List<HoSoSpkt>();
-
     public virtual Kho MaKhoNavigation { get; set; } = null!;
 }

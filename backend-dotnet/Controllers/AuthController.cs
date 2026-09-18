@@ -11,6 +11,9 @@ namespace backend_dotnet.Controllers;
 [Route("api/auth")]
 public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenService, IActivityLogger log) : ControllerBase
 {
+    // Số lần nhập sai mật khẩu liên tiếp tối đa trước khi tự động khóa tài khoản.
+    private const int SoLanSaiToiDa = 5;
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest body)
     {
@@ -36,9 +39,19 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
         if (!BCrypt.Net.BCrypt.Verify(body.Password, user.MatKhauHash))
         {
             user.SoLanSaiMk += 1;
+            var vuaBiKhoa = user.SoLanSaiMk >= SoLanSaiToiDa;
+            if (vuaBiKhoa)
+            {
+                user.BiKhoa = true;
+                user.LyDoKhoa = $"Khóa tự động do nhập sai mật khẩu {SoLanSaiToiDa} lần liên tiếp";
+            }
             await db.SaveChangesAsync();
-            await log.LogAsync(user.MaNd, user.TenDangNhap, "DANG_NHAP", ketQua: "THAT_BAI", lyDoThatBai: "Sai mật khẩu");
-            return Unauthorized(new { message = "Mật khẩu không đúng" });
+            await log.LogAsync(user.MaNd, user.TenDangNhap, "DANG_NHAP", ketQua: "THAT_BAI",
+                lyDoThatBai: vuaBiKhoa ? $"Sai mật khẩu — đã khóa tài khoản sau {SoLanSaiToiDa} lần sai" : "Sai mật khẩu");
+            if (vuaBiKhoa)
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = $"Tài khoản đã bị khóa do nhập sai mật khẩu {SoLanSaiToiDa} lần liên tiếp. Vui lòng liên hệ quản trị viên." });
+            return Unauthorized(new { message = $"Mật khẩu không đúng (còn {SoLanSaiToiDa - user.SoLanSaiMk} lần thử trước khi tài khoản bị khóa)" });
         }
 
         var maVaiTro = await db.NguoiDungVaiTros
@@ -48,22 +61,93 @@ public class AuthController(QuanLyKhoQuanKhiContext db, TokenService tokenServic
 
         user.SoLanSaiMk = 0;
         user.LanDangNhapCuoi = DateTime.Now;
-        await db.SaveChangesAsync();
 
         var token = tokenService.GenerateToken(user.MaNd, user.TenDangNhap, maVaiTro ?? "", user.MaDonVi);
+        var refreshTokenValue = TokenService.TaoRefreshTokenValue();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            MaNguoiDung = user.MaNd,
+            TokenHash = TokenService.HashToken(refreshTokenValue),
+            NgayHetHan = DateTime.UtcNow.AddDays(tokenService.RefreshTokenExpiresInDays),
+        });
+        await db.SaveChangesAsync();
 
         await log.LogAsync(user.MaNd, user.TenDangNhap, "DANG_NHAP", ketQua: "THANH_CONG");
 
         return Ok(new LoginResponse(
             "Đăng nhập thành công",
             token,
+            refreshTokenValue,
             new UserSummary(user.MaNd, user.TenDangNhap, user.HoTen, maVaiTro, user.MaDonVi, user.MaDonViNavigation?.TenKho)));
+    }
+
+    // Access token hết hạn (15 phút) -> frontend tự gọi endpoint này bằng refresh token đang giữ để
+    // lấy cặp token mới, không bắt người dùng đăng nhập lại. Mỗi lần refresh XOAY VÒNG: thu hồi refresh
+    // token cũ, phát hành refresh token mới — nếu 1 refresh token đã bị thu hồi mà vẫn có người đem
+    // dùng lại (dấu hiệu bị đánh cắp), thu hồi LUÔN toàn bộ phiên đang hoạt động của tài khoản đó.
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest body)
+    {
+        if (string.IsNullOrEmpty(body.RefreshToken)) return Unauthorized(new { message = "Thiếu refresh token" });
+
+        var hash = TokenService.HashToken(body.RefreshToken);
+        var rt = await db.RefreshTokens.Include(r => r.MaNguoiDungNavigation)
+            .FirstOrDefaultAsync(r => r.TokenHash == hash);
+
+        if (rt == null) return Unauthorized(new { message = "Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại" });
+
+        if (rt.DaThuHoi)
+        {
+            var dangHoatDong = await db.RefreshTokens.Where(r => r.MaNguoiDung == rt.MaNguoiDung && !r.DaThuHoi).ToListAsync();
+            foreach (var a in dangHoatDong) { a.DaThuHoi = true; a.NgayThuHoi = DateTime.UtcNow; }
+            await db.SaveChangesAsync();
+            return Unauthorized(new { message = "Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại" });
+        }
+
+        if (rt.NgayHetHan < DateTime.UtcNow)
+            return Unauthorized(new { message = "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" });
+
+        var user = rt.MaNguoiDungNavigation;
+        if (!user.IsActive || user.BiKhoa)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Tài khoản đã bị khóa" });
+
+        rt.DaThuHoi = true;
+        rt.NgayThuHoi = DateTime.UtcNow;
+
+        var maVaiTro = await db.NguoiDungVaiTros
+            .Where(x => x.MaNguoiDung == user.MaNd)
+            .Select(x => x.MaVaiTro)
+            .FirstOrDefaultAsync();
+
+        var newToken = tokenService.GenerateToken(user.MaNd, user.TenDangNhap, maVaiTro ?? "", user.MaDonVi);
+        var newRefreshTokenValue = TokenService.TaoRefreshTokenValue();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            MaNguoiDung = user.MaNd,
+            TokenHash = TokenService.HashToken(newRefreshTokenValue),
+            NgayHetHan = DateTime.UtcNow.AddDays(tokenService.RefreshTokenExpiresInDays),
+        });
+        await db.SaveChangesAsync();
+
+        return Ok(new RefreshResponse(newToken, newRefreshTokenValue));
     }
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? body)
     {
+        if (!string.IsNullOrEmpty(body?.RefreshToken))
+        {
+            var hash = TokenService.HashToken(body.RefreshToken);
+            var rt = await db.RefreshTokens.FirstOrDefaultAsync(r => r.TokenHash == hash && !r.DaThuHoi);
+            if (rt != null)
+            {
+                rt.DaThuHoi = true;
+                rt.NgayThuHoi = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+        }
+
         await log.LogAsync(this.CurrentUserId(), this.CurrentUsername(), "DANG_XUAT", ketQua: "THANH_CONG");
         return Ok(new { message = "Đăng xuất thành công" });
     }

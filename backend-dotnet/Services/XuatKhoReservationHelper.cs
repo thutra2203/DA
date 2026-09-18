@@ -14,7 +14,7 @@ public static class XuatKhoReservationHelper
         var ids = maTonKhoList.Distinct().ToList();
         if (ids.Count == 0) return new Dictionary<long, int>();
 
-        return await db.CtXuatKhos
+        return await db.CtxuatKhos
             .Where(x => ids.Contains(x.MaTonKho) && x.MaCtdongBoLenhNavigation.MaLenhNavigation.TrangThai != "HOAN_THANH")
             .GroupBy(x => x.MaTonKho)
             .Select(g => new { MaTonKho = g.Key, SoLuong = g.Sum(x => x.SoLuong) })
@@ -26,7 +26,7 @@ public static class XuatKhoReservationHelper
     // cùng lệnh), để khỏi đếm trùng 2 lần phần lệnh đó tự giữ chỗ cho chính nó.
     public static async Task<Dictionary<(string MaTbdb, int MaCcl), int>> LayGiuChoTheoTbCapAsync(QuanLyKhoQuanKhiContext db, string maKho, string? boQuaMaLenh = null)
     {
-        var query = db.CtXuatKhos
+        var query = db.CtxuatKhos
             .Where(x => x.MaCtdongBoLenhNavigation.MaLenhNavigation.MaKhoXuat == maKho
                 && x.MaCtdongBoLenhNavigation.MaLenhNavigation.TrangThai != "HOAN_THANH"
                 && x.MaCtdongBoLenhNavigation.MaCcl != null);

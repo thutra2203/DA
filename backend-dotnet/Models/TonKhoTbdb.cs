@@ -43,7 +43,7 @@ public partial class TonKhoTbdb
 
     public virtual ICollection<CtdongBoTrongLenh> CtdongBoTrongLenhs { get; set; } = new List<CtdongBoTrongLenh>();
 
-    public virtual ICollection<CtXuatKho> CtXuatKhos { get; set; } = new List<CtXuatKho>();
+    public virtual ICollection<CtxuatKho> CtxuatKhos { get; set; } = new List<CtxuatKho>();
 
     public virtual Kho MaKhoNavigation { get; set; } = null!;
 

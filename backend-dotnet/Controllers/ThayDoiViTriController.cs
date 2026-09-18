@@ -35,7 +35,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
 {
     // Trạng thái TB (TrangThaiTB) tạm gán cho dòng tồn kho trong lúc đang chờ xử lý lệnh thay đổi vị
     // trí (xem ThemChiTiet/SuaChiTiet/XoaChiTiet/XoaLenh/KetThuc) — trả về trạng thái gốc khi xong.
-    private const string MaTrangThaiDangLamLenh = "TT03";
+    private const string MaTrangThaiDangLamLenh = "LL";
 
     // GET api/tb-dong-bo/thay-doi-vi-tri?maKho=
     [HttpGet]
@@ -169,6 +169,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
                 maLoTbdb = t.MaLoTbdb,
                 maTbdb = t.MaLoTbdbNavigation.MaTbdb,
                 tenTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.TenTbdb,
+                maLoaiTbdb = t.MaLoTbdbNavigation.MaTbdbNavigation.MaLoaiTbdb,
                 maCcl = t.MaLoTbdbNavigation.MaCcl,
                 capChatLuong = t.MaLoTbdbNavigation.MaCclNavigation.TenCap,
                 namSx = t.MaLoTbdbNavigation.NamSx,
@@ -191,7 +192,7 @@ public class ThayDoiViTriController(QuanLyKhoQuanKhiContext db, IActivityLogger 
         var giuChoThayDoiHtnc = await ThayDoiHtncReservationHelper.LayGiuChoAsync(db, maTonKhoIds);
 
         var list = listRaw
-            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maCcl, t.capChatLuong, t.namSx,
+            .Select(t => new { t.maTonKho, t.maLoTbdb, t.maTbdb, t.tenTbdb, t.maLoaiTbdb, t.maCcl, t.capChatLuong, t.namSx,
                 soLuong = t.soLuong - daDungTheoTonKho.GetValueOrDefault(t.maTonKho) - giuChoLenhKhac.GetValueOrDefault(t.maTonKho)
                     - giuChoChuyenCap.GetValueOrDefault(t.maTonKho) - giuChoHuy.GetValueOrDefault(t.maTonKho) - giuChoXuatKho.GetValueOrDefault(t.maTonKho)
                     - giuChoThayDoiHtnc.GetValueOrDefault(t.maTonKho),

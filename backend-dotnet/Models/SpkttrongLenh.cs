@@ -23,15 +23,15 @@ public partial class SpkttrongLenh
 
     public string? MaKho { get; set; }
 
-    public string? MaNhaKho { get; set; }
+    public string? TenNhaKho { get; set; }
 
-    public string? MaKhu { get; set; }
+    public string? TenDinhKhu { get; set; }
 
-    public string? MaKhoi { get; set; }
+    public string? TenKhoi { get; set; }
 
-    public string? MaTang { get; set; }
+    public string? TenTang { get; set; }
 
-    public string? MaHom { get; set; }
+    public string? TenHom { get; set; }
 
     public string? MaTrangThaiTb { get; set; }
 
@@ -50,8 +50,6 @@ public partial class SpkttrongLenh
     public virtual CapChatLuong? MaCclNavigation { get; set; }
 
     public virtual ChiTietLenh MaCtlenhNavigation { get; set; } = null!;
-
-    public virtual Hom? MaHomNavigation { get; set; }
 
     public virtual LoaiSpkt MaLoaiSpktNavigation { get; set; } = null!;
 

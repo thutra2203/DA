@@ -59,5 +59,7 @@ public partial class NguoiDung
 
     public virtual ICollection<NhatKyHoatDong> NhatKyHoatDongs { get; set; } = new List<NhatKyHoatDong>();
 
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
     public virtual NguoiDung? UpdatedByNavigation { get; set; }
 }

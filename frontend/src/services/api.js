@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const BASE_URL = 'http://localhost:5080/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:5080/api',
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -11,19 +13,59 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const dangXuatVaVeLogin = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+};
+
+// Access token sống ngắn (15 phút) — khi hết hạn, thử âm thầm đổi lấy token mới bằng refreshToken
+// (sống 7 ngày) thay vì đá thẳng về trang login, để không làm gián đoạn người dùng đang thao tác.
+// Dùng chung 1 promise cho mọi request 401 cùng lúc, tránh gọi /auth/refresh nhiều lần song song
+// (mỗi lần refresh sẽ xoay vòng — thu hồi refreshToken cũ, phát hành cái mới) rồi tự thu hồi lẫn nhau.
+let refreshingPromise = null;
+const refreshAccessToken = () => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return Promise.reject(new Error('Không có refresh token'));
+  if (!refreshingPromise) {
+    refreshingPromise = axios.post(`${BASE_URL}/auth/refresh`, { refreshToken })
+      .then(res => {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('refreshToken', res.data.refreshToken);
+        return res.data.token;
+      })
+      .finally(() => { refreshingPromise = null; });
+  }
+  return refreshingPromise;
+};
+
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    const url = err.config?.url || '';
+  async (err) => {
+    const originalReq = err.config;
+    const url = originalReq?.url || '';
     const laAuth = url.includes('/auth/');
-    // 401 = token hết hạn / không hợp lệ -> đăng xuất và về trang login.
+
+    // 401 lần đầu ở 1 request thường (không phải /auth/*) -> thử refresh rồi lặp lại đúng request đó.
+    if (err.response?.status === 401 && !laAuth && !originalReq._daThuLaiSauRefresh) {
+      originalReq._daThuLaiSauRefresh = true;
+      try {
+        const newToken = await refreshAccessToken();
+        originalReq.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalReq);
+      } catch {
+        dangXuatVaVeLogin();
+        return Promise.reject(err);
+      }
+    }
+
+    // 401 mà đã thử refresh rồi vẫn sai (refreshToken cũng hết hạn/không hợp lệ) -> đăng xuất thật.
     // Nhưng KHÔNG áp dụng cho chính lời gọi /auth/* (đăng nhập sai/khóa tài khoản) — để trang
     // Login tự hiển thị thông báo lỗi, không bị reload mất thông báo.
     // 403 = đã đăng nhập nhưng thiếu quyền -> để nơi gọi tự xử lý, không đá về login.
     if (err.response?.status === 401 && !laAuth) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      dangXuatVaVeLogin();
     }
     return Promise.reject(err);
   }
@@ -31,7 +73,7 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
-  logout: () => api.post('/auth/logout'),
+  logout: () => api.post('/auth/logout', { refreshToken: localStorage.getItem('refreshToken') }),
   me: () => api.get('/auth/me'),
 };
 
@@ -123,6 +165,14 @@ export const lenhTbDongBoAPI = {
     xuatKho: (maLenh, maCtdongBoLenh, dong) => api.post(`/tb-dong-bo/lenh/${maLenh}/chi-tiet/${maCtdongBoLenh}/xuat-kho`, { dong }),
   },
 
+  taiMauNhapXuatKho: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/xuat-kho-file/mau-nhap`, { responseType: 'blob' }),
+  xemTruocNhapXuatKhoTuFile: (maLenh, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/tb-dong-bo/lenh/${maLenh}/xuat-kho-file/xem-truoc`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  xacNhanNhapXuatKhoTuFile: (maLenh, danhSach) => api.post(`/tb-dong-bo/lenh/${maLenh}/xuat-kho-file/xac-nhan`, { danhSach }),
+
   tonKhoLoKhaDung: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/ton-kho-lo-kha-dung`),
   ketThucHuyThanhLy: (maLenh) => api.post(`/tb-dong-bo/lenh/${maLenh}/huy-thanh-ly/ket-thuc`),
   taiMauNhapHuyThanhLy: (maLenh) => api.get(`/tb-dong-bo/lenh/${maLenh}/huy-thanh-ly/mau-nhap`, { responseType: 'blob' }),
@@ -195,10 +245,19 @@ export const kiemKeTbDongBoAPI = {
   capNhatChiTietViTri: (maPhieu, maCtKiemKe, maCtKiemKeViTri, data) =>
     api.put(`/tb-dong-bo/kiem-ke/${maPhieu}/chi-tiet/${maCtKiemKe}/vi-tri/${maCtKiemKeViTri}`, data),
   ketThuc: (maPhieu) => api.post(`/tb-dong-bo/kiem-ke/${maPhieu}/ket-thuc`),
+  taiMauNhap: (maPhieu) => api.get(`/tb-dong-bo/kiem-ke/${maPhieu}/nhap-file/mau-nhap`, { responseType: 'blob' }),
+  xemTruocNhapTuFile: (maPhieu, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/tb-dong-bo/kiem-ke/${maPhieu}/nhap-file/xem-truoc`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  xacNhanNhapTuFile: (maPhieu, danhSach) => api.post(`/tb-dong-bo/kiem-ke/${maPhieu}/nhap-file/xac-nhan`, { danhSach }),
 };
 
 export const baoCaoAPI = {
   getDongBoSungBoBinh: (maKho) => api.get('/bao-cao/dong-bo-sung-bo-binh', { params: { maKho } }),
+  getDongBoPhao: (maKho) => api.get('/bao-cao/dong-bo-phao', { params: { maKho } }),
+  getNhuCauDongBo: (maKho) => api.get('/bao-cao/nhu-cau-dong-bo', { params: { maKho } }),
 };
 
 export const chuyenKyAPI = {
@@ -287,6 +346,12 @@ export const graphAPI = {
 
 export const nhatKyAPI = {
   getAll: (params) => api.get('/nhat-ky', { params }),
+};
+
+export const thongKeTongQuanAPI = {
+  xuHuong: (soThang) => api.get('/thong-ke-tong-quan/xu-huong', { params: { soThang } }),
+  phanBo: () => api.get('/thong-ke-tong-quan/phan-bo'),
+  canhBao: () => api.get('/thong-ke-tong-quan/canh-bao'),
 };
 
 export default api;

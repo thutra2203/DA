@@ -26,10 +26,12 @@ export default function TonDauTbDongBo() {
   const confirm = useConfirm();
   const { canThem, canSua, canXoa } = useModulePerm('TBDB_TON_DAU_LAP');
   const [khoList, setKhoList] = useState([]);
+  const [capQuanLyList, setCapQuanLyList] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedKho, setSelectedKho] = useState('ALL');
+  const [selectedCapQuanLy, setSelectedCapQuanLy] = useState('ALL');
   const [selectedNam, setSelectedNam] = useState('ALL');
   const [toast, setToast] = useState(null);
 
@@ -45,6 +47,7 @@ export default function TonDauTbDongBo() {
 
   useEffect(() => {
     danhMucAPI.getAll('kho').then(res => setKhoList(res.data)).catch(() => setKhoList([]));
+    danhMucAPI.getAll('cap-quan-ly').then(res => setCapQuanLyList(res.data)).catch(() => setCapQuanLyList([]));
   }, []);
 
   const loadItems = () => {
@@ -58,19 +61,28 @@ export default function TonDauTbDongBo() {
   useEffect(() => { loadItems(); }, []);
 
   const khoMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.tenKho])), [khoList]);
+  const khoCapQuanLyMap = useMemo(() => Object.fromEntries(khoList.map(k => [k.maKho, k.maCapQuanLy])), [khoList]);
+  const khoLocList = useMemo(() => (
+    selectedCapQuanLy === 'ALL' ? khoList : khoList.filter(k => k.maCapQuanLy === selectedCapQuanLy)
+  ), [khoList, selectedCapQuanLy]);
   const namList = useMemo(() => (
     [...new Set(items.map(l => l.nam).filter(Boolean))].sort((a, b) => b - a)
   ), [items]);
+
+  useEffect(() => {
+    if (selectedKho !== 'ALL' && !khoLocList.some(k => k.maKho === selectedKho)) setSelectedKho('ALL');
+  }, [khoLocList]);
 
   const bySearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter(l => {
       if (selectedKho !== 'ALL' && l.maKho !== selectedKho) return false;
+      if (selectedCapQuanLy !== 'ALL' && khoCapQuanLyMap[l.maKho] !== selectedCapQuanLy) return false;
       if (selectedNam !== 'ALL' && Number(l.nam) !== Number(selectedNam)) return false;
       if (!q) return true;
       return [l.maLenh, l.tenKho, l.maKho, l.ghiChu].some(v => String(v ?? '').toLowerCase().includes(q));
     });
-  }, [items, search, selectedKho, selectedNam]);
+  }, [items, search, selectedKho, selectedCapQuanLy, selectedNam, khoCapQuanLyMap]);
 
   const openAdd = () => {
     const homNay = new Date().toISOString().slice(0, 10);
@@ -163,9 +175,13 @@ export default function TonDauTbDongBo() {
               <FiSearch className="search-icon" />
               <input className="search-input" placeholder="Tìm theo mã lệnh, kho..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
+            <select className="tbdb-filter-select" value={selectedCapQuanLy} onChange={e => setSelectedCapQuanLy(e.target.value)}>
+              <option value="ALL">Tất cả cấp quản lý</option>
+              {capQuanLyList.map(c => <option key={c.maCapQuanLy} value={c.maCapQuanLy}>{c.tenCapQuanLy}</option>)}
+            </select>
             <select className="tbdb-filter-select" value={selectedKho} onChange={e => setSelectedKho(e.target.value)}>
               <option value="ALL">Tất cả kho</option>
-              {khoList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
+              {khoLocList.map(k => <option key={k.maKho} value={k.maKho}>{k.tenKho}</option>)}
             </select>
             <select className="tbdb-filter-select" value={selectedNam} onChange={e => setSelectedNam(e.target.value)}>
               <option value="ALL">Tất cả năm</option>

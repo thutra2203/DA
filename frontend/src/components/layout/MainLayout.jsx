@@ -73,7 +73,7 @@ const menuItems = [
           { label: 'Thay đổi hình thức niêm cất', path: '/tb-dong-bo/thay-doi-htnc', icon: <FiRefreshCw /> },
         ],
       },
-
+      { label: 'Đối chiếu lệnh nhập/xuất', path: '/tb-dong-bo/doi-chieu-lenh', icon: <FiSearch /> },
       { label: 'Dòng đời lô (đồ thị)', path: '/tb-dong-bo/dong-doi-lo', icon: <FiGitBranch /> },
     ],
   },
@@ -508,35 +508,35 @@ function MainLayoutInner({ children }) {
                   <div className="form-grid-2col">
                     <div className="form-field">
                       <label className="form-label">Vai trò</label>
-                      <div>{accountInfo.tenVaiTro || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.tenVaiTro || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Đơn vị / Kho</label>
-                      <div>{accountInfo.tenDonVi || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.tenDonVi || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Cấp bậc</label>
-                      <div>{accountInfo.tenCapBac || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.tenCapBac || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Chức vụ</label>
-                      <div>{accountInfo.tenChucVu || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.tenChucVu || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Email</label>
-                      <div>{accountInfo.email || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.email || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Số điện thoại</label>
-                      <div>{accountInfo.soDienThoai || '—'}</div>
+                      <div style={{ fontSize: 13.5 }}>{accountInfo.soDienThoai || '—'}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Lần đăng nhập cuối</label>
-                      <div>{fmtNgay(accountInfo.lanDangNhapCuoi)}</div>
+                      <div style={{ fontSize: 13.5 }}>{fmtNgay(accountInfo.lanDangNhapCuoi)}</div>
                     </div>
                     <div className="form-field">
                       <label className="form-label">Ngày tạo tài khoản</label>
-                      <div>{fmtNgay(accountInfo.createdAt)}</div>
+                      <div style={{ fontSize: 13.5 }}>{fmtNgay(accountInfo.createdAt)}</div>
                     </div>
                   </div>
                 </>

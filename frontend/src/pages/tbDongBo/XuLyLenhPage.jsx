@@ -40,6 +40,11 @@ export default function XuLyLenhPage() {
   const [ketQuaNhapFile, setKetQuaNhapFile] = useState(null);
   const [previewModalLo, setPreviewModalLo] = useState(null); // { danhSach, checked: Set<dong> }
   const [dangXacNhanLo, setDangXacNhanLo] = useState(false);
+  const [dangTaiMauXk, setDangTaiMauXk] = useState(false);
+  const [dangNhapFileXk, setDangNhapFileXk] = useState(false);
+  const [ketQuaNhapFileXk, setKetQuaNhapFileXk] = useState(null);
+  const [previewModalXk, setPreviewModalXk] = useState(null); // { danhSach, checked: Set<dong> }
+  const [dangXacNhanXk, setDangXacNhanXk] = useState(false);
 
   const showToast = (text, type = 'success') => { setToast({ text, type }); setTimeout(() => setToast(null), 2500); };
 
@@ -280,6 +285,94 @@ export default function XuLyLenhPage() {
     finally { setDangXacNhanLo(false); }
   };
 
+  const taiMauNhapXuatKho = async () => {
+    setDangTaiMauXk(true);
+    try {
+      const res = await lenhTbDongBoAPI.taiMauNhapXuatKho(maLenh);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url; a.download = `mau-xuat-kho-${maLenh}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { showToast('Không tải được file mẫu', 'error'); }
+    finally { setDangTaiMauXk(false); }
+  };
+
+  const chonFileNhapXuatKho = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setDangNhapFileXk(true);
+    lenhTbDongBoAPI.xemTruocNhapXuatKhoTuFile(maLenh, file)
+      .then(res => {
+        const danhSach = res.data.danhSach || [];
+        setPreviewModalXk({ danhSach, checked: new Set(danhSach.filter(r => r.hopLe).map(r => r.dong)) });
+      })
+      .catch(err => showToast(err.response?.data?.message || 'Lỗi đọc file', 'error'))
+      .finally(() => setDangNhapFileXk(false));
+  };
+
+  const toggleCheckedXk = (dong) => setPreviewModalXk(prev => {
+    const checked = new Set(prev.checked);
+    if (checked.has(dong)) checked.delete(dong); else checked.add(dong);
+    return { ...prev, checked };
+  });
+
+  // Kiểm tra lại sau khi người dùng sửa tay SL xuất — chạy lại đúng logic khả dụng ở phía server
+  // (trừ dần theo thứ tự dòng, cả theo "còn cần xuất" của dòng chi tiết lẫn "khả dụng" của dòng tồn
+  // kho — 1 dòng chi tiết/1 dòng tồn kho có thể bị nhiều dòng trong file dùng chung); server vẫn
+  // kiểm tra lại lần nữa khi bấm "Xác nhận lưu" nên đây chỉ hỗ trợ hiển thị.
+  const revalidateDanhSachXk = (danhSach) => {
+    const daDungTheoCt = {};
+    const daDungTheoTonKho = {};
+    return danhSach.map(r => {
+      if (!r.maCtdongBoLenh || !r.maTonKho) return r; // lỗi khớp dòng — không thể tự kiểm tra lại ở đây
+
+      const loiHang = [];
+      const soLuong = Number(r.soLuong);
+      if (!r.soLuong || soLuong <= 0) loiHang.push('SL xuất phải lớn hơn 0');
+      else {
+        const conCanXuatGoc = r.soLuongTheoLenh - r.soLuongThuc;
+        const daDungCt = daDungTheoCt[r.maCtdongBoLenh] ?? 0;
+        const conCanXuat = conCanXuatGoc - daDungCt;
+        if (soLuong > conCanXuat) loiHang.push(`"${r.maTbdb}" chỉ còn cần xuất ${conCanXuat}, không thể chọn ${soLuong}`);
+        else daDungTheoCt[r.maCtdongBoLenh] = daDungCt + soLuong;
+
+        const khaDungGoc = r.khaDungGoc ?? 0;
+        const daDungTk = daDungTheoTonKho[r.maTonKho] ?? 0;
+        const khaDung = khaDungGoc - daDungTk;
+        if (soLuong > khaDung) loiHang.push(`Lô "${r.maLoTbdb}" chỉ còn ${khaDung} khả dụng, không thể chọn ${soLuong}`);
+        else daDungTheoTonKho[r.maTonKho] = daDungTk + soLuong;
+      }
+
+      return { ...r, hopLe: loiHang.length === 0, loi: loiHang };
+    });
+  };
+
+  const updatePreviewRowXk = (dong, field, value) => setPreviewModalXk(prev => {
+    const danhSach = revalidateDanhSachXk(prev.danhSach.map(r => r.dong === dong ? { ...r, [field]: value } : r));
+    const checked = new Set([...prev.checked].filter(d => danhSach.find(r => r.dong === d)?.hopLe));
+    const row = danhSach.find(r => r.dong === dong);
+    if (row.hopLe) checked.add(dong);
+    return { ...prev, danhSach, checked };
+  });
+
+  const xacNhanNhapXuatKhoPreview = async () => {
+    const danhSachLuu = previewModalXk.danhSach
+      .filter(r => r.hopLe && previewModalXk.checked.has(r.dong))
+      .map(r => ({ dong: r.dong, maCtdongBoLenh: r.maCtdongBoLenh, maTonKho: r.maTonKho, soLuong: Number(r.soLuong) }));
+    if (danhSachLuu.length === 0) { showToast('Chưa chọn dòng nào để lưu', 'error'); return; }
+    setDangXacNhanXk(true);
+    try {
+      const res = await lenhTbDongBoAPI.xacNhanNhapXuatKhoTuFile(maLenh, danhSachLuu);
+      setKetQuaNhapFileXk(res.data);
+      showToast(`Nhập file xong: ${res.data.thanhCong} thành công, ${res.data.thatBai} lỗi`, res.data.thatBai > 0 ? 'error' : 'success');
+      setPreviewModalXk(null);
+      loadRows();
+    } catch (err) { showToast(err.response?.data?.message || 'Lỗi lưu dữ liệu', 'error'); }
+    finally { setDangXacNhanXk(false); }
+  };
+
   if (loadingLenh) return <div className="empty-state" style={{ padding: '40px 0' }}>Đang tải...</div>;
   if (!lenh) return <div className="empty-state" style={{ padding: '40px 0' }}>Không tìm thấy lệnh</div>;
 
@@ -305,7 +398,7 @@ export default function XuLyLenhPage() {
               <span>Xử lý lệnh</span>
             </p>
             <p className="page-sub" style={{ margin: '2px 0 0' }}>
-              {lenh.maLenh}{lenh.veViec ? ` — ${lenh.veViec}` : ''}{lenh.tenLyDo ? ` — ${lenh.tenLyDo}` : ''}
+              {lenh.maLenh}{lenh.veViec ? ` - ${lenh.veViec}` : ''}{lenh.tenLyDo && lenh.tenLyDo !== lenh.veViec ? ` - ${lenh.tenLyDo}` : ''}
             </p>
           </div>
         </div>
@@ -325,7 +418,32 @@ export default function XuLyLenhPage() {
       <div className="data-card" style={{ padding: 20 }}>
         {xuat && !daKetThuc && (
           <div className="form-hint" style={{ marginBottom: 14 }}>
-            Với mỗi dòng, nhấn "Xuất kho" để chọn các dòng tồn kho tại kho xuất và trừ số lượng thực tế.
+            Nhấn "Xuất kho" để chọn các dòng tồn kho tại kho xuất.
+          </div>
+        )}
+
+        {xuat && !daKetThuc && canSua && (
+          <div className="tbdb-tab-toolbar">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn-cancel" disabled={dangTaiMauXk} onClick={taiMauNhapXuatKho}>
+                <FiDownload style={{ marginRight: 6 }} />{dangTaiMauXk ? 'Đang tải...' : 'Tải mẫu'}
+              </button>
+              <label className="btn-add" style={{ padding: '10px 18px', cursor: 'pointer', opacity: dangNhapFileXk ? 0.6 : 1 }}>
+                <FiUpload style={{ marginRight: 6 }} />{dangNhapFileXk ? 'Đang nhập...' : 'Nhập từ file'}
+                <input type="file" accept=".xlsx" hidden disabled={dangNhapFileXk} onChange={chonFileNhapXuatKho} />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {ketQuaNhapFileXk && (
+          <div className="form-hint" style={{ marginBottom: 14, background: ketQuaNhapFileXk.thatBai > 0 ? '#fff8e1' : '#f0fdf4', padding: '10px 14px', borderRadius: 8 }}>
+            <div>Kết quả nhập file: <strong>{ketQuaNhapFileXk.thanhCong}</strong> dòng thành công / <strong>{ketQuaNhapFileXk.thatBai}</strong> lỗi trên tổng {ketQuaNhapFileXk.tongSoDong} dòng.</div>
+            {ketQuaNhapFileXk.chiTietLoi.length > 0 && (
+              <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                {ketQuaNhapFileXk.chiTietLoi.map((l, i) => <li key={i}>Dòng {l.dong} (TB {l.maTbdb}): {l.loi}</li>)}
+              </ul>
+            )}
           </div>
         )}
 
@@ -724,6 +842,88 @@ export default function XuLyLenhPage() {
           </div>
         </div>
       )}
+
+      {previewModalXk && (
+        <div className="overlay" onClick={() => setPreviewModalXk(null)}>
+          <div className="modal modal--form-xwide fade-in" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Xem trước dữ liệu xuất kho từ Excel</h3>
+              <button className="modal-close-btn" onClick={() => setPreviewModalXk(null)}><FiX /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-hint" style={{ marginBottom: 10 }}>
+                Danh sách dòng tồn kho dự kiến chọn để xuất.
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 36, textAlign: 'center' }}></th>
+                      <th style={{ width: 50 }}>Dòng</th>
+                      <th style={{ width: 90 }}>Mã TB</th>
+                      <th style={{ minWidth: 160 }}>Tên TB</th>
+                      <th style={{ width: 70 }}>Cấp</th>
+                      <th style={{ width: 100, textAlign: 'center' }}>SL phải xuất</th>
+                      <th style={{ width: 100, textAlign: 'center' }}>SL đã chọn</th>
+                      <th style={{ width: 110 }}>Mã lô</th>
+                      <th style={{ minWidth: 160 }}>Vị trí</th>
+                      <th style={{ width: 90, textAlign: 'center' }}>Khả dụng</th>
+                      <th style={{ width: 100, textAlign: 'center' }}>SL xuất</th>
+                      <th style={{ width: 160 }}>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewModalXk.danhSach.map(r => (
+                      <tr key={r.dong} style={!r.hopLe ? { background: '#fff5f5' } : undefined}>
+                        <td className="td-center">
+                          <input type="checkbox" disabled={!r.hopLe} checked={r.hopLe && previewModalXk.checked.has(r.dong)}
+                            onChange={() => toggleCheckedXk(r.dong)} />
+                        </td>
+                        <td className="td-muted">{r.dong}</td>
+                        <td><span className="sub-value">{r.maTbdb || ''}</span></td>
+                        <td>{r.tenTbdb || ''}</td>
+                        <td>{r.tenCcl || ''}</td>
+                        <td className="td-center">{r.soLuongTheoLenh ?? ''}</td>
+                        <td className="td-center">{r.soLuongThuc ?? ''}</td>
+                        <td><span className="sub-value">{r.maLoTbdb || ''}</span></td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{r.viTri || ''}</td>
+                        <td className="td-center">{r.khaDungGoc ?? ''}</td>
+                        <td>
+                          <input className="form-input" style={{ padding: '5px 8px', textAlign: 'center' }} type="number" min="0" value={r.soLuong ?? ''}
+                            onChange={e => updatePreviewRowXk(r.dong, 'soLuong', e.target.value === '' ? null : Number(e.target.value))} />
+                        </td>
+                        <td>
+                          {r.hopLe
+                            ? <span className="badge tbdb-status-badge">Hợp lệ</span>
+                            : (
+                              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                                {(Array.isArray(r.loi) ? r.loi : [r.loi]).map((l, i) => (
+                                  <li key={i} className="form-error-text" style={{ marginTop: i === 0 ? 0 : 2 }}>{l}</li>
+                                ))}
+                              </ul>
+                            )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ padding: '0 24px 20px', justifyContent: 'space-between' }}>
+              <span className="form-hint">
+                Đã chọn {previewModalXk.checked.size}/{previewModalXk.danhSach.filter(r => r.hopLe).length} dòng hợp lệ
+                {previewModalXk.danhSach.some(r => !r.hopLe) && ` — ${previewModalXk.danhSach.filter(r => !r.hopLe).length} dòng lỗi bị bỏ qua`}
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn-cancel" onClick={() => setPreviewModalXk(null)}>Hủy</button>
+                <button type="button" className="btn-primary" disabled={dangXacNhanXk} onClick={xacNhanNhapXuatKhoPreview}>
+                  {dangXacNhanXk ? 'Đang lưu...' : 'Xác nhận lưu'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -776,7 +976,7 @@ function XuatKhoModal({ row, lenh, onClose, onChanged }) {
           </div>
         )}
         <div className="modal-header">
-          <h3 className="modal-title">Xuất kho — {row.tenTbdb || row.maTbdb} ({row.tenCcl || row.maCcl})</h3>
+          <h3 className="modal-title">Trang bị: {row.tenTbdb || row.maTbdb} ({row.tenCcl || row.maCcl})</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -787,7 +987,7 @@ function XuatKhoModal({ row, lenh, onClose, onChanged }) {
             <span>Đang chọn: <strong>{tongDaChon}</strong></span>
           </div>
           <p className="form-hint" style={{ margin: '8px 0 0' }}>
-            Chọn dòng tồn kho ở đây chỉ ghi nhận trước — tồn kho chỉ thực sự bị trừ khi bấm "Kết thúc lệnh".
+            Danh sách tồn kho.
           </p>
 
           {loading ? (

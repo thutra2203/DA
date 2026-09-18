@@ -3,6 +3,8 @@ import { FiCheckSquare, FiFileText } from 'react-icons/fi';
 import { usePageTitle } from '../../context/PageHeaderContext';
 import TaoBaoCaoKiemKeModal from './TaoBaoCaoKiemKeModal';
 import TaoBaoCaoDongBoModal from './TaoBaoCaoDongBoModal';
+import TaoBaoCaoDongBoPhaoModal from './TaoBaoCaoDongBoPhaoModal';
+import TaoBaoCaoNhuCauDongBoModal from './TaoBaoCaoNhuCauDongBoModal';
 import '../../styles/shared.css';
 
 // Danh sách các loại báo cáo hỗ trợ — tách thành danh sách để dễ thêm loại báo cáo khác sau này mà
@@ -17,6 +19,16 @@ const LOAI_BAO_CAO = [
     ma: 'DONG_BO_SUNG_BB',
     ten: 'Báo cáo tình hình đồng bộ súng bộ binh',
     moTa: 'Số súng và số phụ kiện đồng bộ hiện có tại 1 kho, theo từng Loại SPKT thuộc Súng bộ binh.',
+  },
+  {
+    ma: 'DONG_BO_PHAO',
+    ten: 'Báo cáo tình hình đồng bộ các loại pháo',
+    moTa: 'Số pháo và số phụ kiện đồng bộ hiện có tại 1 kho, theo từng Loại SPKT thuộc 4 nhóm Pháo (chống tăng, mặt đất, phòng không, phản lực).',
+  },
+  {
+    ma: 'NHU_CAU_DONG_BO',
+    ten: 'Báo cáo nhu cầu đồng bộ súng pháo khí tài (Mẫu 34/18/QK-VK)',
+    moTa: 'Nhu cầu, hiện có và cần bổ sung của từng phụ tùng đồng bộ, liệt kê chi tiết theo tất cả Nhóm SPKT tại 1 kho.',
   },
 ];
 
@@ -50,6 +62,12 @@ export default function BaoCaoTongHop() {
       )}
       {dangTaoLoai === 'DONG_BO_SUNG_BB' && (
         <TaoBaoCaoDongBoModal onClose={() => setDangTaoLoai(null)} />
+      )}
+      {dangTaoLoai === 'DONG_BO_PHAO' && (
+        <TaoBaoCaoDongBoPhaoModal onClose={() => setDangTaoLoai(null)} />
+      )}
+      {dangTaoLoai === 'NHU_CAU_DONG_BO' && (
+        <TaoBaoCaoNhuCauDongBoModal onClose={() => setDangTaoLoai(null)} />
       )}
     </div>
   );

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace backend_dotnet.Models;
 
-public partial class CtXuatKho
+public partial class CtxuatKho
 {
     public long MaCtxuatKho { get; set; }
 
